@@ -28,13 +28,12 @@ service cloud.firestore {
 
     // -------------------------------------------------------------------------
     // bookings
-    // Admin has full access. Guests can read the single booking whose `code`
-    // matches a custom claim or the doc field — we expose read only when the
-    // signed-in user's bookingCode claim matches the doc's code field.
+    // Admin has full access. Any authenticated user can read bookings.
+    // Guest access is gated by phone verification (Firebase Phone Auth) and
+    // the booking code itself is a secret nanoid in the URL.
     // -------------------------------------------------------------------------
     match /bookings/{bookingId} {
-      allow read: if isAdmin() ||
-        (isAuthenticated() && resource.data.code == request.auth.token.bookingCode);
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 

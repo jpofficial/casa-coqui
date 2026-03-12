@@ -144,6 +144,24 @@ function PhoneStep({ code, onVerified }) {
     setLoading(true);
     try {
       const result = await confirmationResult.confirm(otp);
+
+      // Set custom claims (bookingCode) so Firestore rules work
+      try {
+        const idToken = await result.user.getIdToken();
+        await fetch('/api/guests/set-claims', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ bookingCode: code }),
+        });
+        // Force token refresh to pick up new claims
+        await result.user.getIdToken(true);
+      } catch (claimErr) {
+        console.error('Set claims error:', claimErr);
+      }
+
       onVerified(result.user, formatPhone(phone));
     } catch (err) {
       console.error('Verify OTP error:', err);

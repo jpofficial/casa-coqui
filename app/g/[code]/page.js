@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
 import { where } from 'firebase/firestore';
+import useAuth from '@/hooks/useAuth';
 
 // ─── Card skeleton ────────────────────────────────────────────────────────────
 function CardSkeleton() {
@@ -179,11 +180,33 @@ function NavCard({ card }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function GuestHome({ params }) {
   const code = params.code;
+  const { user, loading: authLoading } = useAuth();
 
   const { data: bookings, loading } = useCollection('bookings', [
     where('code', '==', code),
   ]);
   const { data: settings } = useDocument('settings', 'property');
+
+  // If not authenticated, prompt guest to verify first
+  if (!authLoading && !user) {
+    return (
+      <div className="px-4 pt-12 pb-4 text-center">
+        <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-8 h-8 text-green-600">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">Welcome to Casa Coqui</h1>
+        <p className="text-sm text-gray-500 mb-6">Verify your phone number to access your guest portal.</p>
+        <Link
+          href={`/g/${code}/checkin`}
+          className="inline-block bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold rounded-xl px-6 py-3 text-sm transition-colors"
+        >
+          Get Started
+        </Link>
+      </div>
+    );
+  }
 
   const booking = bookings?.[0] ?? null;
   const guestName = booking?.guestName ?? booking?.name ?? null;
