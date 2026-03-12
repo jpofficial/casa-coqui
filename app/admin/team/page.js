@@ -134,7 +134,9 @@ export default function TeamPage() {
           {result && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-2">
               <p className="text-sm text-green-800 font-medium">
-                Invited {result.email} as {ROLES[result.role]?.label}
+                {result.emailSent
+                  ? `Invite email sent to ${result.email}`
+                  : `Invited ${result.email} as ${ROLES[result.role]?.label}`}
               </p>
               <div className="flex items-center gap-2">
                 <input
@@ -152,7 +154,9 @@ export default function TeamPage() {
                 </button>
               </div>
               <p className="text-xs text-green-700">
-                Share this link so they can set their password.
+                {result.emailSent
+                  ? 'They can also use this link to set their password.'
+                  : 'Share this link so they can set their password.'}
               </p>
             </div>
           )}

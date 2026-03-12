@@ -58,16 +58,38 @@ service cloud.firestore {
 
     // -------------------------------------------------------------------------
     // notifications
-    // Admin has full access. Guests can read notifications that are either
-    // broadcast (type == 'broadcast') or addressed to them specifically.
+    // Admin has full access. Guests can read broadcast-type notifications
+    // (broadcast, parking, general, maintenance) or messages addressed to them.
     // -------------------------------------------------------------------------
     match /notifications/{notificationId} {
       allow read: if isAdmin() ||
         (isAuthenticated() && (
-          resource.data.type == 'broadcast' ||
+          resource.data.type in ['broadcast', 'parking', 'general', 'maintenance'] ||
           resource.data.guestId == request.auth.uid
         ));
       allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // messages
+    // Admin has full access. Guests can read/create messages for their own
+    // booking (matched by bookingCode custom claim on their auth token).
+    // -------------------------------------------------------------------------
+    match /messages/{messageId} {
+      allow read: if isAdmin() ||
+        (isAuthenticated() && resource.data.bookingCode == request.auth.token.bookingCode);
+      allow create: if isAuthenticated();
+      allow update: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // parking_reports
+    // Any authenticated guest can create a parking report.
+    // Admin can read all reports.
+    // -------------------------------------------------------------------------
+    match /parking_reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
     }
 
     // -------------------------------------------------------------------------

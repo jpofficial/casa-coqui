@@ -93,6 +93,7 @@ function CopyButton({ text, className = '' }) {
 
 const EMPTY_FORM = {
   guestName: '',
+  guestEmail: '',
   unit: 'Unit A',
   checkInDate: '',
   checkOutDate: '',
@@ -128,10 +129,12 @@ function BookingForm({ onCreated }) {
       const origin = window.location.origin;
       const guestLink = `${origin}/g/${code}`;
 
+      const guestEmail = form.guestEmail.trim();
       const booking = {
         code,
         unit: form.unit,
         guestName: form.guestName.trim(),
+        ...(guestEmail && { guestEmail }),
         checkInDate: form.checkInDate,
         checkOutDate: form.checkOutDate,
         status: 'active',
@@ -141,8 +144,32 @@ function BookingForm({ onCreated }) {
       };
 
       const docRef = await addDoc(collection(db, 'bookings'), booking);
+
+      // Send guest link email if email provided
+      let emailSent = false;
+      if (guestEmail) {
+        try {
+          const res = await fetch('/api/email/guest-link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              guestEmail,
+              guestName: form.guestName.trim(),
+              guestLink,
+              checkInDate: form.checkInDate,
+              checkOutDate: form.checkOutDate,
+              unit: form.unit,
+            }),
+          });
+          const data = await res.json();
+          emailSent = data.success;
+        } catch (emailErr) {
+          console.error('Failed to send guest email:', emailErr);
+        }
+      }
+
       setForm(EMPTY_FORM);
-      onCreated({ id: docRef.id, ...booking });
+      onCreated({ id: docRef.id, ...booking, emailSent });
     } catch (err) {
       setError('Failed to create booking. Please try again.');
       console.error(err);
@@ -169,6 +196,21 @@ function BookingForm({ onCreated }) {
           value={form.guestName}
           onChange={handleChange}
           placeholder="e.g. Maria Garcia"
+          className={inputClass}
+        />
+      </div>
+
+      {/* Guest Email */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Guest Email <span className="text-gray-400 font-normal">(optional — sends portal link automatically)</span>
+        </label>
+        <input
+          type="email"
+          name="guestEmail"
+          value={form.guestEmail}
+          onChange={handleChange}
+          placeholder="e.g. guest@example.com"
           className={inputClass}
         />
       </div>
@@ -253,6 +295,11 @@ function SuccessBanner({ booking, onDismiss }) {
           </svg>
         </button>
       </div>
+      {booking.emailSent && booking.guestEmail && (
+        <p className="text-sm text-green-700">
+          Email sent to <span className="font-medium">{booking.guestEmail}</span>
+        </p>
+      )}
       <div>
         <p className="text-xs text-green-700 font-medium mb-1">Guest link</p>
         <div className="bg-white rounded-lg border border-green-200 px-3 py-2 flex items-center gap-2">
