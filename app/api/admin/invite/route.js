@@ -94,7 +94,7 @@ export async function POST(request) {
     try {
       const roleLabel = role === 'cohost' ? 'Co-host' : 'Cleaner';
       const { error: emailError } = await resend.emails.send({
-        from: 'Casa Coqui <onboarding@resend.dev>',
+        from: 'Casa Coqui <hello@contact.casa-coqui.cc>',
         to: email,
         subject: "You've been invited to Casa Coqui",
         html: buildInviteEmail({ displayName, roleLabel, resetLink }),

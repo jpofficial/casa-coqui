@@ -18,7 +18,7 @@ export async function POST(request) {
     const formattedCheckOut = formatDatePretty(checkOutDate);
 
     const { error } = await resend.emails.send({
-      from: 'Casa Coqui <onboarding@resend.dev>',
+      from: 'Casa Coqui <hello@contact.casa-coqui.cc>',
       to: guestEmail,
       subject: 'Your Casa Coqui Stay — Guest Portal Access',
       html: buildGuestEmail({

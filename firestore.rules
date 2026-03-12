@@ -27,6 +27,16 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
+    // users
+    // Each authenticated user can read their own doc (needed for role lookup).
+    // Only admin can write (invites, role changes).
+    // -------------------------------------------------------------------------
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
     // bookings
     // Admin has full access. Any authenticated user can read bookings.
     // Guest access is gated by phone verification (Firebase Phone Auth) and
