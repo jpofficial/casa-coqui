@@ -5,19 +5,28 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { AuthProvider } from '@/hooks/useAuth';
 import useAuth from '@/hooks/useAuth';
+import { canAccessRoute, getDefaultRedirect } from '@/lib/roles';
 
 function AdminLayoutInner({ children }) {
-  const { user, loading, isAdmin, signOut } = useAuth();
+  const { user, loading, role, isStaff, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   const isLoginPage = pathname === '/admin/login';
 
   useEffect(() => {
-    if (!loading && !isAdmin && !isLoginPage) {
+    if (loading || isLoginPage) return;
+
+    if (!isStaff) {
       router.replace('/admin/login');
+      return;
     }
-  }, [loading, isAdmin, router, isLoginPage]);
+
+    // Route guard: redirect if role can't access current path
+    if (role && !canAccessRoute(role, pathname)) {
+      router.replace(getDefaultRedirect(role));
+    }
+  }, [loading, isStaff, role, router, isLoginPage, pathname]);
 
   // Login page renders without the admin shell
   if (isLoginPage) {
@@ -35,10 +44,42 @@ function AdminLayoutInner({ children }) {
     );
   }
 
-  if (!isAdmin) {
+  if (!isStaff) {
     return null;
   }
 
+  async function handleSignOut() {
+    await signOut();
+    router.replace('/admin/login');
+  }
+
+  // Cleaner gets a simplified shell
+  if (role === 'cleaner') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+          <div className="flex items-center gap-2">
+            <span className="text-green-600 font-bold text-xl">Casa Coqui</span>
+            <span className="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded-full">
+              Cleaning
+            </span>
+          </div>
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 active:text-gray-900 transition-colors min-h-[44px] px-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
+            </svg>
+            Sign out
+          </button>
+        </header>
+        <main className="flex-1">{children}</main>
+      </div>
+    );
+  }
+
+  // Full admin/co-host shell
   const navTabs = [
     {
       href: '/admin',
@@ -78,7 +119,7 @@ function AdminLayoutInner({ children }) {
     },
   ];
 
-  const moreLinks = [
+  const allMoreLinks = [
     { href: '/admin/notify', label: 'Broadcast' },
     { href: '/admin/maintenance', label: 'Maintenance' },
     { href: '/admin/expenses', label: 'Expenses' },
@@ -87,18 +128,20 @@ function AdminLayoutInner({ children }) {
     { href: '/admin/revenue', label: 'Revenue' },
     { href: '/admin/calendar', label: 'Calendar' },
     { href: '/admin/settings', label: 'Settings' },
+    { href: '/admin/team', label: 'Team' },
   ];
+
+  // Filter nav items by role
+  const filteredNavTabs = navTabs.filter(
+    (tab) => tab.href === '/admin/more' || canAccessRoute(role, tab.href)
+  );
+  const moreLinks = allMoreLinks.filter((link) => canAccessRoute(role, link.href));
 
   const isMoreActive = moreLinks.some((l) => pathname === l.href);
 
   function isTabActive(href) {
     if (href === '/admin') return pathname === '/admin';
     return pathname.startsWith(href);
-  }
-
-  async function handleSignOut() {
-    await signOut();
-    router.replace('/admin/login');
   }
 
   return (
@@ -128,13 +171,16 @@ function AdminLayoutInner({ children }) {
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-pb">
         <div className="flex items-stretch">
-          {navTabs.map((tab) => {
+          {filteredNavTabs.map((tab) => {
             const active =
               tab.href === '/admin/more'
                 ? isMoreActive
                 : isTabActive(tab.href);
 
             if (tab.href === '/admin/more') {
+              // Hide More tab if no links available
+              if (moreLinks.length === 0) return null;
+
               return (
                 <div key="more" className="flex-1 relative group">
                   <button className={`w-full flex flex-col items-center justify-center gap-1 py-2 min-h-[56px] transition-colors ${active ? 'text-green-600' : 'text-gray-400'}`}>
