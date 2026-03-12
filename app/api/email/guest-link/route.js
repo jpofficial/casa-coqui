@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { resend } from '@/lib/resend';
+import { requireRole } from '@/lib/api-auth';
 
 export async function POST(request) {
   try {
+    const { error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const { guestEmail, guestName, guestLink, checkInDate, checkOutDate, unit } =
       await request.json();
 

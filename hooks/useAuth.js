@@ -22,8 +22,12 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setLoading(true);
       if (firebaseUser) {
         setUser(firebaseUser);
+
+        // Set session cookie for middleware route protection
+        document.cookie = 'casa-coqui-session=1; path=/; max-age=604800; SameSite=Lax';
 
         // Fetch role from Firestore users doc
         try {
@@ -32,11 +36,11 @@ export function AuthProvider({ children }) {
             const userData = userDoc.data();
             setRole(userData.role || null);
 
-            // Flip status from pending to active on first login
+            // Flip status from pending to active on first login (best-effort)
             if (userData.status === 'pending') {
-              await updateDoc(doc(db, 'users', firebaseUser.uid), {
+              updateDoc(doc(db, 'users', firebaseUser.uid), {
                 status: 'active',
-              });
+              }).catch(() => {});
             }
           } else if (firebaseUser.email === ADMIN_EMAIL) {
             // Fallback: no Firestore doc but email matches admin
@@ -55,6 +59,8 @@ export function AuthProvider({ children }) {
       } else {
         setUser(null);
         setRole(null);
+        // Clear session cookie
+        document.cookie = 'casa-coqui-session=; path=/; max-age=0';
       }
       setLoading(false);
     });
@@ -73,6 +79,7 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
+    document.cookie = 'casa-coqui-session=; path=/; max-age=0';
     await firebaseSignOut(auth);
   }
 

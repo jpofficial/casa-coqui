@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
 import { broadcastToActiveGuests } from '@/lib/notifications';
+import { requireRole } from '@/lib/api-auth';
 
 // ---------------------------------------------------------------------------
 // POST /api/notifications/broadcast
@@ -15,6 +15,9 @@ import { broadcastToActiveGuests } from '@/lib/notifications';
 // ---------------------------------------------------------------------------
 export async function POST(request) {
   try {
+    const { caller, error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const body = await request.json();
     const { title, message, type } = body;
 
@@ -26,7 +29,12 @@ export async function POST(request) {
     }
 
     // Send to all active guests via FCM + SMS fallback.
-    const result = await broadcastToActiveGuests({ title, body: message });
+    // broadcastToActiveGuests also persists a notification record to Firestore.
+    const result = await broadcastToActiveGuests({
+      title,
+      body: message,
+      type: type || 'general',
+    });
 
     if (!result.success) {
       return NextResponse.json(
@@ -34,16 +42,6 @@ export async function POST(request) {
         { status: 500 }
       );
     }
-
-    // Persist a human-readable record of the broadcast request.
-    await adminDb.collection('notifications').add({
-      type: 'broadcast',
-      title,
-      message,
-      notificationType: type || 'general',
-      createdAt: new Date().toISOString(),
-      sentBy: 'admin',
-    });
 
     return NextResponse.json({ success: true, data: result.data });
   } catch (error) {

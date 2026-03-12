@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
+import { requireRole } from '@/lib/api-auth';
 
 const VALID_STATUSES = ['open', 'in-progress', 'done'];
 
@@ -7,6 +8,7 @@ const VALID_STATUSES = ['open', 'in-progress', 'done'];
 // PATCH /api/maintenance/[id]
 //
 // Partially updates a maintenance request (status and/or notes).
+// Requires admin, cohost, or maintenance role.
 //
 // Request body:
 //   { status?: 'open'|'in-progress'|'done', notes?: string }
@@ -16,6 +18,9 @@ const VALID_STATUSES = ['open', 'in-progress', 'done'];
 // ---------------------------------------------------------------------------
 export async function PATCH(request, { params }) {
   try {
+    const { caller, error: authError } = await requireRole(request, ['admin', 'cohost', 'maintenance']);
+    if (authError) return authError;
+
     const { id } = await params;
     const body = await request.json();
     const { status, notes } = body;

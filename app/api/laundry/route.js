@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
+import { requireAuth } from '@/lib/api-auth';
 
 const MACHINE_IDS = ['washer', 'dryer'];
 const VALID_STATUSES = ['available', 'in_use', 'needs_attention'];
@@ -19,8 +20,11 @@ const DEFAULT_MACHINE = (id) => ({
 // Returns:
 //   { success: true, data: { washer: {...}, dryer: {...} } }
 // ---------------------------------------------------------------------------
-export async function GET() {
+export async function GET(request) {
   try {
+    const { error: authError } = await requireAuth(request);
+    if (authError) return authError;
+
     const [washerDoc, dryerDoc] = await Promise.all([
       adminDb.collection('laundry').doc('washer').get(),
       adminDb.collection('laundry').doc('dryer').get(),
@@ -57,6 +61,9 @@ export async function GET() {
 // ---------------------------------------------------------------------------
 export async function POST(request) {
   try {
+    const { error: authError } = await requireAuth(request);
+    if (authError) return authError;
+
     const body = await request.json();
     const { machineId, status } = body;
 

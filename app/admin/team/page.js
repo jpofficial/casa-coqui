@@ -7,7 +7,7 @@ import { auth } from '@/lib/firebase';
 import { ROLES } from '@/lib/roles';
 
 export default function TeamPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const { data: users, loading } = useCollection('users');
 
   const [email, setEmail] = useState('');
@@ -16,6 +16,7 @@ export default function TeamPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [actionLoading, setActionLoading] = useState(null);
 
   if (!isAdmin) {
     return (
@@ -64,10 +65,50 @@ export default function TeamPage() {
     }
   }
 
+  async function handleRoleChange(uid, newRole) {
+    setActionLoading(uid);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/admin/team/${uid}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ role: newRole }),
+      });
+      const data = await res.json();
+      if (!data.success) alert(data.error);
+    } catch {
+      alert('Failed to update role.');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleRemove(uid, name) {
+    if (!confirm(`Remove ${name} from the team? This will disable their account.`)) return;
+    setActionLoading(uid);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/admin/team/${uid}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!data.success) alert(data.error);
+    } catch {
+      alert('Failed to remove team member.');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   const roleBadgeColors = {
     admin: 'bg-blue-100 text-blue-800',
     cohost: 'bg-purple-100 text-purple-800',
     cleaner: 'bg-yellow-100 text-yellow-800',
+    maintenance: 'bg-orange-100 text-orange-800',
   };
 
   const statusBadgeColors = {
@@ -122,6 +163,7 @@ export default function TeamPage() {
             >
               <option value="cohost">Co-host</option>
               <option value="cleaner">Cleaner</option>
+              <option value="maintenance">Maintenance</option>
             </select>
           </div>
 
@@ -182,31 +224,61 @@ export default function TeamPage() {
           <p className="text-sm text-gray-500">No team members yet.</p>
         ) : (
           <div className="space-y-3">
-            {users.map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0"
-              >
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {member.displayName || member.email}
-                  </p>
-                  <p className="text-xs text-gray-500">{member.email}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-xs font-semibold px-2 py-0.5 rounded-full ${roleBadgeColors[member.role] || 'bg-gray-100 text-gray-700'}`}
+            {users
+              .filter((m) => m.status !== 'deactivated')
+              .map((member) => {
+                const isSelf = member.id === user?.uid;
+                const isAdminMember = member.role === 'admin';
+                const canManage = !isSelf && !isAdminMember;
+                return (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 gap-3"
                   >
-                    {ROLES[member.role]?.label || member.role}
-                  </span>
-                  <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusBadgeColors[member.status] || 'bg-gray-100 text-gray-600'}`}
-                  >
-                    {member.status}
-                  </span>
-                </div>
-              </div>
-            ))}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {member.displayName || member.email}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">{member.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {canManage ? (
+                        <select
+                          value={member.role}
+                          onChange={(e) => handleRoleChange(member.id, e.target.value)}
+                          disabled={actionLoading === member.id}
+                          className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value="cohost">Co-host</option>
+                          <option value="cleaner">Cleaner</option>
+                          <option value="maintenance">Maintenance</option>
+                        </select>
+                      ) : (
+                        <span
+                          className={`text-xs font-semibold px-2 py-0.5 rounded-full ${roleBadgeColors[member.role] || 'bg-gray-100 text-gray-700'}`}
+                        >
+                          {ROLES[member.role]?.label || member.role}
+                        </span>
+                      )}
+                      <span
+                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusBadgeColors[member.status] || 'bg-gray-100 text-gray-600'}`}
+                      >
+                        {member.status}
+                      </span>
+                      {canManage && (
+                        <button
+                          onClick={() => handleRemove(member.id, member.displayName || member.email)}
+                          disabled={actionLoading === member.id}
+                          className="text-xs text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
+                          title="Remove member"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         )}
       </div>

@@ -1,15 +1,20 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
+import { requireRole } from '@/lib/api-auth';
 
 // ---------------------------------------------------------------------------
 // GET /api/supplies
 // Returns all supplies ordered by name ascending.
+// Requires admin role.
 //
 // Returns:
 //   { success: true, data: [...supplies] }
 // ---------------------------------------------------------------------------
-export async function GET() {
+export async function GET(request) {
   try {
+    const { error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const snapshot = await adminDb.collection('supplies').orderBy('name', 'asc').get();
     const supplies = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
@@ -35,6 +40,9 @@ export async function GET() {
 // ---------------------------------------------------------------------------
 export async function POST(request) {
   try {
+    const { error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const body = await request.json();
     const { name, quantity, minimum, amazonUrl, autoReorder } = body;
 
@@ -98,6 +106,9 @@ export async function POST(request) {
 // ---------------------------------------------------------------------------
 export async function PATCH(request) {
   try {
+    const { error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const body = await request.json();
     const { id, ...fields } = body;
 
@@ -163,6 +174,9 @@ export async function PATCH(request) {
 // ---------------------------------------------------------------------------
 export async function DELETE(request) {
   try {
+    const { error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const body = await request.json();
     const { id } = body;
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
+import { requireRole, requireAuth } from '@/lib/api-auth';
 
 const VALID_CATEGORIES = ['Plumbing', 'Electrical', 'HVAC', 'Appliance', 'Other'];
 const VALID_URGENCIES = ['low', 'medium', 'high'];
@@ -8,12 +9,16 @@ const VALID_URGENCIES = ['low', 'medium', 'high'];
 // GET /api/maintenance
 //
 // Returns all maintenance requests ordered by createdAt descending.
+// Requires admin, cohost, or maintenance role.
 //
 // Returns:
 //   { success: true, data: [...] }
 // ---------------------------------------------------------------------------
-export async function GET() {
+export async function GET(request) {
   try {
+    const { caller, error: authError } = await requireRole(request, ['admin', 'cohost', 'maintenance']);
+    if (authError) return authError;
+
     const snapshot = await adminDb
       .collection('maintenance')
       .orderBy('createdAt', 'desc')
@@ -47,6 +52,9 @@ export async function GET() {
 // ---------------------------------------------------------------------------
 export async function POST(request) {
   try {
+    const { caller, error: authError } = await requireAuth(request);
+    if (authError) return authError;
+
     const body = await request.json();
     const { category, urgency, description, photoUrl, bookingCode } = body;
 
@@ -81,12 +89,21 @@ export async function POST(request) {
       );
     }
 
+    // If the caller is a guest, verify their bookingCode claim matches the request
+    if (caller.bookingCode && caller.bookingCode !== bookingCode) {
+      return NextResponse.json(
+        { success: false, error: 'bookingCode does not match your authenticated session.' },
+        { status: 403 }
+      );
+    }
+
     const doc = {
       category,
       urgency: resolvedUrgency,
       description: String(description).trim(),
       photoUrl: photoUrl || null,
       bookingCode,
+      guestId: caller.uid,
       status: 'open',
       createdAt: new Date().toISOString(),
       notes: '',

@@ -1,310 +1,257 @@
 'use client';
 
-import { useState } from 'react';
-import { collection, addDoc, where, orderBy } from 'firebase/firestore';
+import { useState, useEffect, useCallback } from 'react';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useCollection } from '@/hooks/useFirestore';
 import useAuth from '@/hooks/useAuth';
-import ImageUpload from '@/components/ui/ImageUpload';
+import { LocaleProvider } from '@/hooks/useLocale';
+import CleaningWizard from '@/components/cleaner/CleaningWizard';
+import { t } from '@/lib/i18n';
+
+const STATUS_COLORS = {
+  scheduled: 'bg-gray-100 text-gray-700',
+  acknowledged: 'bg-blue-100 text-blue-700',
+  en_route: 'bg-indigo-100 text-indigo-700',
+  arrived: 'bg-purple-100 text-purple-700',
+  before_photos: 'bg-yellow-100 text-yellow-700',
+  cleaning: 'bg-amber-100 text-amber-700',
+  after_photos: 'bg-orange-100 text-orange-700',
+  laundry_check: 'bg-teal-100 text-teal-700',
+  completed: 'bg-green-100 text-green-700',
+};
 
 export default function CleaningPage() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
 
-  // Bookings with upcoming checkouts (next 3 days)
-  const now = new Date();
-  const threeDaysOut = new Date(now);
-  threeDaysOut.setDate(threeDaysOut.getDate() + 3);
-  const todayStr = now.toISOString().split('T')[0];
-  const futureStr = threeDaysOut.toISOString().split('T')[0];
+  if (!user) return null;
 
-  const { data: bookings, loading: bookingsLoading } = useCollection('bookings', [
-    where('checkOutDate', '>=', todayStr),
-    where('checkOutDate', '<=', futureStr),
-    orderBy('checkOutDate', 'asc'),
-  ]);
-
-  const { data: supplies, loading: suppliesLoading } = useCollection('supplies');
-  const { data: cleanings } = useCollection('cleanings', [
-    orderBy('cleanedAt', 'desc'),
-  ]);
-
-  return (
-    <div className="p-4 max-w-lg mx-auto space-y-6 pb-8">
-      <h1 className="text-xl font-bold text-gray-900">Cleaning Dashboard</h1>
-
-      {/* A. Cleaning Schedule */}
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold text-gray-800">
-          Upcoming Checkouts
-        </h2>
-        {bookingsLoading ? (
-          <p className="text-sm text-gray-500">Loading schedule...</p>
-        ) : bookings.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
-            <p className="text-sm text-gray-500">No checkouts in the next 3 days.</p>
-          </div>
-        ) : (
-          bookings.map((booking) => {
-            const isPast = booking.checkOutDate <= todayStr;
-            const alreadyCleaned = cleanings.some(
-              (c) => c.bookingId === booking.id
-            );
-            return (
-              <div
-                key={booking.id}
-                className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {booking.unit || 'Unit'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {booking.guestName || 'Guest'} — Checkout: {booking.checkOutDate}
-                  </p>
-                </div>
-                <div>
-                  {alreadyCleaned ? (
-                    <span className="text-xs font-semibold bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                      Cleaned
-                    </span>
-                  ) : isPast ? (
-                    <span className="text-xs font-semibold bg-red-100 text-red-800 px-2 py-1 rounded-full">
-                      Ready to clean
-                    </span>
-                  ) : (
-                    <span className="text-xs font-semibold bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                      Upcoming
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </section>
-
-      {/* B. Cleaning Confirmation */}
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold text-gray-800">
-          Confirm Cleaning
-        </h2>
-        <CleaningConfirmation user={user} bookings={bookings} cleanings={cleanings} />
-      </section>
-
-      {/* C. Supply View + Request */}
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold text-gray-800">Supplies</h2>
-        {suppliesLoading ? (
-          <p className="text-sm text-gray-500">Loading supplies...</p>
-        ) : supplies.length === 0 ? (
-          <p className="text-sm text-gray-500">No supplies tracked.</p>
-        ) : (
-          <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-            {supplies.map((supply) => {
-              const isLow =
-                supply.quantity != null &&
-                supply.minQuantity != null &&
-                supply.quantity <= supply.minQuantity;
-              return (
-                <div key={supply.id} className="px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{supply.name}</p>
-                    <p className="text-xs text-gray-500">
-                      Qty: {supply.quantity ?? '—'}
-                    </p>
-                  </div>
-                  {isLow && (
-                    <span className="text-xs font-semibold bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
-                      Low stock
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <SupplyRequestForm user={user} supplies={supplies} />
-      </section>
-    </div>
-  );
-}
-
-function CleaningConfirmation({ user, bookings, cleanings }) {
-  const [selectedBooking, setSelectedBooking] = useState('');
-  const [photoUrl, setPhotoUrl] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
-
-  // Only show bookings that haven't been cleaned yet
-  const uncleanedBookings = bookings.filter(
-    (b) => !cleanings.some((c) => c.bookingId === b.id)
-  );
-
-  async function handleConfirm() {
-    if (!selectedBooking || !photoUrl) return;
-    setSubmitting(true);
-
-    const booking = bookings.find((b) => b.id === selectedBooking);
-    try {
-      await addDoc(collection(db, 'cleanings'), {
-        unit: booking?.unit || '',
-        cleanedBy: user?.email || user?.uid || 'unknown',
-        photoUrl,
-        bookingId: selectedBooking,
-        cleanedAt: new Date().toISOString(),
-      });
-      setSuccess(true);
-      setSelectedBooking('');
-      setPhotoUrl('');
-    } catch (err) {
-      console.error('Failed to confirm cleaning:', err);
-    } finally {
-      setSubmitting(false);
-    }
+  if (role === 'cleaner') {
+    return (
+      <LocaleProvider defaultLocale="es">
+        <CleanerView user={user} />
+      </LocaleProvider>
+    );
   }
 
-  if (uncleanedBookings.length === 0 && !success) {
+  return <AdminCleaningDashboard user={user} role={role} />;
+}
+
+// ---------------------------------------------------------------------------
+// Cleaner View — shows active job wizard or upcoming job list
+// ---------------------------------------------------------------------------
+function CleanerView({ user }) {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadJobs = useCallback(() => {
+    const q = query(
+      collection(db, 'cleaning_jobs'),
+      where('assigneeId', '==', user.uid),
+      orderBy('scheduledDate', 'desc')
+    );
+    return onSnapshot(q, (snap) => {
+      setJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+  }, [user.uid]);
+
+  useEffect(() => {
+    const unsub = loadJobs();
+    return unsub;
+  }, [loadJobs]);
+
+  if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
-        <p className="text-sm text-gray-500">No units awaiting confirmation.</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-400">{t('es', 'loading')}</p>
       </div>
     );
   }
 
+  // Find active (non-completed) job — show wizard for it
+  const activeJob = jobs.find((j) => j.status !== 'completed');
+  if (activeJob) {
+    return <CleaningWizard job={activeJob} onRefresh={() => {}} />;
+  }
+
+  // No active job — show upcoming list
+  const upcoming = jobs.filter((j) => j.status === 'scheduled');
+  const completed = jobs.filter((j) => j.status === 'completed').slice(0, 5);
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
-      {success && (
-        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
-          <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-          <p className="text-sm text-green-800 font-medium">Cleaning confirmed!</p>
+    <div className="min-h-screen bg-gray-50">
+      <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
+        <div>
+          <p className="text-sm font-bold text-gray-900">Casa Coqui</p>
+          <p className="text-xs text-gray-500">{t('es', 'myCleanings')}</p>
         </div>
-      )}
+      </div>
 
-      {uncleanedBookings.length > 0 && (
-        <>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Select Unit
-            </label>
-            <select
-              value={selectedBooking}
-              onChange={(e) => {
-                setSelectedBooking(e.target.value);
-                setSuccess(false);
-              }}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Choose...</option>
-              {uncleanedBookings.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.unit || 'Unit'} — {b.guestName || 'Guest'} (checkout {b.checkOutDate})
-                </option>
-              ))}
-            </select>
+      <div className="p-4 space-y-4">
+        <h2 className="text-base font-semibold text-gray-800">
+          {t('es', 'upcomingCleanings')}
+        </h2>
+
+        {upcoming.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
+            <p className="text-sm text-gray-500">{t('es', 'noUpcomingJobs')}</p>
           </div>
+        ) : (
+          upcoming.map((job) => (
+            <div key={job.id} className="bg-white rounded-2xl border border-gray-200 p-5 space-y-2">
+              <p className="text-lg font-bold text-gray-900">{job.unit}</p>
+              <p className="text-sm text-gray-500">
+                {t('es', 'date')}: {job.scheduledDate}
+              </p>
+              <p className="text-sm text-gray-500">
+                {t('es', 'checkoutTime')}: {job.checkoutTime || '11:00 AM'}
+              </p>
+              {job.sameDayArrival && (
+                <p className="text-sm font-medium text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                  {t('es', 'sameDayArrival')}
+                </p>
+              )}
+              {job.turnoverNotes && (
+                <p className="text-sm text-gray-600">
+                  {t('es', 'notes')}: {job.turnoverNotes}
+                </p>
+              )}
+            </div>
+          ))
+        )}
 
-          {selectedBooking && (
-            <>
-              <ImageUpload
-                storagePath="cleanings"
-                value={photoUrl}
-                onChange={setPhotoUrl}
-                label="Photo proof of cleaning"
-              />
-
-              <button
-                type="button"
-                onClick={handleConfirm}
-                disabled={!photoUrl || submitting}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition"
-              >
-                {submitting ? 'Confirming...' : 'Confirm Cleaned'}
-              </button>
-            </>
-          )}
-        </>
-      )}
+        {completed.length > 0 && (
+          <>
+            <h2 className="text-base font-semibold text-gray-800 mt-6">
+              {t('es', 'completed')}
+            </h2>
+            {completed.map((job) => (
+              <div key={job.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{job.unit}</p>
+                  <p className="text-xs text-gray-500">{job.scheduledDate}</p>
+                </div>
+                <span className="text-xs font-semibold bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                  {t('es', 'completed')}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
-function SupplyRequestForm({ user, supplies }) {
-  const [selectedSupply, setSelectedSupply] = useState('');
-  const [note, setNote] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
+// ---------------------------------------------------------------------------
+// Admin / Cohost — cleaning job management dashboard
+// ---------------------------------------------------------------------------
+function AdminCleaningDashboard({ user, role }) {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('active'); // 'active' | 'completed' | 'all'
 
-  async function handleRequest(e) {
-    e.preventDefault();
-    if (!selectedSupply) return;
-    setSubmitting(true);
+  useEffect(() => {
+    const q = query(
+      collection(db, 'cleaning_jobs'),
+      orderBy('scheduledDate', 'desc')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
 
-    const supply = supplies.find((s) => s.id === selectedSupply);
-    try {
-      await addDoc(collection(db, 'supply_requests'), {
-        supplyId: selectedSupply,
-        supplyName: supply?.name || '',
-        requestedBy: user?.email || user?.uid || 'unknown',
-        note,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-      });
-      setSuccess(true);
-      setSelectedSupply('');
-      setNote('');
-    } catch (err) {
-      console.error('Failed to request supply:', err);
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  const filtered = jobs.filter((j) => {
+    if (filter === 'active') return j.status !== 'completed';
+    if (filter === 'completed') return j.status === 'completed';
+    return true;
+  });
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
-      <p className="text-sm font-medium text-gray-700">Request a Supply</p>
+    <div className="p-4 max-w-2xl mx-auto space-y-6 pb-8">
+      <h1 className="text-xl font-bold text-gray-900">Cleaning Jobs</h1>
 
-      {success && (
-        <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
-          Supply request submitted!
-        </p>
-      )}
+      {/* Filter tabs */}
+      <div className="flex gap-2">
+        {['active', 'completed', 'all'].map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+              filter === f
+                ? 'bg-gray-900 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
+        ))}
+      </div>
 
-      <form onSubmit={handleRequest} className="space-y-3">
-        <select
-          value={selectedSupply}
-          onChange={(e) => {
-            setSelectedSupply(e.target.value);
-            setSuccess(false);
-          }}
-          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="">Select supply...</option>
-          {supplies.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
+      {loading ? (
+        <p className="text-sm text-gray-500">Loading jobs...</p>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
+          <p className="text-sm text-gray-500">No cleaning jobs found.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((job) => (
+            <div key={job.id} className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-gray-900">{job.unit}</p>
+                <span className={`text-xs font-semibold px-2 py-1 rounded-full ${STATUS_COLORS[job.status] || 'bg-gray-100 text-gray-600'}`}>
+                  {job.status?.replace(/_/g, ' ')}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4 text-xs text-gray-500">
+                <span>{job.scheduledDate}</span>
+                <span>{job.checkoutTime || '11:00 AM'}</span>
+                {job.assigneeName && <span>{job.assigneeName}</span>}
+              </div>
+
+              {job.sameDayArrival && (
+                <p className="text-xs font-medium text-amber-700 bg-amber-50 rounded px-2 py-1 inline-block">
+                  Same-day arrival
+                </p>
+              )}
+
+              {job.turnoverNotes && (
+                <p className="text-xs text-gray-600">Notes: {job.turnoverNotes}</p>
+              )}
+
+              {/* Photo counts */}
+              <div className="flex items-center gap-3 text-xs text-gray-400">
+                {(job.beforePhotos?.length || 0) > 0 && (
+                  <span>Before: {job.beforePhotos.length} photos</span>
+                )}
+                {(job.afterPhotos?.length || 0) > 0 && (
+                  <span>After: {job.afterPhotos.length} photos</span>
+                )}
+                {(job.issues?.length || 0) > 0 && (
+                  <span className="text-amber-600 font-medium">
+                    {job.issues.length} issue{job.issues.length > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+
+              {/* Timeline */}
+              {job.status !== 'scheduled' && (
+                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400 pt-1">
+                  {job.acknowledgedAt && <span>Ack {new Date(job.acknowledgedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                  {job.enRouteAt && <span>En route {new Date(job.enRouteAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                  {job.arrivedAt && <span>Arrived {new Date(job.arrivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                  {job.startedAt && <span>Started {new Date(job.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                  {job.completedAt && <span>Done {new Date(job.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                </div>
+              )}
+            </div>
           ))}
-        </select>
-
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Add a note (optional)"
-          rows={2}
-          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-
-        <button
-          type="submit"
-          disabled={!selectedSupply || submitting}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition"
-        >
-          {submitting ? 'Submitting...' : 'Request Supply'}
-        </button>
-      </form>
+        </div>
+      )}
     </div>
   );
 }

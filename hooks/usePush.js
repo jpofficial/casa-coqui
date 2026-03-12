@@ -72,10 +72,14 @@ export default function usePush() {
    * Asks the user for notification permission, retrieves the FCM registration
    * token, and saves it to Firestore under `fcm_tokens/{token}`.
    *
+   * @param {object} opts
+   * @param {string} [opts.bookingCode] - The guest's booking code (for targeted push)
+   * @param {string} [opts.staffId]     - Staff UID (for staff push notifications)
+   *
    * Safe to call multiple times — re-requests only when permission is not yet
    * granted.
    */
-  async function requestPermission() {
+  async function requestPermission({ bookingCode, staffId } = {}) {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
 
     try {
@@ -99,11 +103,15 @@ export default function usePush() {
       }
 
       // Persist the token so the server can send targeted pushes
-      await setDoc(doc(db, 'fcm_tokens', fcmToken), {
+      const tokenData = {
         token: fcmToken,
         createdAt: new Date().toISOString(),
         userAgent: navigator.userAgent,
-      });
+      };
+      if (bookingCode) tokenData.bookingCode = bookingCode;
+      if (staffId) tokenData.staffId = staffId;
+
+      await setDoc(doc(db, 'fcm_tokens', fcmToken), tokenData);
 
       setToken(fcmToken);
     } catch (err) {

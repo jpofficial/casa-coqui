@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { where, orderBy, limit } from 'firebase/firestore';
 import { useCollection } from '@/hooks/useFirestore';
+import { auth } from '@/lib/firebase';
 
 const TEMPLATES = [
   {
@@ -105,9 +106,13 @@ export default function NotifyPage() {
       setSending(true);
       setResult(null);
       try {
+        const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
         const res = await fetch('/api/notifications/broadcast', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken && { Authorization: `Bearer ${idToken}` }),
+          },
           body: JSON.stringify({ title: title.trim(), message: message.trim() }),
         });
         const json = await res.json();

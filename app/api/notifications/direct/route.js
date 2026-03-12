@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendDirectMessage } from '@/lib/notifications';
+import { requireRole } from '@/lib/api-auth';
 
 // ---------------------------------------------------------------------------
 // POST /api/notifications/direct
@@ -14,6 +15,9 @@ import { sendDirectMessage } from '@/lib/notifications';
 // ---------------------------------------------------------------------------
 export async function POST(request) {
   try {
+    const { caller, error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const body = await request.json();
     const { bookingCode, title, message } = body;
 

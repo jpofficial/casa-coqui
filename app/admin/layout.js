@@ -6,13 +6,21 @@ import Link from 'next/link';
 import { AuthProvider } from '@/hooks/useAuth';
 import useAuth from '@/hooks/useAuth';
 import { canAccessRoute, getDefaultRedirect } from '@/lib/roles';
+import usePush from '@/hooks/usePush';
 
 function AdminLayoutInner({ children }) {
   const { user, loading, role, isStaff, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const { requestPermission, supported: pushSupported } = usePush();
 
   const isLoginPage = pathname === '/admin/login';
+
+  // Register FCM token for staff push notifications
+  useEffect(() => {
+    if (!user || !isStaff || !pushSupported) return;
+    requestPermission({ staffId: user.uid });
+  }, [user, isStaff, pushSupported, requestPermission]);
 
   useEffect(() => {
     if (loading || isLoginPage) return;
@@ -53,15 +61,20 @@ function AdminLayoutInner({ children }) {
     router.replace('/admin/login');
   }
 
-  // Cleaner gets a simplified shell
-  if (role === 'cleaner') {
+  // Cleaner and Maintenance get a simplified shell
+  if (role === 'cleaner' || role === 'maintenance') {
+    const badgeConfig = {
+      cleaner: { label: 'Cleaning', bg: 'bg-yellow-100', text: 'text-yellow-800' },
+      maintenance: { label: 'Maintenance', bg: 'bg-orange-100', text: 'text-orange-800' },
+    };
+    const badge = badgeConfig[role];
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
         <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
           <div className="flex items-center gap-2">
             <span className="text-green-600 font-bold text-xl">Casa Coqui</span>
-            <span className="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded-full">
-              Cleaning
+            <span className={`${badge.bg} ${badge.text} text-xs font-semibold px-2 py-0.5 rounded-full`}>
+              {badge.label}
             </span>
           </div>
           <button
@@ -120,8 +133,12 @@ function AdminLayoutInner({ children }) {
   ];
 
   const allMoreLinks = [
+    { href: '/admin/stays', label: 'Stays' },
+    { href: '/admin/assignments', label: 'Assignments' },
     { href: '/admin/notify', label: 'Broadcast' },
     { href: '/admin/maintenance', label: 'Maintenance' },
+    { href: '/admin/cleaning', label: 'Cleaning' },
+    { href: '/admin/community', label: 'Community' },
     { href: '/admin/expenses', label: 'Expenses' },
     { href: '/admin/supplies', label: 'Supplies' },
     { href: '/admin/receipts', label: 'Receipts' },

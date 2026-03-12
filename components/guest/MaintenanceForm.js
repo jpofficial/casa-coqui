@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { storage } from '@/lib/firebase';
+import { storage, auth } from '@/lib/firebase';
 
 const CATEGORIES = ['Plumbing', 'Electrical', 'HVAC', 'Appliance', 'Other'];
 const URGENCIES = [
@@ -175,9 +175,13 @@ export default function MaintenanceForm({ code }) {
 
       setSubmitting(true);
 
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
       const response = await fetch('/api/maintenance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken && { Authorization: `Bearer ${idToken}` }),
+        },
         body: JSON.stringify({
           category,
           urgency,

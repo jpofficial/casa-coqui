@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import {
   collection,
   query,
-  where,
   orderBy,
   limit,
   onSnapshot,
@@ -81,14 +80,21 @@ function NotificationSkeleton() {
 
 // ─── Announcement card ────────────────────────────────────────────────────────
 function AnnouncementCard({ notification }) {
-  const relativeTime = getRelativeTime(notification.createdAt);
+  const relativeTime = getRelativeTime(notification.createdAt || notification.sentAt);
+  // Support both old field name (body) and new standardized field name (message)
+  const messageText = notification.message || notification.body;
+  // Support both old type scheme (always 'broadcast' with notificationType sub-field)
+  // and new scheme (type is the subtype directly)
+  const displayType = notification.type === 'broadcast'
+    ? (notification.notificationType || 'general')
+    : notification.type;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
-            <TypeBadge type={notification.type} />
+            <TypeBadge type={displayType} />
             {relativeTime && (
               <span className="text-xs text-gray-400">{relativeTime}</span>
             )}
@@ -98,9 +104,9 @@ function AnnouncementCard({ notification }) {
               {notification.title}
             </p>
           )}
-          {notification.message && (
+          {messageText && (
             <p className="text-sm text-gray-600 leading-relaxed">
-              {notification.message}
+              {messageText}
             </p>
           )}
         </div>
@@ -123,23 +129,28 @@ function AnnouncementCard({ notification }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
-export default function Community() {
+export default function Community({ code }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    const COMMUNITY_TYPES = ['broadcast', 'parking', 'general', 'maintenance'];
+
+    // Fetch recent notifications and filter client-side to avoid composite index
     const q = query(
       collection(db, 'notifications'),
-      where('type', 'in', ['broadcast', 'parking', 'general', 'maintenance']),
       orderBy('createdAt', 'desc'),
-      limit(20)
+      limit(50)
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const docs = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .filter((n) => COMMUNITY_TYPES.includes(n.type))
+          .slice(0, 20);
         setNotifications(docs);
         setLoading(false);
       },

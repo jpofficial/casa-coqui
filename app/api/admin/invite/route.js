@@ -1,39 +1,13 @@
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { resend } from '@/lib/resend';
+import { requireRole } from '@/lib/api-auth';
 import crypto from 'crypto';
 
 export async function POST(request) {
   try {
-    // Verify caller is admin
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, error: 'Missing authorization token' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.split('Bearer ')[1];
-    let callerClaims;
-    try {
-      const decoded = await adminAuth.verifyIdToken(token);
-      // Check role from Firestore
-      const callerDoc = await adminDb.collection('users').doc(decoded.uid).get();
-      callerClaims = callerDoc.exists ? callerDoc.data() : null;
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
-
-    if (callerClaims?.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: 'Only admins can invite team members' },
-        { status: 403 }
-      );
-    }
+    const { caller, error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
 
     // Parse and validate body
     const { email, role, displayName } = await request.json();
@@ -45,9 +19,9 @@ export async function POST(request) {
       );
     }
 
-    if (!['cohost', 'cleaner'].includes(role)) {
+    if (!['cohost', 'cleaner', 'maintenance'].includes(role)) {
       return NextResponse.json(
-        { success: false, error: 'Role must be cohost or cleaner' },
+        { success: false, error: 'Role must be cohost, cleaner, or maintenance' },
         { status: 400 }
       );
     }
@@ -81,7 +55,7 @@ export async function POST(request) {
       role,
       displayName,
       status: 'pending',
-      invitedBy: callerClaims.email || 'admin',
+      invitedBy: caller.email || 'admin',
       invitedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     });
@@ -92,7 +66,8 @@ export async function POST(request) {
     // Send invite email
     let emailSent = false;
     try {
-      const roleLabel = role === 'cohost' ? 'Co-host' : 'Cleaner';
+      const roleLabelMap = { cohost: 'Co-host', cleaner: 'Cleaner', maintenance: 'Maintenance' };
+      const roleLabel = roleLabelMap[role] || role;
       const { error: emailError } = await resend.emails.send({
         from: 'Casa Coqui <hello@contact.casa-coqui.cc>',
         to: email,

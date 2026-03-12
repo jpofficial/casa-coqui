@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase';
+import { db, storage, auth } from '@/lib/firebase';
 
 const LOCATIONS = ['Front lot', 'Driveway', 'Street', 'Other'];
 
@@ -150,15 +150,13 @@ export default function ParkingReport({ code }) {
       });
 
       // Trigger generic broadcast — hides reporter identity from other guests
-      await fetch('/api/notifications/broadcast', {
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+      await fetch('/api/parking/notify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: 'Parking Alert',
-          message:
-            'An unfamiliar vehicle has been reported in the parking area. If this is your vehicle, please move it to your designated spot.',
-          type: 'parking',
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken && { Authorization: `Bearer ${idToken}` }),
+        },
       });
 
       setSubmitted(true);

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
+import { requireRole } from '@/lib/api-auth';
 
 const VALID_UNITS = ['Unit A', 'Unit B'];
 
@@ -12,6 +13,9 @@ const VALID_UNITS = ['Unit A', 'Unit B'];
 // ---------------------------------------------------------------------------
 export async function GET(request) {
   try {
+    const { error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const { searchParams } = new URL(request.url);
     const year = searchParams.get('year');
 
@@ -48,6 +52,9 @@ export async function GET(request) {
 // ---------------------------------------------------------------------------
 export async function POST(request) {
   try {
+    const { error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const body = await request.json();
     const { amount, description, unit, date, bookingId } = body;
 
@@ -115,6 +122,9 @@ export async function POST(request) {
 // ---------------------------------------------------------------------------
 export async function DELETE(request) {
   try {
+    const { error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const body = await request.json();
     const { id } = body;
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
+import { requireRole } from '@/lib/api-auth';
 
 // ---------------------------------------------------------------------------
 // Extracts an Amazon ASIN from a product URL.
@@ -24,8 +25,11 @@ function extractAsin(url) {
 // Returns:
 //   { success: true, data: { items: [...], cartUrl: "..." } }
 // ---------------------------------------------------------------------------
-export async function GET() {
+export async function GET(request) {
   try {
+    const { error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const snapshot = await adminDb
       .collection('supplies')
       .where('autoReorder', '==', true)

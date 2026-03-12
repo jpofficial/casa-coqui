@@ -1,15 +1,20 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
+import { requireRole } from '@/lib/api-auth';
 
 // ---------------------------------------------------------------------------
 // GET /api/receipts/[month]
 // Returns all receipts for a given month (format: YYYY-MM).
+// Requires admin role.
 //
 // Returns:
 //   { success: true, data: [...receipts] }
 // ---------------------------------------------------------------------------
 export async function GET(request, { params }) {
   try {
+    const { error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const { month } = params;
 
     // Validate YYYY-MM format

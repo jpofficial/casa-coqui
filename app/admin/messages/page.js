@@ -12,7 +12,7 @@ import {
   serverTimestamp,
   writeBatch,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 
 function timeAgo(dateValue) {
   if (!dateValue) return '';
@@ -177,6 +177,22 @@ function ChatView({ thread, allMessages, onBack }) {
         createdAt: serverTimestamp(),
         read: false,
       });
+
+      // Notify guest of host reply (fire-and-forget)
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+      if (idToken) {
+        fetch('/api/messages/notify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            bookingCode: thread.bookingCode,
+            sender: 'host',
+          }),
+        }).catch(() => {});
+      }
     } catch (err) {
       console.error('Failed to send message:', err);
       setText(trimmed);

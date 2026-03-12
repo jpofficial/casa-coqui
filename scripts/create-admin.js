@@ -26,8 +26,12 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 async function createAdmin() {
-  const email = 'admin@casacoqui.com';
-  const password = 'CasaCoqui2026!';
+  const email = env.ADMIN_EMAIL || 'admin@casacoqui.com';
+  const password = env.ADMIN_PASSWORD;
+  if (!password) {
+    console.error('ADMIN_PASSWORD must be set in .env.local');
+    process.exit(1);
+  }
   let uid;
 
   try {

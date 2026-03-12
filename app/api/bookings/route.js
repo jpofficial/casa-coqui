@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { nanoid } from 'nanoid';
+import { requireRole } from '@/lib/api-auth';
 
 // ---------------------------------------------------------------------------
 // GET /api/bookings
 // Returns all bookings sorted by createdAt descending.
+// Requires admin role.
 // ---------------------------------------------------------------------------
-export async function GET() {
+export async function GET(request) {
   try {
+    const { error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const snapshot = await adminDb
       .collection('bookings')
       .orderBy('createdAt', 'desc')
@@ -40,6 +45,9 @@ export async function GET() {
 // ---------------------------------------------------------------------------
 export async function POST(request) {
   try {
+    const { error: authError } = await requireRole(request, ['admin']);
+    if (authError) return authError;
+
     const body = await request.json();
     const { unit, guestName = '', checkInDate, checkOutDate } = body;
 

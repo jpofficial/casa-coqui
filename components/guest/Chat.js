@@ -8,9 +8,11 @@ import {
   orderBy,
   onSnapshot,
   addDoc,
+  getDoc,
+  doc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth as firebaseAuth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 
 // ─── Format time from Firestore Timestamp ─────────────────────────────────────
@@ -105,8 +107,19 @@ export default function Chat({ code }) {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [guestName, setGuestName] = useState(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Fetch guest name from their profile
+  useEffect(() => {
+    if (!user) return;
+    getDoc(doc(db, 'guests', user.uid))
+      .then((snap) => {
+        if (snap.exists()) setGuestName(snap.data().fullName || null);
+      })
+      .catch(() => {});
+  }, [user]);
 
   // Real-time message subscription
   useEffect(() => {
@@ -183,10 +196,25 @@ export default function Chat({ code }) {
       await addDoc(collection(db, 'messages'), {
         bookingCode: code,
         sender: 'guest',
+        guestId: user?.uid || null,
+        guestName: guestName || 'Guest',
         text,
         createdAt: serverTimestamp(),
         read: false,
       });
+
+      // Notify admin of new message (fire-and-forget)
+      const idToken = firebaseAuth.currentUser ? await firebaseAuth.currentUser.getIdToken() : null;
+      if (idToken) {
+        fetch('/api/messages/notify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ bookingCode: code, sender: 'guest', guestName: guestName || 'Guest' }),
+        }).catch(() => {});
+      }
     } catch (err) {
       console.error('Send message error:', err);
       // Remove the optimistic message and restore input on failure
@@ -215,6 +243,42 @@ export default function Chat({ code }) {
     const currentDate = current.createdAt?.toDate?.() ?? new Date(current.createdAt);
     const previousDate = previous.createdAt?.toDate?.() ?? new Date(previous.createdAt);
     return currentDate.toDateString() !== previousDate.toDateString();
+  }
+
+  // Gate behind auth — guest must complete check-in first
+  if (!user) {
+    return (
+      <div className="flex flex-col h-full min-h-0">
+        <div className="flex-shrink-0 mb-3">
+          <h2 className="text-base font-bold text-gray-900">Messages</h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Direct message your host
+          </p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 flex flex-col items-center gap-3 text-center">
+          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6 text-amber-500" aria-hidden="true">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-700">Complete check-in to message</p>
+            <p className="text-xs text-gray-400 mt-1">
+              Verify your phone number during check-in to start messaging your host.
+            </p>
+          </div>
+          <a
+            href={`/g/${code}/checkin`}
+            className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-green-600 hover:text-green-700"
+          >
+            Go to check-in
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    );
   }
 
   return (
