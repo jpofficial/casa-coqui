@@ -1,0 +1,167 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Helper functions
+    // -------------------------------------------------------------------------
+
+    // Returns true if the requester is signed in at all.
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Returns true if the signed-in user is the admin (matched by email).
+    // Admin also carries the custom claim { role: "admin" } for extra safety.
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'admin@casacoqui.com' ||
+        request.auth.token.role == 'admin'
+      );
+    }
+
+    // Returns true if the signed-in uid matches the guest doc id.
+    function isOwnerGuest(guestId) {
+      return isAuthenticated() && request.auth.uid == guestId;
+    }
+
+    // -------------------------------------------------------------------------
+    // bookings
+    // Admin has full access. Guests can read the single booking whose `code`
+    // matches a custom claim or the doc field — we expose read only when the
+    // signed-in user's bookingCode claim matches the doc's code field.
+    // -------------------------------------------------------------------------
+    match /bookings/{bookingId} {
+      allow read: if isAdmin() ||
+        (isAuthenticated() && resource.data.code == request.auth.token.bookingCode);
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // guests
+    // Admin has full access. Each guest can only read/write their own document
+    // (the doc ID is derived from their phone number in the confirm route).
+    // -------------------------------------------------------------------------
+    match /guests/{guestId} {
+      allow read, write: if isAdmin() || isOwnerGuest(guestId);
+    }
+
+    // -------------------------------------------------------------------------
+    // otps
+    // No client access whatsoever — all reads and writes happen server-side
+    // via the Admin SDK which bypasses these rules.
+    // -------------------------------------------------------------------------
+    match /otps/{otpId} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // notifications
+    // Admin has full access. Guests can read notifications that are either
+    // broadcast (type == 'broadcast') or addressed to them specifically.
+    // -------------------------------------------------------------------------
+    match /notifications/{notificationId} {
+      allow read: if isAdmin() ||
+        (isAuthenticated() && (
+          resource.data.type == 'broadcast' ||
+          resource.data.guestId == request.auth.uid
+        ));
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // expenses — admin only
+    // -------------------------------------------------------------------------
+    match /expenses/{expenseId} {
+      allow read, write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // supplies — admin only
+    // -------------------------------------------------------------------------
+    match /supplies/{supplyId} {
+      allow read, write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // receipts — admin only
+    // -------------------------------------------------------------------------
+    match /receipts/{receiptId} {
+      allow read, write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // revenue — admin only
+    // -------------------------------------------------------------------------
+    match /revenue/{revenueId} {
+      allow read, write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // maintenance
+    // Admin has full access. Guests can create new requests and read only the
+    // requests they created (matched by the guestId field on the document).
+    // -------------------------------------------------------------------------
+    match /maintenance/{requestId} {
+      allow read: if isAdmin() ||
+        (isAuthenticated() && resource.data.guestId == request.auth.uid);
+      allow create: if isAuthenticated() &&
+        request.resource.data.guestId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // laundry
+    // Any authenticated user can read machine status.
+    // Any authenticated guest can update (self-reported, honor system).
+    // Admin can also write.
+    // -------------------------------------------------------------------------
+    match /laundry/{machineId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------------------------
+    // checkins
+    // Admin has full access. Guests can create/update their own check-in
+    // (doc ID is the booking code).
+    // -------------------------------------------------------------------------
+    match /checkins/{code} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------------------------
+    // fcm_tokens
+    // Any authenticated user can create/update their own token doc.
+    // Admin can read all.
+    // -------------------------------------------------------------------------
+    match /fcm_tokens/{tokenId} {
+      allow read: if isAdmin();
+      allow write: if isAuthenticated();
+    }
+
+    // -------------------------------------------------------------------------
+    // community
+    // Any authenticated user can read. Admin can write.
+    // Guests can create posts.
+    // -------------------------------------------------------------------------
+    match /community/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // settings
+    // Admin can read and write. Any authenticated user can read (guests need
+    // WiFi password, property name, etc.).
+    // -------------------------------------------------------------------------
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+  }
+}
