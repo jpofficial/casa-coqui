@@ -9,14 +9,14 @@ import useAuth from '@/hooks/useAuth';
 
 const LAUNDRY_STATUSES = [
   { key: 'available', label: 'Available', color: 'bg-green-100 text-green-700', active: 'bg-green-600 text-white' },
-  { key: 'in-use', label: 'In Use', color: 'bg-amber-100 text-amber-700', active: 'bg-amber-500 text-white' },
-  { key: 'needs-attention', label: 'Needs Attention', color: 'bg-red-100 text-red-600', active: 'bg-red-500 text-white' },
+  { key: 'in_use', label: 'In Use', color: 'bg-amber-100 text-amber-700', active: 'bg-amber-500 text-white' },
+  { key: 'needs_attention', label: 'Needs Attention', color: 'bg-red-100 text-red-600', active: 'bg-red-500 text-white' },
 ];
 
 function laundryStatusColor(status) {
   if (status === 'available') return 'bg-green-100 text-green-700';
-  if (status === 'in-use') return 'bg-amber-100 text-amber-700';
-  if (status === 'needs-attention') return 'bg-red-100 text-red-600';
+  if (status === 'in_use') return 'bg-amber-100 text-amber-700';
+  if (status === 'needs_attention') return 'bg-red-100 text-red-600';
   return 'bg-gray-100 text-gray-500';
 }
 
