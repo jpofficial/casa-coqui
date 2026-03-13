@@ -9,13 +9,13 @@ import Community from '@/components/guest/Community';
 const POST_TYPES = [
   { value: 'general', label: 'General' },
   { value: 'parking', label: 'Parking' },
-  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'noise', label: 'Noise' },
+  { value: 'lost_found', label: 'Lost & Found' },
 ];
 
 export default function AdminCommunityPage() {
   const { user, role } = useAuth();
   const [showForm, setShowForm] = useState(false);
-  const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [type, setType] = useState('general');
   const [submitting, setSubmitting] = useState(false);
@@ -23,18 +23,17 @@ export default function AdminCommunityPage() {
 
   async function handlePost(e) {
     e.preventDefault();
-    if (!title.trim() || !message.trim()) return;
+    if (!message.trim()) return;
     setSubmitting(true);
     try {
-      await addDoc(collection(db, 'notifications'), {
-        title: title.trim(),
+      await addDoc(collection(db, 'community'), {
         message: message.trim(),
         type,
+        photoUrl: null,
+        bookingCode: null,
+        postedByRole: role || 'admin',
         createdAt: new Date().toISOString(),
-        postedBy: user?.email || user?.uid || 'staff',
-        postedByRole: role,
       });
-      setTitle('');
       setMessage('');
       setType('general');
       setShowForm(false);
@@ -66,7 +65,7 @@ export default function AdminCommunityPage() {
       {showForm && (
         <form onSubmit={handlePost} className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-900">New Post</p>
+            <p className="text-sm font-semibold text-gray-900">New Post (as Host)</p>
             <button
               type="button"
               onClick={() => setShowForm(false)}
@@ -76,7 +75,7 @@ export default function AdminCommunityPage() {
             </button>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {POST_TYPES.map((t) => (
               <button
                 key={t.value}
@@ -93,14 +92,6 @@ export default function AdminCommunityPage() {
             ))}
           </div>
 
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title"
-            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          />
-
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -111,7 +102,7 @@ export default function AdminCommunityPage() {
 
           <button
             type="submit"
-            disabled={!title.trim() || !message.trim() || submitting}
+            disabled={!message.trim() || submitting}
             className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition"
           >
             {submitting ? 'Posting...' : 'Post'}
@@ -129,7 +120,8 @@ export default function AdminCommunityPage() {
         </div>
       )}
 
-      <Community />
+      {/* Feed — showBookingCode=true for admin visibility */}
+      <Community showBookingCode={true} />
     </div>
   );
 }

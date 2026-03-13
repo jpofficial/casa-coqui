@@ -16,7 +16,7 @@ service cloud.firestore {
     // Admin also carries the custom claim { role: "admin" } for extra safety.
     function isAdmin() {
       return isAuthenticated() && (
-        request.auth.token.email == 'admin@casacoqui.com' ||
+        request.auth.token.email == '01juliop@gmail.com' ||
         request.auth.token.role == 'admin'
       );
     }
@@ -194,6 +194,12 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin();
+
+      match /replies/{replyId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update, delete: if isAdmin();
+      }
     }
 
     // -------------------------------------------------------------------------
