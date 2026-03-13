@@ -2,10 +2,8 @@
 
 import { useState, useCallback } from 'react';
 import { orderBy } from 'firebase/firestore';
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useCollection } from '@/hooks/useFirestore';
-import { nanoid } from 'nanoid';
+import useAuth from '@/hooks/useAuth';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -13,7 +11,6 @@ import { nanoid } from 'nanoid';
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
-  // Parse as local date to avoid UTC offset shifts on date-only strings
   const [year, month, day] = dateStr.split('-').map(Number);
   const d = new Date(year, month - 1, day);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -45,7 +42,6 @@ function CopyButton({ text, className = '' }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for older mobile browsers
       const el = document.createElement('textarea');
       el.value = text;
       el.style.position = 'fixed';
@@ -88,7 +84,7 @@ function CopyButton({ text, className = '' }) {
 }
 
 // ---------------------------------------------------------------------------
-// Booking Creation Form
+// Booking Creation Form — calls API so server-side overlap check runs
 // ---------------------------------------------------------------------------
 
 const EMPTY_FORM = {
@@ -99,7 +95,7 @@ const EMPTY_FORM = {
   checkOutDate: '',
 };
 
-function BookingForm({ onCreated }) {
+function BookingForm({ onCreated, user }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -125,51 +121,56 @@ function BookingForm({ onCreated }) {
 
     setSubmitting(true);
     try {
-      const code = nanoid(10);
-      const origin = window.location.origin;
-      const guestLink = `${origin}/g/${code}`;
+      const idToken = await user.getIdToken();
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          unit: form.unit,
+          guestName: form.guestName.trim(),
+          checkInDate: form.checkInDate,
+          checkOutDate: form.checkOutDate,
+        }),
+      });
 
-      const guestEmail = form.guestEmail.trim();
-      const booking = {
-        code,
-        unit: form.unit,
-        guestName: form.guestName.trim(),
-        ...(guestEmail && { guestEmail }),
-        checkInDate: form.checkInDate,
-        checkOutDate: form.checkOutDate,
-        status: 'active',
-        checkedIn: false,
-        createdAt: new Date().toISOString(),
-        guestLink,
-      };
+      const json = await res.json();
 
-      const docRef = await addDoc(collection(db, 'bookings'), booking);
+      if (!json.success) {
+        setError(json.error || 'Failed to create booking.');
+        return;
+      }
+
+      const booking = json.data;
 
       // Send guest link email if email provided
+      const guestEmail = form.guestEmail.trim();
       let emailSent = false;
       if (guestEmail) {
         try {
-          const res = await fetch('/api/email/guest-link', {
+          const emailRes = await fetch('/api/email/guest-link', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               guestEmail,
               guestName: form.guestName.trim(),
-              guestLink,
+              guestLink: booking.guestLink,
               checkInDate: form.checkInDate,
               checkOutDate: form.checkOutDate,
               unit: form.unit,
             }),
           });
-          const data = await res.json();
-          emailSent = data.success;
+          const emailJson = await emailRes.json();
+          emailSent = emailJson.success;
         } catch (emailErr) {
           console.error('Failed to send guest email:', emailErr);
         }
       }
 
       setForm(EMPTY_FORM);
-      onCreated({ id: docRef.id, ...booking, emailSent });
+      onCreated({ ...booking, guestEmail, emailSent });
     } catch (err) {
       setError('Failed to create booking. Please try again.');
       console.error(err);
@@ -314,10 +315,22 @@ function SuccessBanner({ booking, onDismiss }) {
 }
 
 // ---------------------------------------------------------------------------
-// Booking Card (list item)
+// Booking Card (list item) — with cancel action
 // ---------------------------------------------------------------------------
 
-function BookingCard({ booking }) {
+function BookingCard({ booking, onCancel }) {
+  const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  async function handleCancel() {
+    setCancelling(true);
+    await onCancel(booking.id);
+    setCancelling(false);
+    setConfirming(false);
+  }
+
+  const isActive = booking.status === 'active';
+
   return (
     <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
       <div className="flex items-start justify-between gap-2">
@@ -347,6 +360,40 @@ function BookingCard({ booking }) {
           <CopyButton text={booking.guestLink} />
         </div>
       )}
+
+      {/* Cancel action — only for active bookings */}
+      {isActive && !confirming && (
+        <button
+          onClick={() => setConfirming(true)}
+          className="text-xs text-red-500 hover:text-red-700 font-medium py-1 transition-colors"
+        >
+          Cancel booking
+        </button>
+      )}
+
+      {isActive && confirming && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
+          <p className="text-xs text-red-800 font-medium">
+            Cancel this booking? The guest link will stop working.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg px-3 py-1.5 min-h-[32px] transition-colors disabled:opacity-60"
+            >
+              {cancelling ? 'Cancelling...' : 'Yes, cancel'}
+            </button>
+            <button
+              onClick={() => setConfirming(false)}
+              disabled={cancelling}
+              className="text-xs font-medium text-gray-600 hover:text-gray-800 bg-white border border-gray-200 rounded-lg px-3 py-1.5 min-h-[32px] transition-colors"
+            >
+              Keep booking
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -356,17 +403,37 @@ function BookingCard({ booking }) {
 // ---------------------------------------------------------------------------
 
 export default function BookingsPage() {
+  const { user } = useAuth();
   const [newBooking, setNewBooking] = useState(null);
+  const [cancelError, setCancelError] = useState('');
 
-  const { data: bookings, loading } = useCollection('bookings', [
+  const { data: allBookings, loading } = useCollection('bookings', [
     orderBy('checkInDate', 'desc'),
   ]);
 
+  const bookings = allBookings.filter((b) => b.status !== 'cancelled');
+
   const handleCreated = useCallback((booking) => {
     setNewBooking(booking);
-    // Scroll to top to show success banner
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+  const handleCancel = useCallback(async (bookingId) => {
+    setCancelError('');
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch(`/api/bookings/${bookingId}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setCancelError(json.error || 'Failed to cancel booking.');
+      }
+    } catch {
+      setCancelError('Failed to cancel booking. Please try again.');
+    }
+  }, [user]);
 
   return (
     <div className="px-4 pt-5 pb-6 max-w-2xl mx-auto space-y-6">
@@ -381,8 +448,15 @@ export default function BookingsPage() {
         <SuccessBanner booking={newBooking} onDismiss={() => setNewBooking(null)} />
       )}
 
+      {/* Cancel error */}
+      {cancelError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+          <p className="text-sm text-red-700">{cancelError}</p>
+        </div>
+      )}
+
       {/* Creation form */}
-      <BookingForm onCreated={handleCreated} />
+      <BookingForm onCreated={handleCreated} user={user} />
 
       {/* Existing bookings */}
       <div>
@@ -407,7 +481,7 @@ export default function BookingsPage() {
         ) : (
           <div className="space-y-3">
             {bookings.map((booking) => (
-              <BookingCard key={booking.id} booking={booking} />
+              <BookingCard key={booking.id} booking={booking} onCancel={handleCancel} />
             ))}
           </div>
         )}

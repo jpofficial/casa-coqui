@@ -66,6 +66,26 @@ export async function POST(request) {
       );
     }
 
+    // Check for overlapping active bookings on the same unit.
+    // Two bookings overlap when: existingCheckIn < newCheckOut AND existingCheckOut > newCheckIn
+    const activeForUnit = await adminDb
+      .collection('bookings')
+      .where('unit', '==', unit)
+      .where('status', '==', 'active')
+      .get();
+
+    const overlap = activeForUnit.docs.some((d) => {
+      const b = d.data();
+      return b.checkInDate < checkOutDate && b.checkOutDate > checkInDate;
+    });
+
+    if (overlap) {
+      return NextResponse.json(
+        { success: false, error: `${unit} already has an active booking for those dates.` },
+        { status: 409 }
+      );
+    }
+
     const code = nanoid(10);
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
     const guestLink = `${appUrl}/g/${code}`;
