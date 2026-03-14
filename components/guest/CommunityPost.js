@@ -71,8 +71,8 @@ function ProgressBar({ progress }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────
-export default function CommunityPost({ code, onClose, onSuccess }) {
-  const [selectedType, setSelectedType] = useState(null);
+export default function CommunityPost({ code, onClose, onSuccess, initialType }) {
+  const [selectedType, setSelectedType] = useState(initialType || null);
   const [customMessage, setCustomMessage] = useState('');
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);

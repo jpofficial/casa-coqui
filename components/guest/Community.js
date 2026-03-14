@@ -12,24 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import CommunityPost from './CommunityPost';
-
-// ─── Relative time helper ──────────────────────────────────────────────────────
-function getRelativeTime(timestamp) {
-  if (!timestamp) return null;
-  const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffSeconds = Math.floor(diffMs / 1000);
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  const diffHours = Math.floor(diffMinutes / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffSeconds < 60) return 'Just now';
-  if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
-  if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+import { getRelativeTime } from '@/lib/time';
 
 // ─── Type badge ────────────────────────────────────────────────────────────────
 const TYPE_STYLES = {
@@ -280,11 +263,11 @@ function PostCard({ post, showBookingCode, canDelete, onDelete }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
-export default function Community({ code, showBookingCode = false, hidePostButton = false, dateFrom = null, dateTo = null, canDelete = false, onDelete = null }) {
+export default function Community({ code, showBookingCode = false, hidePostButton = false, dateFrom = null, dateTo = null, canDelete = false, onDelete = null, initialPostType = null }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(!!initialPostType);
 
   const isDateScoped = !!(dateFrom || dateTo);
   const visiblePosts = posts.filter((p) => !p.deletedAt);
@@ -316,7 +299,7 @@ export default function Community({ code, showBookingCode = false, hidePostButto
     <div className="flex flex-col gap-4">
       {/* Header */}
       <div>
-        <h2 className="text-base font-bold text-coqui-900">Broadcast</h2>
+        <h2 className="text-base font-bold text-coqui-900">Community Board</h2>
         <p className="text-sm text-coqui-800/60 mt-0.5">
           Parking, laundry, and property coordination
         </p>
@@ -327,6 +310,7 @@ export default function Community({ code, showBookingCode = false, hidePostButto
         showForm ? (
           <CommunityPost
             code={code}
+            initialType={initialPostType}
             onClose={() => setShowForm(false)}
             onSuccess={() => setShowForm(false)}
           />

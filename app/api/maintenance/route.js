@@ -3,7 +3,12 @@ import { adminDb } from '@/lib/firebase-admin';
 import { requireRole, requireAuth } from '@/lib/api-auth';
 import { notifyAdminAndCohost } from '@/lib/staff-notifications';
 
-const VALID_CATEGORIES = ['Plumbing', 'Electrical', 'HVAC', 'Appliance', 'Other'];
+const VALID_CATEGORIES = [
+  'lighting', 'water', 'ac_heating', 'appliance', 'lock_door',
+  'wifi_tv', 'pest', 'cleaning', 'noise', 'other',
+  // Legacy values (backward compat with existing requests)
+  'Plumbing', 'Electrical', 'HVAC', 'Appliance', 'Other',
+];
 const VALID_URGENCIES = ['low', 'medium', 'high'];
 
 // ---------------------------------------------------------------------------

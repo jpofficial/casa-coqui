@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireAuth } from '@/lib/api-auth';
+import { createRateLimiter } from '@/lib/rate-limit';
+
+const laundryLimiter = createRateLimiter({ maxRequests: 10, windowMs: 15 * 60 * 1000 });
 
 const MACHINE_IDS = ['washer', 'dryer'];
 const VALID_STATUSES = ['available', 'in_use', 'needs_attention'];
@@ -61,8 +64,17 @@ export async function GET(request) {
 // ---------------------------------------------------------------------------
 export async function POST(request) {
   try {
-    const { error: authError } = await requireAuth(request);
+    const { caller, error: authError } = await requireAuth(request);
     if (authError) return authError;
+
+    // Rate limit: 10 updates per 15 minutes per user
+    const { limited } = laundryLimiter.check(caller.uid);
+    if (limited) {
+      return NextResponse.json(
+        { success: false, error: 'Too many updates. Please wait a few minutes.' },
+        { status: 429 }
+      );
+    }
 
     const body = await request.json();
     const { machineId, status } = body;

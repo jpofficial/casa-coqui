@@ -6,7 +6,18 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import { onAuthStateChanged } from 'firebase/auth';
 import { storage, auth, db } from '@/lib/firebase';
 
-const CATEGORIES = ['Plumbing', 'Electrical', 'HVAC', 'Appliance', 'Other'];
+const CATEGORIES = [
+  { value: 'lighting', label: 'Lighting', icon: '💡' },
+  { value: 'water', label: 'Water / Plumbing', icon: '🚿' },
+  { value: 'ac_heating', label: 'AC / Heating', icon: '❄️' },
+  { value: 'appliance', label: 'Appliance', icon: '🍳' },
+  { value: 'lock_door', label: 'Lock / Door', icon: '🔑' },
+  { value: 'wifi_tv', label: 'WiFi / TV', icon: '📶' },
+  { value: 'pest', label: 'Pest / Bug', icon: '🐛' },
+  { value: 'cleaning', label: 'Cleaning', icon: '🧹' },
+  { value: 'noise', label: 'Noise Issue', icon: '🔊' },
+  { value: 'other', label: 'Other', icon: '📋' },
+];
 const URGENCIES = [
   {
     value: 'low',
@@ -101,6 +112,11 @@ const STATUS_LABELS = {
   done: 'Done',
 };
 
+// Map category values → display labels (supports both new and legacy values)
+const CATEGORY_LABELS = Object.fromEntries(
+  CATEGORIES.map((c) => [c.value, c.label])
+);
+
 // ─── Request history ──────────────────────────────────────────────────────────
 function RequestHistory() {
   const [requests, setRequests] = useState([]);
@@ -176,7 +192,7 @@ function RequestHistory() {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500">{req.category}</span>
+                <span className="text-xs font-medium text-gray-500">{CATEGORY_LABELS[req.category] || req.category}</span>
                 <span className="text-xs text-gray-300">{formatDate(req.createdAt)}</span>
               </div>
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[status] || 'bg-gray-100 text-gray-500'}`}>
@@ -366,30 +382,33 @@ export default function MaintenanceForm({ code }) {
         onSubmit={handleSubmit}
         className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col gap-4"
       >
-        {/* Category dropdown */}
+        {/* Category grid */}
         <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="category"
-            className="text-sm font-semibold text-gray-700"
-          >
-            Category{' '}
+          <p className="text-sm font-semibold text-gray-700">
+            What is the issue?{' '}
             <span className="text-red-500" aria-hidden="true">*</span>
-          </label>
-          <select
-            id="category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            disabled={isLoading}
-            required
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition disabled:opacity-50 disabled:bg-gray-50"
-          >
-            <option value="">Select a category</option>
-            {CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {CATEGORIES.map((cat) => {
+              const isSelected = category === cat.value;
+              return (
+                <button
+                  key={cat.value}
+                  type="button"
+                  onClick={() => { setCategory(cat.value); setError(null); }}
+                  disabled={isLoading}
+                  className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition text-center
+                    ${isSelected
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-200'
+                    } disabled:opacity-50`}
+                >
+                  <span className="text-lg" aria-hidden="true">{cat.icon}</span>
+                  <span className="text-[11px] font-medium leading-tight">{cat.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Urgency radio buttons */}

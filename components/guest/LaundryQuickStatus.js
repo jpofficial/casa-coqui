@@ -1,0 +1,80 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import Link from 'next/link';
+
+const STATUS = {
+  available: { label: 'Available', dot: 'bg-green-500', text: 'text-green-700', bg: 'bg-green-50' },
+  in_use: { label: 'In Use', dot: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50' },
+  needs_attention: { label: 'Attention', dot: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50' },
+};
+
+function MachineStatusPill({ machineId, icon, label }) {
+  const [status, setStatus] = useState('available');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const ref = doc(db, 'laundry', machineId);
+    const unsubscribe = onSnapshot(
+      ref,
+      (snap) => {
+        if (snap.exists()) {
+          setStatus(snap.data().status ?? 'available');
+        }
+        setLoading(false);
+      },
+      () => setLoading(false)
+    );
+    return unsubscribe;
+  }, [machineId]);
+
+  const info = STATUS[status] ?? STATUS.available;
+
+  if (loading) {
+    return (
+      <div className="flex-1 bg-white rounded-lg border border-gray-100 p-3 animate-pulse">
+        <div className="h-4 bg-gray-100 rounded w-16 mb-2" />
+        <div className="h-3 bg-gray-50 rounded w-12" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex-1 rounded-lg border p-3 ${info.bg} border-gray-100`}>
+      <div className="flex items-center gap-1.5 mb-0.5">
+        <span className="text-base" aria-hidden="true">{icon}</span>
+        <span className="text-xs font-semibold text-gray-700">{label}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${info.dot} ${status === 'in_use' ? 'animate-pulse' : ''}`} />
+        <span className={`text-xs font-semibold ${info.text}`}>{info.label}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Compact laundry status display for the guest home page.
+ * Shows real-time washer/dryer status as two side-by-side pills.
+ * Tapping navigates to the full laundry page.
+ */
+export default function LaundryQuickStatus({ code }) {
+  return (
+    <Link href={`/g/${code}/laundry`} className="block">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-50 p-3 hover:shadow-md active:scale-[0.99] transition-all duration-150 cursor-pointer">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Laundry Status</span>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 text-gray-300">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </div>
+        <div className="flex gap-2">
+          <MachineStatusPill machineId="washer" icon="🧺" label="Washer" />
+          <MachineStatusPill machineId="dryer" icon="💨" label="Dryer" />
+        </div>
+      </div>
+    </Link>
+  );
+}

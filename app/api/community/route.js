@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireAuth } from '@/lib/api-auth';
 import { broadcastToActiveGuests } from '@/lib/notifications';
+import { createRateLimiter } from '@/lib/rate-limit';
+
+const communityLimiter = createRateLimiter({ maxRequests: 5, windowMs: 15 * 60 * 1000 });
+
+const MAX_MESSAGE_LENGTH = 500;
 
 // Auto-generated messages by post type.
 const AUTO_MESSAGES = {
@@ -29,6 +34,15 @@ export async function POST(request) {
     const { caller, error: authError } = await requireAuth(request);
     if (authError) return authError;
 
+    // Rate limit: 5 posts per 15 minutes per user
+    const { limited } = communityLimiter.check(caller.uid);
+    if (limited) {
+      return NextResponse.json(
+        { success: false, error: 'Too many posts. Please wait a few minutes.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { type, message: customMessage, photoUrl } = body;
 
@@ -55,6 +69,12 @@ export async function POST(request) {
       if (!customMessage?.trim()) {
         return NextResponse.json(
           { success: false, error: 'Message is required for general posts.' },
+          { status: 400 }
+        );
+      }
+      if (customMessage.trim().length > MAX_MESSAGE_LENGTH) {
+        return NextResponse.json(
+          { success: false, error: `Message must be ${MAX_MESSAGE_LENGTH} characters or less.` },
           { status: 400 }
         );
       }
