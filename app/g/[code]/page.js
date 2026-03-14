@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useRef } from 'react';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
 import { where } from 'firebase/firestore';
+import { auth as firebaseAuth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 
 // ─── Card skeleton ────────────────────────────────────────────────────────────
@@ -128,12 +130,27 @@ function getNavCards(code) {
       bg: 'bg-red-50',
     },
     {
+      id: 'invite',
+      title: 'Invite Group',
+      description: 'Invite your travel companions',
+      href: `/g/${code}/invite`,
+      phase2: false,
+      primaryOnly: true,
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-6 h-6">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+        </svg>
+      ),
+      color: 'text-cyan-600',
+      bg: 'bg-cyan-50',
+    },
+    {
       id: 'contact',
       title: 'Contact Host',
-      description: 'Message your host on Airbnb',
-      href: 'https://www.airbnb.com/hosting/inbox',
+      description: 'Message your host directly',
+      href: `/g/${code}/chat`,
       phase2: false,
-      external: true,
+      external: false,
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-6 h-6">
           <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
@@ -196,6 +213,45 @@ export default function GuestHome({ params }) {
   ]);
   const { data: settings } = useDocument('settings', 'property');
 
+  // Check if current user is the primary guest (must be before early returns)
+  const { data: members, loading: membersLoading } = useCollection('booking_members', [
+    where('bookingCode', '==', code),
+  ]);
+
+  // For legacy bookings with no booking_members docs, backfill via API
+  const didBackfill = useRef(false);
+  useEffect(() => {
+    if (membersLoading || !user || !bookings?.length || didBackfill.current) return;
+    if (members.length > 0) return;
+    const booking = bookings[0];
+    if (booking.status !== 'active') return;
+
+    didBackfill.current = true;
+    (async () => {
+      try {
+        const idToken = await firebaseAuth.currentUser.getIdToken();
+        await fetch('/api/guests/link-member', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            bookingCode: code,
+            name: booking.guestName || '',
+            email: booking.guestEmail || '',
+          }),
+        });
+      } catch (err) {
+        console.error('Backfill booking_members error:', err);
+      }
+    })();
+  }, [membersLoading, members, user, bookings, code]);
+
+  const isPrimary = members.some(
+    (m) => m.role === 'primary' && (m.uid === user?.uid || (!m.uid && user))
+  );
+
   // If not authenticated, prompt guest to verify first
   if (!authLoading && !user) {
     return (
@@ -241,7 +297,9 @@ export default function GuestHome({ params }) {
   const propertyPhotos = settings?.propertyPhotos ?? [];
   const propertyName = settings?.propertyName || 'Casa Coqui';
 
-  const cards = getNavCards(code);
+  const cards = getNavCards(code).filter(
+    (card) => !card.primaryOnly || isPrimary
+  );
 
   return (
     <div className="px-4 pt-5 pb-4">
@@ -290,7 +348,7 @@ export default function GuestHome({ params }) {
           Quick Access
         </h2>
 
-        {loading ? (
+        {loading || membersLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <CardSkeleton key={i} />
