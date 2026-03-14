@@ -5,44 +5,127 @@ import { requireRole } from '@/lib/api-auth';
 // ---------------------------------------------------------------------------
 // GET /api/stays/active
 //
-// Returns sanitized active and upcoming stays for operational use.
-// Designed for co-host view — excludes booking codes, guest links, and
-// sensitive guest details.
+// Returns enriched active stays with check-in details, unread message counts,
+// open maintenance counts, and night calculations.
 //
-// Requires admin or cohost role.
+// Role-based response:
+//   admin:  full details (guest name, email, phone, bookingCode, guestLink)
+//   cohost: sanitized (first name only, no sensitive fields)
 //
 // Returns:
 //   { success: true, data: [...stays] }
 // ---------------------------------------------------------------------------
 export async function GET(request) {
   try {
-    const { error: authError } = await requireRole(request, ['admin', 'cohost']);
+    const { caller, error: authError } = await requireRole(request, ['admin', 'cohost']);
     if (authError) return authError;
 
-    const snapshot = await adminDb
+    const isAdmin = caller.role === 'admin';
+
+    // 1. Fetch active bookings
+    const bookingsSnap = await adminDb
       .collection('bookings')
       .where('status', '==', 'active')
       .get();
 
-    const stays = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      // Extract only first name for privacy
-      const guestFirstName = data.guestName
-        ? data.guestName.split(' ')[0]
-        : 'Guest';
+    if (bookingsSnap.empty) {
+      return NextResponse.json({ success: true, data: [] });
+    }
 
-      return {
-        id: doc.id,
-        unit: data.unit,
-        guestFirstName,
-        checkInDate: data.checkInDate,
-        checkOutDate: data.checkOutDate,
-        status: data.status,
-        checkedIn: data.checkedIn || false,
+    const bookings = bookingsSnap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // 2. Fetch check-in details for each booking code
+    const codes = bookings.map((b) => b.code).filter(Boolean);
+    const checkinMap = {};
+    if (codes.length > 0) {
+      const checkinPromises = codes.map((code) =>
+        adminDb.collection('checkins').doc(code).get()
+      );
+      const checkinDocs = await Promise.all(checkinPromises);
+      for (const doc of checkinDocs) {
+        if (doc.exists) {
+          checkinMap[doc.id] = doc.data();
+        }
+      }
+    }
+
+    // 3. Fetch unread guest messages (sender == 'guest', read == false)
+    //    Query all guest messages, filter unread in JS to avoid composite index
+    const unreadMap = {};
+    const msgSnap = await adminDb
+      .collection('messages')
+      .where('sender', '==', 'guest')
+      .get();
+    for (const doc of msgSnap.docs) {
+      const data = doc.data();
+      if (data.read === false && data.bookingCode) {
+        unreadMap[data.bookingCode] = (unreadMap[data.bookingCode] || 0) + 1;
+      }
+    }
+
+    // 4. Fetch open/in-progress maintenance requests
+    const maintMap = {};
+    const maintSnap = await adminDb
+      .collection('maintenance')
+      .where('status', 'in', ['open', 'in-progress'])
+      .get();
+    for (const doc of maintSnap.docs) {
+      const data = doc.data();
+      if (data.bookingCode) {
+        maintMap[data.bookingCode] = (maintMap[data.bookingCode] || 0) + 1;
+      }
+    }
+
+    // 5. Build enriched stay objects
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    const stays = bookings.map((b) => {
+      const code = b.code || '';
+      const checkin = checkinMap[code] || {};
+
+      // Night calculations
+      const nightCount = getNightCount(b.checkInDate, b.checkOutDate);
+      const nightsRemaining = getNightCount(todayStr, b.checkOutDate);
+
+      const stay = {
+        id: b.id,
+        unit: b.unit,
+        guestFirstName: b.guestName ? b.guestName.split(' ')[0] : 'Guest',
+        checkInDate: b.checkInDate,
+        checkOutDate: b.checkOutDate,
+        status: b.status,
+        checkedIn: b.checkedIn || false,
+        nightCount,
+        nightsRemaining,
+        arrivalTime: checkin.arrivalTime || null,
+        guestCount: checkin.guestCount || null,
+        specialRequests: checkin.specialRequests || null,
+        unreadMessageCount: unreadMap[code] || 0,
+        openMaintenanceCount: maintMap[code] || 0,
       };
+
+      // Admin-only fields
+      if (isAdmin) {
+        stay.guestName = b.guestName || 'Guest';
+        stay.guestEmail = b.guestEmail || checkin.email || null;
+        stay.phone = checkin.phone || null;
+        stay.bookingCode = code;
+        stay.guestLink = b.guestLink || null;
+      }
+
+      return stay;
     });
 
-    stays.sort((a, b) => (b.checkInDate || '').localeCompare(a.checkInDate || ''));
+    // Sort by unit (alphabetical), then checkInDate ascending within each unit
+    stays.sort((a, b) => {
+      const unitCmp = (a.unit || '').localeCompare(b.unit || '');
+      if (unitCmp !== 0) return unitCmp;
+      return (a.checkInDate || '').localeCompare(b.checkInDate || '');
+    });
 
     return NextResponse.json({ success: true, data: stays });
   } catch (error) {
@@ -52,4 +135,14 @@ export async function GET(request) {
       { status: 500 }
     );
   }
+}
+
+function getNightCount(checkIn, checkOut) {
+  if (!checkIn || !checkOut) return 0;
+  const [y1, m1, d1] = checkIn.split('-').map(Number);
+  const [y2, m2, d2] = checkOut.split('-').map(Number);
+  const a = new Date(y1, m1 - 1, d1);
+  const b = new Date(y2, m2 - 1, d2);
+  const diff = Math.round((b - a) / (1000 * 60 * 60 * 24));
+  return diff > 0 ? diff : 0;
 }
