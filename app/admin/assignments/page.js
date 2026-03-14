@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import useAuth from '@/hooks/useAuth';
-import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useDocument } from '@/hooks/useFirestore';
 import { getUnitsWithShared } from '@/lib/units';
@@ -159,7 +159,7 @@ function SkeletonCard() {
 // ---------------------------------------------------------------------------
 // Assignment Card — redesigned for clarity
 // ---------------------------------------------------------------------------
-function AssignmentCard({ assignment, canManage, isAdmin, staffMembers, onUpdateStatus, onPatch }) {
+function AssignmentCard({ assignment, canManage, isAdmin, staffMembers, bookingInfo, onUpdateStatus, onPatch }) {
   const [completing, setCompleting] = useState(false);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -181,6 +181,12 @@ function AssignmentCard({ assignment, canManage, isAdmin, staffMembers, onUpdate
     : null;
 
   const displayTitle = isMaintenance ? 'Maintenance Request' : a.title;
+
+  // For maintenance tasks: resolve unit and guest name from booking
+  const resolvedUnit = a.unit || (isMaintenance && bookingInfo?.unit) || null;
+  const submittedBy = isMaintenance && bookingInfo?.guestFirstName
+    ? bookingInfo.guestFirstName
+    : null;
 
   async function handleStatusChange(newStatus) {
     if (newStatus === 'completed' && !completing) {
@@ -291,16 +297,22 @@ function AssignmentCard({ assignment, canManage, isAdmin, staffMembers, onUpdate
 
           {/* Row 4: Meta details — icon + text pairs */}
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-gray-500">
+            {isMaintenance && submittedBy && (
+              <span className="inline-flex items-center gap-1 text-orange-600 font-medium">
+                <PersonIcon className="w-3.5 h-3.5" />
+                {submittedBy}
+              </span>
+            )}
             {canManage && !isUnassigned && (
               <span className="inline-flex items-center gap-1">
                 <PersonIcon className="w-3.5 h-3.5 text-gray-400" />
                 {a.assigneeName}
               </span>
             )}
-            {a.unit && (
+            {resolvedUnit && (
               <span className="inline-flex items-center gap-1">
                 <HomeIcon className="w-3.5 h-3.5 text-gray-400" />
-                {a.unit}
+                {resolvedUnit}
               </span>
             )}
             {a.dueDate && (
@@ -688,6 +700,7 @@ export default function AssignmentsPage() {
   const { data: settings } = useDocument('settings', 'property');
   const [assignments, setAssignments] = useState([]);
   const [staffMembers, setStaffMembers] = useState([]);
+  const [bookingMap, setBookingMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [tab, setTab] = useState('active');
@@ -730,6 +743,43 @@ export default function AssignmentsPage() {
 
     return unsub;
   }, [canManage, user]);
+
+  // Fetch booking info (guest name + unit) for maintenance assignments
+  useEffect(() => {
+    const codes = [
+      ...new Set(
+        assignments
+          .filter((a) => a.source === 'maintenance' && a.bookingCode)
+          .map((a) => a.bookingCode)
+      ),
+    ];
+    // Skip if no codes or all codes already in map
+    const missing = codes.filter((c) => !bookingMap[c]);
+    if (missing.length === 0) return;
+
+    async function fetchBookings() {
+      // Firestore 'in' queries support max 30 values
+      const batches = [];
+      for (let i = 0; i < missing.length; i += 30) {
+        batches.push(missing.slice(i, i + 30));
+      }
+      const newMap = { ...bookingMap };
+      for (const batch of batches) {
+        const q = query(collection(db, 'bookings'), where('code', 'in', batch));
+        const snap = await getDocs(q);
+        for (const doc of snap.docs) {
+          const d = doc.data();
+          newMap[d.code] = {
+            guestName: d.guestName || 'Guest',
+            guestFirstName: d.guestName ? d.guestName.split(' ')[0] : 'Guest',
+            unit: d.unit || null,
+          };
+        }
+      }
+      setBookingMap(newMap);
+    }
+    fetchBookings();
+  }, [assignments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeAssignments = useMemo(
     () => assignments.filter((a) => a.status === 'pending' || a.status === 'in_progress'),
@@ -828,6 +878,7 @@ export default function AssignmentsPage() {
               canManage={canManage}
               isAdmin={isAdmin}
               staffMembers={staffMembers}
+              bookingInfo={a.bookingCode ? bookingMap[a.bookingCode] : null}
               onUpdateStatus={updateStatus}
               onPatch={patchAssignment}
             />
