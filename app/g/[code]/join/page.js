@@ -1,16 +1,37 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { where } from 'firebase/firestore';
-import { auth as firebaseAuth } from '@/lib/firebase';
+import { useSearchParams } from 'next/navigation';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth as firebaseAuth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
-import { useCollection, useDocument } from '@/hooks/useFirestore';
 import PhoneStep from '@/components/guest/PhoneStep';
+
+// ─── Shared UI primitives ──────────────────────────────────────────────────────
+function Field({ label, error, children }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-sm font-medium text-gray-700">{label}</label>
+      {children}
+      {error && <p className="text-xs text-red-500 mt-0.5">{error}</p>}
+    </div>
+  );
+}
+
+function Input({ className = '', ...props }) {
+  return (
+    <input
+      className={`w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder-gray-400
+        focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition
+        disabled:bg-gray-50 disabled:text-gray-400 ${className}`}
+      {...props}
+    />
+  );
+}
 
 // ─── Step indicator ────────────────────────────────────────────────────────────
 function StepIndicator({ current }) {
-  const steps = ['Verify', 'Details', 'Done'];
+  const steps = ['Verify', 'Confirm', 'Done'];
   return (
     <div className="flex items-center justify-center gap-2 mb-6" aria-label="Form progress">
       {steps.map((label, idx) => {
@@ -44,64 +65,15 @@ function StepIndicator({ current }) {
   );
 }
 
-// ─── Field component ───────────────────────────────────────────────────────────
-function Field({ label, error, children }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
-      {children}
-      {error && <p className="text-xs text-red-500 mt-0.5">{error}</p>}
-    </div>
-  );
-}
-
-function Input({ className = '', ...props }) {
-  return (
-    <input
-      className={`w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder-gray-400
-        focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition
-        disabled:bg-gray-50 disabled:text-gray-400 ${className}`}
-      {...props}
-    />
-  );
-}
-
-function Textarea({ className = '', ...props }) {
-  return (
-    <textarea
-      className={`w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder-gray-400
-        focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition resize-none
-        disabled:bg-gray-50 disabled:text-gray-400 ${className}`}
-      rows={3}
-      {...props}
-    />
-  );
-}
-
-// ─── Step 2 — Guest details form ──────────────────────────────────────────────
-function DetailsForm({ code, firebaseUser, verifiedPhone, booking, onSuccess }) {
+// ─── Confirm details form (simplified for invited members) ─────────────────────
+function ConfirmForm({ code, invite, firebaseUser, verifiedPhone, onSuccess }) {
   const [form, setForm] = useState({
-    fullName: '',
-    email: '',
+    fullName: invite.name || '',
+    email: invite.email || '',
     arrivalTime: '',
-    guestCount: '1',
-    specialRequests: '',
   });
-  const [prefilled, setPrefilled] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-
-  // Pre-populate from booking data (once, when booking loads)
-  useEffect(() => {
-    if (booking && !prefilled) {
-      setPrefilled(true);
-      setForm((prev) => ({
-        ...prev,
-        fullName: prev.fullName || booking.guestName || '',
-        email: prev.email || booking.guestEmail || '',
-      }));
-    }
-  }, [booking, prefilled]);
 
   function validate() {
     const e = {};
@@ -110,8 +82,6 @@ function DetailsForm({ code, firebaseUser, verifiedPhone, booking, onSuccess }) 
       e.email = 'A valid email address is required.';
     }
     if (!form.arrivalTime) e.arrivalTime = 'Please select an expected arrival time.';
-    const count = parseInt(form.guestCount, 10);
-    if (!count || count < 1 || count > 20) e.guestCount = 'Enter a number between 1 and 20.';
     return e;
   }
 
@@ -129,43 +99,39 @@ function DetailsForm({ code, firebaseUser, verifiedPhone, booking, onSuccess }) 
     }
     setLoading(true);
     try {
-      const idToken = await firebaseAuth.currentUser.getIdToken();
-      const res = await fetch('/api/guests/checkin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          bookingCode: code,
-          fullName: form.fullName.trim(),
-          email: form.email.trim().toLowerCase(),
-          phone: verifiedPhone,
-          arrivalTime: form.arrivalTime,
-          guestCount: parseInt(form.guestCount, 10),
-          specialRequests: form.specialRequests.trim() || null,
-        }),
-      });
-      const json = await res.json();
-      if (!json.success) {
-        setErrors({ submit: json.error || 'Something went wrong. Please try again.' });
-        return;
-      }
+      const guestId = firebaseUser.uid;
 
-      // Ensure bookingCode claim is set for this booking
+      // Save guest document
+      await setDoc(doc(db, 'guests', guestId), {
+        fullName: form.fullName.trim(),
+        email: form.email.trim().toLowerCase(),
+        phone: verifiedPhone,
+        arrivalTime: form.arrivalTime,
+        bookingCode: code,
+        createdAt: serverTimestamp(),
+        uid: guestId,
+        memberRole: 'member',
+      });
+
+      // Update booking_members via server-side API
       try {
-        const freshToken = await firebaseAuth.currentUser.getIdToken();
-        await fetch('/api/guests/set-claims', {
+        const idToken = await firebaseAuth.currentUser.getIdToken();
+        await fetch('/api/guests/link-member', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${freshToken}`,
+            Authorization: `Bearer ${idToken}`,
           },
-          body: JSON.stringify({ bookingCode: code }),
+          body: JSON.stringify({
+            bookingCode: code,
+            name: form.fullName.trim(),
+            email: form.email.trim().toLowerCase(),
+            phone: verifiedPhone,
+            role: 'member',
+          }),
         });
-        await firebaseAuth.currentUser.getIdToken(true);
-      } catch (claimErr) {
-        console.error('Set claims error:', claimErr);
+      } catch (memberErr) {
+        console.error('Link booking_members error:', memberErr);
       }
 
       onSuccess(form.fullName.trim());
@@ -177,7 +143,7 @@ function DetailsForm({ code, firebaseUser, verifiedPhone, booking, onSuccess }) 
     }
   }
 
-  // Build arrival time options (hourly, 12h format, starting at 3 PM)
+  // Arrival time options starting at 3 PM
   const timeOptions = [];
   for (let h = 15; h <= 23; h++) {
     const label = new Date(2000, 0, 1, h).toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
@@ -187,9 +153,9 @@ function DetailsForm({ code, firebaseUser, verifiedPhone, booking, onSuccess }) 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
       <div className="text-center mb-1">
-        <h2 className="text-lg font-bold text-gray-900">Tell us about yourself</h2>
+        <h2 className="text-lg font-bold text-gray-900">Confirm your details</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Phone verified. Fill in a few quick details.
+          Phone verified. Just confirm a few details and you&apos;re in.
         </p>
       </div>
 
@@ -231,27 +197,6 @@ function DetailsForm({ code, firebaseUser, verifiedPhone, booking, onSuccess }) 
         </select>
       </Field>
 
-      <Field label="Number of guests (including yourself)" error={errors.guestCount}>
-        <Input
-          type="number"
-          min={1}
-          max={20}
-          placeholder="1"
-          value={form.guestCount}
-          onChange={(e) => set('guestCount', e.target.value)}
-          inputMode="numeric"
-          required
-        />
-      </Field>
-
-      <Field label="Special requests (optional)">
-        <Textarea
-          placeholder="Early check-in, accessibility needs, or anything else we should know…"
-          value={form.specialRequests}
-          onChange={(e) => set('specialRequests', e.target.value)}
-        />
-      </Field>
-
       {errors.submit && (
         <p className="text-sm text-red-500 text-center">{errors.submit}</p>
       )}
@@ -262,13 +207,13 @@ function DetailsForm({ code, firebaseUser, verifiedPhone, booking, onSuccess }) 
         className="w-full py-3.5 rounded-xl bg-green-600 text-white font-semibold text-sm mt-1
           hover:bg-green-700 active:bg-green-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        {loading ? 'Saving...' : 'Complete Check-In'}
+        {loading ? 'Saving...' : 'Join Group'}
       </button>
     </form>
   );
 }
 
-// ─── Step 3 — Success ──────────────────────────────────────────────────────────
+// ─── Success state ─────────────────────────────────────────────────────────────
 function SuccessState({ name, code }) {
   return (
     <div className="flex flex-col items-center text-center gap-4 py-4">
@@ -279,76 +224,80 @@ function SuccessState({ name, code }) {
       </div>
       <div>
         <h2 className="text-2xl font-bold text-gray-900">
-          You&apos;re all set{name ? `, ${name.split(' ')[0]}` : ''}!
+          Welcome{name ? `, ${name.split(' ')[0]}` : ''}!
         </h2>
         <p className="text-sm text-gray-500 mt-2 leading-relaxed max-w-xs mx-auto">
-          Your check-in is complete. Explore the portal below to find everything you need for a great stay.
+          You&apos;ve joined the group. Head to the portal to explore everything you need for your stay.
         </p>
       </div>
-
-      <div className="w-full bg-green-50 border border-green-100 rounded-xl p-4 text-left flex flex-col gap-2">
-        <p className="text-sm font-semibold text-green-800">What&apos;s next</p>
-        <ul className="text-sm text-green-700 flex flex-col gap-1">
-          <li className="flex gap-2 items-start">
-            <span className="mt-0.5 text-green-500" aria-hidden="true">&#x2713;</span>
-            Check the Check-In Guide for arrival instructions
-          </li>
-          <li className="flex gap-2 items-start">
-            <span className="mt-0.5 text-green-500" aria-hidden="true">&#x2713;</span>
-            Review your parking spot on the Parking page
-          </li>
-          <li className="flex gap-2 items-start">
-            <span className="mt-0.5 text-green-500" aria-hidden="true">&#x2713;</span>
-            Grab the WiFi password from Access Codes
-          </li>
-        </ul>
-      </div>
-
       <a
         href={`/g/${code}`}
         className="w-full py-3.5 rounded-xl bg-green-600 text-white font-semibold text-sm text-center
           hover:bg-green-700 active:bg-green-800 transition block"
       >
-        Go to Home
+        Go to Guest Portal
       </a>
     </div>
   );
 }
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
-export default function CheckInPage({ params }) {
+export default function JoinPage({ params }) {
   const code = params.code;
+  const searchParams = useSearchParams();
+  const token = searchParams.get('token');
 
   const { user } = useAuth();
   const [step, setStep] = useState(1);
+  const [invite, setInvite] = useState(null);
+  const [error, setError] = useState('');
+  const [claiming, setClaiming] = useState(true);
   const [verifiedUser, setVerifiedUser] = useState(null);
   const [verifiedPhone, setVerifiedPhone] = useState('');
   const [guestName, setGuestName] = useState('');
 
-  // Fetch booking to pre-populate details form
-  const { data: bookings } = useCollection('bookings', [
-    where('code', '==', code),
-  ]);
-  const booking = bookings?.[0] ?? null;
-
-  // Check if already checked in
-  const { data: existingCheckin } = useDocument('checkins', code);
-
+  // Validate the token on mount
   useEffect(() => {
-    if (existingCheckin?.checkedIn && user) {
-      setGuestName(existingCheckin.fullName || '');
-      setStep(3);
+    if (!token) {
+      setError('Missing invite token. Please use the link from your invitation email.');
+      setClaiming(false);
+      return;
     }
-  }, [existingCheckin, user]);
 
-  // If already signed in but not checked in, skip phone step
+    async function claimToken() {
+      try {
+        const res = await fetch('/api/guests/claim-invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+        const json = await res.json();
+
+        if (!json.success) {
+          setError(json.error || 'Invalid invite link.');
+          setClaiming(false);
+          return;
+        }
+
+        setInvite(json.data);
+        setClaiming(false);
+      } catch (err) {
+        console.error('Claim invite error:', err);
+        setError('Something went wrong. Please try again.');
+        setClaiming(false);
+      }
+    }
+
+    claimToken();
+  }, [token]);
+
+  // If already signed in, skip phone step
   useEffect(() => {
-    if (user && step === 1 && !existingCheckin?.checkedIn) {
+    if (user && invite && step === 1) {
       setVerifiedUser(user);
-      setVerifiedPhone(user.phoneNumber || '');
       setStep(2);
     }
-  }, [user, step, existingCheckin]);
+  }, [user, invite, step]);
 
   function handleVerified(firebaseUser, phone) {
     setVerifiedUser(firebaseUser);
@@ -361,6 +310,33 @@ export default function CheckInPage({ params }) {
     setStep(3);
   }
 
+  // Loading state
+  if (claiming) {
+    return (
+      <div className="px-4 py-12 text-center">
+        <div className="w-12 h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-sm text-gray-500">Validating your invitation...</p>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="px-4 pt-12 pb-4 text-center">
+        <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-8 h-8 text-red-500">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+        </div>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">Invite Error</h1>
+        <p className="text-sm text-gray-500">{error}</p>
+      </div>
+    );
+  }
+
+  if (!invite) return null;
+
   return (
     <div className="px-4 py-6">
       <StepIndicator current={step} />
@@ -370,11 +346,11 @@ export default function CheckInPage({ params }) {
           <PhoneStep code={code} onVerified={handleVerified} />
         )}
         {step === 2 && verifiedUser && (
-          <DetailsForm
+          <ConfirmForm
             code={code}
+            invite={invite}
             firebaseUser={verifiedUser}
             verifiedPhone={verifiedPhone}
-            booking={booking}
             onSuccess={handleSuccess}
           />
         )}

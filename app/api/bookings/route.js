@@ -49,7 +49,7 @@ export async function POST(request) {
     if (authError) return authError;
 
     const body = await request.json();
-    const { unit, guestName = '', checkInDate, checkOutDate } = body;
+    const { unit, guestName = '', guestEmail = '', checkInDate, checkOutDate } = body;
 
     // Validate required fields
     if (!unit || !checkInDate || !checkOutDate) {
@@ -94,6 +94,7 @@ export async function POST(request) {
       code,
       unit,
       guestName: String(guestName).trim(),
+      guestEmail: String(guestEmail).trim().toLowerCase(),
       checkInDate,
       checkOutDate,
       status: 'active',
@@ -103,6 +104,19 @@ export async function POST(request) {
     };
 
     const docRef = await adminDb.collection('bookings').add(booking);
+
+    // Create primary booking_members doc for the guest
+    await adminDb.collection('booking_members').add({
+      bookingCode: code,
+      role: 'primary',
+      name: booking.guestName,
+      email: booking.guestEmail,
+      phone: null,
+      uid: null,
+      status: 'pending',
+      invitedBy: null,
+      createdAt: new Date().toISOString(),
+    });
 
     return NextResponse.json(
       { success: true, data: { id: docRef.id, ...booking } },

@@ -271,6 +271,25 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
+    // booking_members
+    // Any authenticated user can read (same model as bookings — the booking
+    // code in the URL is the access gate). Any authenticated user can
+    // create/update. Only admin can delete.
+    // -------------------------------------------------------------------------
+    match /booking_members/{memberId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // invite_tokens
+    // Server-side only (Admin SDK). No client access.
+    // -------------------------------------------------------------------------
+    match /invite_tokens/{tokenId} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
     // settings
     // Admin can read and write. Any authenticated user can read (guests need
     // WiFi password, property name, etc.).

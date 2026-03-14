@@ -133,6 +133,7 @@ function BookingForm({ onCreated, user, settings }) {
         body: JSON.stringify({
           unit: form.unit,
           guestName: form.guestName.trim(),
+          guestEmail: form.guestEmail.trim(),
           checkInDate: form.checkInDate,
           checkOutDate: form.checkOutDate,
         }),
@@ -341,6 +342,9 @@ function BookingCard({ booking, onCancel }) {
           <p className="font-semibold text-gray-900 text-sm truncate">
             {booking.guestName || 'Guest (unnamed)'}
           </p>
+          {booking.guestEmail && (
+            <p className="text-xs text-gray-400 truncate">{booking.guestEmail}</p>
+          )}
           <p className="text-xs text-gray-500 mt-0.5">{booking.unit}</p>
         </div>
         <StatusBadge status={booking.status} />
