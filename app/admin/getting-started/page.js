@@ -37,8 +37,8 @@ export default function GettingStartedPage() {
   const { permission, requestPermission, supported: pushSupported } = usePush();
   const router = useRouter();
 
-  const [showIOS, setShowIOS] = useState(false);
-  const [showAndroid, setShowAndroid] = useState(false);
+  const [showSafari, setShowSafari] = useState(false);
+  const [showChrome, setShowChrome] = useState(false);
   const [dismissing, setDismissing] = useState(false);
   const [notifLoading, setNotifLoading] = useState(false);
 
@@ -117,63 +117,158 @@ export default function GettingStartedPage() {
             </p>
           </div>
 
-          {/* iOS */}
+          {/* Safari */}
           <div className="border-t border-cafe-100">
             <button
-              onClick={() => setShowIOS(!showIOS)}
+              onClick={() => setShowSafari(!showSafari)}
               className="w-full flex items-center justify-between px-5 py-3.5 text-left"
             >
               <div className="flex items-center gap-2.5">
-                <svg className="w-5 h-5 text-coqui-800/40" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
-                </svg>
-                <span className="text-sm font-semibold text-coqui-900">iPhone / iPad</span>
+                <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M16.24 7.76l-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z" />
+                  </svg>
+                </div>
+                <span className="text-sm font-semibold text-coqui-900">Safari</span>
               </div>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className={`w-5 h-5 text-coqui-800/30 transition-transform duration-200 ${showIOS ? 'rotate-180' : ''}`}
+                className={`w-5 h-5 text-coqui-800/30 transition-transform duration-200 ${showSafari ? 'rotate-180' : ''}`}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-            {showIOS && (
-              <div className="px-5 pb-4 space-y-2 text-sm text-coqui-800/70">
-                <p>1. Open this page in <strong>Safari</strong></p>
-                <p>2. Tap the <strong>Share</strong> button (box with arrow) at the bottom</p>
-                <p>3. Scroll down and tap <strong>&quot;Add to Home Screen&quot;</strong></p>
-                <p>4. Tap <strong>&quot;Add&quot;</strong> in the top-right corner</p>
+            {showSafari && (
+              <div className="px-5 pb-5 space-y-4">
+                {/* Step 1 */}
+                <div className="flex gap-3">
+                  <span className="flex-none w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">1</span>
+                  <div>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed">
+                      Tap the <strong>Share</strong> button at the bottom of the screen
+                    </p>
+                    <div className="mt-2 inline-flex items-center gap-1.5 bg-gray-100 rounded-lg px-3 py-2">
+                      <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 8.25H7.5a2.25 2.25 0 00-2.25 2.25v9a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H15M12 3v9m0-9l-3 3m3-3l3 3" />
+                      </svg>
+                      <span className="text-xs text-gray-500 font-medium">Share</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div className="flex gap-3">
+                  <span className="flex-none w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">2</span>
+                  <div>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed">
+                      Scroll down and tap <strong>&quot;Add to Home Screen&quot;</strong>
+                    </p>
+                    <div className="mt-2 inline-flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
+                      <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                      <span className="text-xs text-gray-600 font-medium">Add to Home Screen</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="flex gap-3">
+                  <span className="flex-none w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">3</span>
+                  <div>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed">
+                      Tap <strong>&quot;Add&quot;</strong> in the top-right corner to confirm
+                    </p>
+                    <div className="mt-2 inline-flex items-center bg-blue-500 rounded-lg px-3.5 py-1.5">
+                      <span className="text-xs text-white font-semibold">Add</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Android */}
+          {/* Chrome */}
           <div className="border-t border-cafe-100">
             <button
-              onClick={() => setShowAndroid(!showAndroid)}
+              onClick={() => setShowChrome(!showChrome)}
               className="w-full flex items-center justify-between px-5 py-3.5 text-left"
             >
               <div className="flex items-center gap-2.5">
-                <svg className="w-5 h-5 text-coqui-800/40" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M17.523 15.341a.605.605 0 010-.857l2.946-2.946H8.308a.607.607 0 010-1.214h12.161l-2.946-2.946a.605.605 0 01.857-.857l3.983 3.984a.607.607 0 010 .857l-3.983 3.979a.605.605 0 01-.857 0z" />
-                  <path d="M1 18.5V5.5C1 4.12 2.12 3 3.5 3h9c1.38 0 2.5 1.12 2.5 2.5v3h-1.2V5.5c0-.72-.58-1.3-1.3-1.3h-9c-.72 0-1.3.58-1.3 1.3v13c0 .72.58 1.3 1.3 1.3h9c.72 0 1.3-.58 1.3-1.3v-3H15v3c0 1.38-1.12 2.5-2.5 2.5h-9C2.12 21 1 19.88 1 18.5z" />
-                </svg>
-                <span className="text-sm font-semibold text-coqui-900">Android</span>
+                <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-amber-500" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="12" r="10" opacity="0.2" />
+                    <circle cx="12" cy="12" r="4" />
+                    <path d="M21.17 8H12M3.95 6.06L8.54 14M9.47 20.06L14.06 12" strokeWidth="2" stroke="currentColor" fill="none" />
+                  </svg>
+                </div>
+                <span className="text-sm font-semibold text-coqui-900">Chrome</span>
               </div>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className={`w-5 h-5 text-coqui-800/30 transition-transform duration-200 ${showAndroid ? 'rotate-180' : ''}`}
+                className={`w-5 h-5 text-coqui-800/30 transition-transform duration-200 ${showChrome ? 'rotate-180' : ''}`}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-            {showAndroid && (
-              <div className="px-5 pb-4 space-y-2 text-sm text-coqui-800/70">
-                <p>1. Open this page in <strong>Chrome</strong></p>
-                <p>2. Tap the <strong>three-dot menu</strong> in the top-right</p>
-                <p>3. Tap <strong>&quot;Add to Home Screen&quot;</strong> or <strong>&quot;Install App&quot;</strong></p>
-                <p>4. Tap <strong>&quot;Install&quot;</strong> to confirm</p>
+            {showChrome && (
+              <div className="px-5 pb-5 space-y-4">
+                {/* Step 1 */}
+                <div className="flex gap-3">
+                  <span className="flex-none w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center mt-0.5">1</span>
+                  <div>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed">
+                      Tap the <strong>More</strong> menu button
+                    </p>
+                    <div className="mt-2 inline-flex items-center gap-1.5 bg-gray-100 rounded-lg px-3 py-2">
+                      <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                        <circle cx="12" cy="5" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="12" cy="19" r="2" />
+                      </svg>
+                      <span className="text-xs text-gray-500 font-medium">More</span>
+                    </div>
+                    <p className="text-xs text-coqui-800/40 mt-1.5">
+                      Three dots at the top-right (Android) or bottom-right (iPhone)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div className="flex gap-3">
+                  <span className="flex-none w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center mt-0.5">2</span>
+                  <div>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed">
+                      Tap <strong>&quot;Add to Home Screen&quot;</strong>
+                    </p>
+                    <div className="mt-2 inline-flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
+                      <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 0v2m0-2h2m-2 0h-2" />
+                      </svg>
+                      <span className="text-xs text-gray-600 font-medium">Add to Home Screen</span>
+                    </div>
+                    <p className="text-xs text-coqui-800/40 mt-1.5">
+                      On Android, this may say <strong>&quot;Install App&quot;</strong> instead
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="flex gap-3">
+                  <span className="flex-none w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center mt-0.5">3</span>
+                  <div>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed">
+                      Tap <strong>&quot;Add&quot;</strong> or <strong>&quot;Install&quot;</strong> to confirm
+                    </p>
+                    <div className="mt-2 inline-flex items-center bg-blue-500 rounded-lg px-3.5 py-1.5">
+                      <span className="text-xs text-white font-semibold">Add</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
