@@ -5,6 +5,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 import Community from '@/components/guest/Community';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 const POST_TYPES = [
   { value: 'general', label: 'General' },
@@ -31,6 +32,7 @@ export default function AdminCommunityPage() {
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState('');
   const [type, setType] = useState('general');
+  const [photoUrl, setPhotoUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -68,13 +70,14 @@ export default function AdminCommunityPage() {
       await addDoc(collection(db, 'community'), {
         message: message.trim(),
         type,
-        photoUrl: null,
+        photoUrl: photoUrl || null,
         bookingCode: null,
         postedByRole: role || 'admin',
         createdAt: new Date().toISOString(),
       });
       setMessage('');
       setType('general');
+      setPhotoUrl('');
       setShowForm(false);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
@@ -137,6 +140,13 @@ export default function AdminCommunityPage() {
             placeholder="Message..."
             rows={3}
             className="admin-input-focus w-full rounded-lg border border-cafe-200 px-4 py-2.5 text-sm text-coqui-900 placeholder-cafe-400 resize-none focus:outline-none"
+          />
+
+          <ImageUpload
+            storagePath="community-photos"
+            value={photoUrl}
+            onChange={setPhotoUrl}
+            label="Photo (optional)"
           />
 
           <button
