@@ -66,10 +66,10 @@ function AdminLayoutInner({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-cafe-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-green-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-gray-500">Loading...</p>
+          <div className="w-10 h-10 border-4 border-coqui-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-coqui-800/60">Loading...</p>
         </div>
       </div>
     );
@@ -87,22 +87,22 @@ function AdminLayoutInner({ children }) {
   // Cleaner and Maintenance get a simplified shell
   if (role === 'cleaner' || role === 'maintenance') {
     const badgeConfig = {
-      cleaner: { label: 'Cleaning', bg: 'bg-yellow-100', text: 'text-yellow-800' },
-      maintenance: { label: 'Maintenance', bg: 'bg-orange-100', text: 'text-orange-800' },
+      cleaner: { label: 'Cleaning', bg: 'bg-atardecer-100', text: 'text-atardecer-800' },
+      maintenance: { label: 'Maintenance', bg: 'bg-flamboyan-100', text: 'text-flamboyan-800' },
     };
     const badge = badgeConfig[role];
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
-          <div className="flex items-center gap-2">
-            <span className="text-green-600 font-bold text-xl">Casa Coqui</span>
-            <span className={`${badge.bg} ${badge.text} text-xs font-semibold px-2 py-0.5 rounded-full`}>
+      <div className="min-h-screen bg-cafe-50 flex flex-col">
+        <header className="bg-white/80 backdrop-blur-sm border-b border-cafe-200 px-4 py-3.5 flex items-center justify-between sticky top-0 z-40 shadow-brand">
+          <div className="flex items-center gap-2.5">
+            <span className="font-display text-xl text-coqui-700">Casa Coqui</span>
+            <span className={`${badge.bg} ${badge.text} text-xs font-semibold px-2.5 py-0.5 rounded-full`}>
               {badge.label}
             </span>
           </div>
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 active:text-gray-900 transition-colors min-h-[44px] px-2"
+            className="flex items-center gap-1.5 text-sm text-coqui-800/50 hover:text-coqui-800 active:text-coqui-900 transition-colors min-h-[44px] px-2"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
@@ -157,9 +157,9 @@ function AdminLayoutInner({ children }) {
 
   const allMoreLinks = [
     { href: '/admin/bookings', label: 'Bookings' },
-    { href: '/admin/notify', label: 'Alerts' },
+    { href: '/admin/notify', label: 'Guest Notifications' },
     { href: '/admin/cleaning', label: 'Cleaning' },
-    { href: '/admin/community', label: 'Broadcast' },
+    { href: '/admin/community', label: 'Community Board' },
     { href: '/admin/expenses', label: 'Expenses' },
     { href: '/admin/supplies', label: 'Supplies' },
     { href: '/admin/receipts', label: 'Receipts' },
@@ -182,16 +182,18 @@ function AdminLayoutInner({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-cafe-50 flex flex-col">
       {/* Top Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center gap-2">
-          <span className="text-green-600 font-bold text-xl">Casa Coqui</span>
-          <span className="text-gray-400 text-sm font-medium">Admin</span>
+      <header className="bg-white/80 backdrop-blur-sm border-b border-cafe-200 px-4 py-3.5 flex items-center justify-between sticky top-0 z-40 shadow-brand">
+        <div className="flex items-center gap-2.5">
+          <span className="font-display text-xl text-coqui-700">Casa Coqui</span>
+          <span className="bg-coqui-100 text-coqui-700 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
+            Host
+          </span>
         </div>
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 active:text-gray-900 transition-colors min-h-[44px] px-2"
+          className="flex items-center gap-1.5 text-sm text-coqui-800/50 hover:text-coqui-800 active:text-coqui-900 transition-colors min-h-[44px] px-2"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
@@ -206,7 +208,7 @@ function AdminLayoutInner({ children }) {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-pb">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm border-t border-cafe-200 z-40 safe-area-pb shadow-brand-lg">
         <div className="flex items-stretch">
           {filteredNavTabs.map((tab) => {
             const active =
@@ -223,23 +225,34 @@ function AdminLayoutInner({ children }) {
                   <button
                     type="button"
                     onClick={() => setMoreOpen((prev) => !prev)}
-                    className={`w-full flex flex-col items-center justify-center gap-1 py-2 min-h-[56px] transition-colors ${active || moreOpen ? 'text-green-600' : 'text-gray-400'}`}
+                    className={`w-full flex flex-col items-center justify-center gap-1 py-2.5 min-h-[60px] transition-all duration-200 ${
+                      active || moreOpen
+                        ? 'text-coqui-600'
+                        : 'text-coqui-800/30 active:text-coqui-800/50'
+                    }`}
                   >
                     {tab.icon}
-                    <span className="text-[10px] font-medium leading-none">{tab.label}</span>
+                    <span className="text-[10px] font-semibold leading-none">{tab.label}</span>
                   </button>
                   {/* More dropdown — opens upward on tap */}
                   {moreOpen && (
-                    <div className="absolute bottom-full right-0 mb-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
-                      {moreLinks.map((link) => (
-                        <Link
-                          key={link.href}
-                          href={link.href}
-                          className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 border-b border-gray-50 last:border-0"
-                        >
-                          {link.label}
-                        </Link>
-                      ))}
+                    <div className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-xl shadow-brand-lg border border-cafe-200 overflow-hidden z-50 animate-admin-in">
+                      {moreLinks.map((link) => {
+                        const isActive = pathname === link.href;
+                        return (
+                          <Link
+                            key={link.href}
+                            href={link.href}
+                            className={`block px-4 py-3 text-sm transition-colors border-b border-cafe-100 last:border-0 ${
+                              isActive
+                                ? 'bg-coqui-50 text-coqui-700 font-medium'
+                                : 'text-coqui-900 hover:bg-cafe-100 active:bg-cafe-200'
+                            }`}
+                          >
+                            {link.label}
+                          </Link>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -250,10 +263,14 @@ function AdminLayoutInner({ children }) {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 min-h-[56px] transition-colors ${active ? 'text-green-600' : 'text-gray-400'}`}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 min-h-[60px] transition-all duration-200 ${
+                  active
+                    ? 'text-coqui-600'
+                    : 'text-coqui-800/30 active:text-coqui-800/50'
+                }`}
               >
                 {tab.icon}
-                <span className="text-[10px] font-medium leading-none">{tab.label}</span>
+                <span className="text-[10px] font-semibold leading-none">{tab.label}</span>
               </Link>
             );
           })}
