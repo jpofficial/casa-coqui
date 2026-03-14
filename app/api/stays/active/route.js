@@ -79,7 +79,29 @@ export async function GET(request) {
       }
     }
 
-    // 5. Build enriched stay objects
+    // 5. Fetch booking members (primary + invited guests) per booking code
+    const membersMap = {};
+    if (codes.length > 0) {
+      // Firestore 'in' supports max 30
+      for (let i = 0; i < codes.length; i += 30) {
+        const batch = codes.slice(i, i + 30);
+        const membersSnap = await adminDb
+          .collection('booking_members')
+          .where('bookingCode', 'in', batch)
+          .get();
+        for (const doc of membersSnap.docs) {
+          const data = doc.data();
+          if (!membersMap[data.bookingCode]) membersMap[data.bookingCode] = [];
+          membersMap[data.bookingCode].push({
+            name: data.name || null,
+            role: data.role || 'invited',
+            status: data.status || 'pending',
+          });
+        }
+      }
+    }
+
+    // 6. Build enriched stay objects
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
@@ -106,6 +128,7 @@ export async function GET(request) {
         specialRequests: checkin.specialRequests || null,
         unreadMessageCount: unreadMap[code] || 0,
         openMaintenanceCount: maintMap[code] || 0,
+        members: membersMap[code] || [],
       };
 
       // Admin-only fields

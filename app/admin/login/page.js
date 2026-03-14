@@ -108,14 +108,6 @@ function TeamLoginInner() {
   const [resetMessage, setResetMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Time-aware greeting — the page knows when you arrive
-  function getGreeting() {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Buenos d\u00edas';
-    if (hour < 18) return 'Buenas tardes';
-    return 'Buenas noches';
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -454,7 +446,7 @@ function TeamLoginInner() {
                 className="text-sm text-coqui-600/70 mt-1.5 tracking-wide uppercase animate-stagger-fade-in"
                 style={{ animationDelay: '0.55s' }}
               >
-                {resetMode ? 'Reset your password' : getGreeting()}
+                {resetMode ? 'Reset your password' : 'Bienvenidos'}
               </p>
 
               {/* Decorative gold divider line -- last brand element */}

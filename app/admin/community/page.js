@@ -27,11 +27,22 @@ function getDateNDaysAgo(n) {
 
 export default function AdminCommunityPage() {
   const { user, role } = useAuth();
+  const canDelete = role === 'admin' || role === 'cohost';
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState('');
   const [type, setType] = useState('general');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  async function handleDeletePost(postId) {
+    const idToken = await user.getIdToken();
+    const res = await fetch(`/api/community/${postId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+  }
 
   // Filter state
   const [filterMode, setFilterMode] = useState('last7');
@@ -188,7 +199,7 @@ export default function AdminCommunityPage() {
       </div>
 
       {/* Feed — showBookingCode=true for admin visibility */}
-      <Community showBookingCode={true} hidePostButton dateFrom={dateFrom} dateTo={dateTo} />
+      <Community showBookingCode={true} hidePostButton dateFrom={dateFrom} dateTo={dateTo} canDelete={canDelete} onDelete={handleDeletePost} />
     </div>
   );
 }

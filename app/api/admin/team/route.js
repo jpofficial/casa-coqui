@@ -16,7 +16,7 @@ export async function GET(request) {
     const snap = await adminDb.collection('users').get();
     const members = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
-      .filter((m) => m.status !== 'deactivated' && m.role !== 'admin');
+      .filter((m) => m.status !== 'deactivated');
 
     return NextResponse.json({ success: true, data: members });
   } catch (error) {

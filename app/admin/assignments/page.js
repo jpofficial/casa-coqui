@@ -7,6 +7,7 @@ import { auth } from '@/lib/firebase';
 import { db } from '@/lib/firebase';
 import { useDocument } from '@/hooks/useFirestore';
 import { getUnitsWithShared } from '@/lib/units';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -34,6 +35,7 @@ const STATUS_BADGE = {
   in_progress: 'bg-blue-100 text-blue-700',
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-gray-100 text-gray-500',
+  archived: 'bg-gray-100 text-gray-500',
 };
 
 const STATUS_LABELS = {
@@ -41,6 +43,7 @@ const STATUS_LABELS = {
   in_progress: 'In Progress',
   completed: 'Done',
   cancelled: 'Cancelled',
+  archived: 'Archived',
 };
 
 const CATEGORY_STYLES = {
@@ -491,15 +494,22 @@ function AssignmentCard({ assignment, canManage, isAdmin, staffMembers, bookingI
             </div>
           )}
 
-          {/* Reopen button for completed tasks */}
+          {/* Reopen / Archive buttons for completed tasks */}
           {canManage && a.status === 'completed' && (
-            <div className="pt-1">
+            <div className="flex gap-2 pt-1">
               <button
                 disabled={busy}
                 onClick={() => handleStatusChange('pending')}
                 className="text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-2 rounded-lg active:bg-gray-50 disabled:opacity-50 min-h-[36px]"
               >
                 Reopen
+              </button>
+              <button
+                disabled={busy}
+                onClick={() => handleStatusChange('archived')}
+                className="text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-2 rounded-lg active:bg-gray-50 disabled:opacity-50 min-h-[36px]"
+              >
+                Archive
               </button>
             </div>
           )}
@@ -521,12 +531,13 @@ function EmptyState({ tab, canManage }) {
         </svg>
       </div>
       <p className="text-gray-700 font-medium">
-        {tab === 'active' ? 'No active tasks' : 'No completed tasks'}
+        {tab === 'active' ? 'No active tasks' : tab === 'completed' ? 'No completed tasks' : 'No archived tasks'}
       </p>
       <p className="text-sm text-gray-400 mt-1">
         {tab === 'active'
           ? (canManage ? 'Create a task to assign work to your team.' : 'When tasks are assigned to you, they\u2019ll appear here.')
-          : 'Completed tasks will show up here.'}
+          : tab === 'completed' ? 'Completed tasks will show up here.'
+          : 'Archived tasks are kept here for your records.'}
       </p>
     </div>
   );
@@ -543,12 +554,13 @@ function CreateAssignmentModal({ user, staffMembers, settings, onClose }) {
   const [dueDate, setDueDate] = useState('');
   const [priority, setPriority] = useState('medium');
   const [unit, setUnit] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!title.trim() || !assigneeId) return;
+    if (!title.trim()) return;
 
     setSaving(true);
     setError(null);
@@ -564,10 +576,11 @@ function CreateAssignmentModal({ user, staffMembers, settings, onClose }) {
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim(),
-          assigneeId,
+          assigneeId: assigneeId || null,
           dueDate: dueDate || null,
           priority,
           unit: unit || null,
+          photoUrl: photoUrl || null,
         }),
       });
       const json = await res.json();
@@ -622,14 +635,13 @@ function CreateAssignmentModal({ user, staffMembers, settings, onClose }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Assign To *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
             <select
               value={assigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
-              required
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
             >
-              <option value="">Select team member</option>
+              <option value="">Unassigned</option>
               {staffMembers.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.displayName || m.email} ({m.role})
@@ -676,11 +688,20 @@ function CreateAssignmentModal({ user, staffMembers, settings, onClose }) {
             </select>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Photo</label>
+            <ImageUpload
+              storagePath="assignments"
+              value={photoUrl}
+              onChange={setPhotoUrl}
+            />
+          </div>
+
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           <button
             type="submit"
-            disabled={saving || !title.trim() || !assigneeId}
+            disabled={saving || !title.trim()}
             className="w-full bg-green-600 text-white font-medium py-3 rounded-lg active:bg-green-700 disabled:opacity-50"
           >
             {saving ? 'Creating...' : 'Create Task'}
@@ -802,7 +823,11 @@ export default function AssignmentsPage() {
     () => assignments.filter((a) => a.status === 'completed' || a.status === 'cancelled'),
     [assignments]
   );
-  const displayList = tab === 'active' ? activeAssignments : completedAssignments;
+  const archivedAssignments = useMemo(
+    () => assignments.filter((a) => a.status === 'archived'),
+    [assignments]
+  );
+  const displayList = tab === 'active' ? activeAssignments : tab === 'completed' ? completedAssignments : archivedAssignments;
 
   // Count overdue for the header
   const overdueCount = useMemo(
@@ -869,7 +894,15 @@ export default function AssignmentsPage() {
             tab === 'completed' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
           }`}
         >
-          Completed ({completedAssignments.length})
+          Done ({completedAssignments.length})
+        </button>
+        <button
+          onClick={() => setTab('archived')}
+          className={`flex-1 text-sm font-medium py-2 rounded-md transition-colors ${
+            tab === 'archived' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+          }`}
+        >
+          Archived ({archivedAssignments.length})
         </button>
       </div>
 

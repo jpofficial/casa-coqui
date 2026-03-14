@@ -117,6 +117,10 @@ function StayCard({ stay, isAdmin }) {
   const progress = getProgressPercent(stay);
   const label = getProgressLabel(stay);
   const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const primaryGuest = stay.members?.find((m) => m.role === 'primary');
+  const invitedGuests = stay.members?.filter((m) => m.role !== 'primary') || [];
 
   async function handleCopyLink() {
     if (!stay.guestLink) return;
@@ -143,24 +147,40 @@ function StayCard({ stay, isAdmin }) {
       <div className={`h-1 ${palette.accent}`} />
 
       <div className="p-4 space-y-3">
-        {/* Header: unit + guest + status */}
-        <div className="flex items-center justify-between gap-2">
+        {/* Header: unit + guest + status — tappable to expand */}
+        <button
+          type="button"
+          onClick={() => setExpanded((prev) => !prev)}
+          className="w-full flex items-center justify-between gap-2 text-left"
+        >
           <div className="flex items-center gap-2 min-w-0">
             <span className={`text-sm font-bold ${palette.text}`}>{stay.unit}</span>
             <span className="text-sm font-semibold text-gray-900 truncate">
               {isAdmin && stay.guestName ? stay.guestName : stay.guestFirstName}
             </span>
           </div>
-          <span
-            className={`text-xs font-medium px-2.5 py-0.5 rounded-full flex-shrink-0 ${
-              stay.checkedIn
-                ? 'bg-green-100 text-green-700'
-                : 'bg-yellow-100 text-yellow-700'
-            }`}
-          >
-            {stay.checkedIn ? 'Checked In' : 'Expected'}
-          </span>
-        </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span
+              className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
+                stay.checkedIn
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-yellow-100 text-yellow-700'
+              }`}
+            >
+              {stay.checkedIn ? 'Checked In' : 'Expected'}
+            </span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
 
         {/* Progress bar */}
         <div>
@@ -226,6 +246,61 @@ function StayCard({ stay, isAdmin }) {
                 </svg>
                 {stay.openMaintenanceCount} open issue{stay.openMaintenanceCount !== 1 ? 's' : ''}
               </span>
+            )}
+          </div>
+        )}
+
+        {/* Expanded guest details */}
+        {expanded && (
+          <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Guests</p>
+            <div className="space-y-1.5">
+              {/* Primary guest */}
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <span className="text-sm text-gray-900 font-medium">
+                  {primaryGuest?.name || (isAdmin && stay.guestName) || stay.guestFirstName || 'Guest'}
+                </span>
+                <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">Primary</span>
+              </div>
+              {/* Invited guests */}
+              {invitedGuests.map((g, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <span className="text-sm text-gray-700">{g.name || 'Invited guest'}</span>
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                    g.status === 'verified' ? 'text-green-700 bg-green-100' : 'text-yellow-700 bg-yellow-100'
+                  }`}>
+                    {g.status === 'verified' ? 'Joined' : 'Pending'}
+                  </span>
+                </div>
+              ))}
+              {invitedGuests.length === 0 && (
+                <p className="text-xs text-gray-400 pl-8">No additional guests invited</p>
+              )}
+            </div>
+            {/* Extra details */}
+            {isAdmin && (stay.guestEmail || stay.phone) && (
+              <div className="pt-2 border-t border-gray-200 space-y-1">
+                {stay.guestEmail && (
+                  <p className="text-xs text-gray-500">
+                    <span className="font-medium text-gray-600">Email:</span> {stay.guestEmail}
+                  </p>
+                )}
+                {stay.phone && (
+                  <p className="text-xs text-gray-500">
+                    <span className="font-medium text-gray-600">Phone:</span> {stay.phone}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}

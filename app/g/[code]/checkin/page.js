@@ -1,48 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { where } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
 import { auth as firebaseAuth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
-import PhoneStep from '@/components/guest/PhoneStep';
-
-// ─── Step indicator ────────────────────────────────────────────────────────────
-function StepIndicator({ current }) {
-  const steps = ['Verify', 'Details', 'Done'];
-  return (
-    <div className="flex items-center justify-center gap-2 mb-6" aria-label="Form progress">
-      {steps.map((label, idx) => {
-        const stepNum = idx + 1;
-        const done = current > stepNum;
-        const active = current === stepNum;
-        return (
-          <React.Fragment key={label}>
-            <div className="flex flex-col items-center gap-1">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors
-                  ${done ? 'bg-green-600 text-white' : active ? 'bg-green-600 text-white ring-4 ring-green-100' : 'bg-gray-100 text-gray-400'}`}
-              >
-                {done ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
-                  </svg>
-                ) : stepNum}
-              </div>
-              <span className={`text-[10px] font-medium ${active ? 'text-green-600' : 'text-gray-400'}`}>
-                {label}
-              </span>
-            </div>
-            {idx < steps.length - 1 && (
-              <div className={`flex-1 h-px mb-5 ${done ? 'bg-green-400' : 'bg-gray-200'}`} />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
-}
 
 // ─── Field component ───────────────────────────────────────────────────────────
 function Field({ label, error, children }) {
@@ -78,8 +42,12 @@ function Textarea({ className = '', ...props }) {
   );
 }
 
-// ─── Step 2 — Guest details form ──────────────────────────────────────────────
-function DetailsForm({ code, firebaseUser, verifiedPhone, booking, onSuccess }) {
+// ─── Page ──────────────────────────────────────────────────────────────────────
+export default function CheckInPage({ params }) {
+  const code = params.code;
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+
   const [form, setForm] = useState({
     fullName: '',
     email: '',
@@ -91,7 +59,31 @@ function DetailsForm({ code, firebaseUser, verifiedPhone, booking, onSuccess }) 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Pre-populate from booking data (once, when booking loads)
+  // Fetch booking to pre-populate
+  const { data: bookings } = useCollection('bookings', [
+    where('code', '==', code),
+  ]);
+  const booking = bookings?.[0] ?? null;
+
+  // Already checked in → send straight to portal
+  const { data: existingCheckin } = useDocument('checkins', code);
+
+  useEffect(() => {
+    if (existingCheckin?.checkedIn && user) {
+      router.replace(`/g/${code}`);
+    }
+  }, [existingCheckin, user, router, code]);
+
+  // Auto sign-in anonymously if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      signInAnonymously(firebaseAuth).catch((err) => {
+        console.error('Anonymous sign-in error:', err);
+      });
+    }
+  }, [authLoading, user]);
+
+  // Pre-populate from booking data
   useEffect(() => {
     if (booking && !prefilled) {
       setPrefilled(true);
@@ -140,7 +132,7 @@ function DetailsForm({ code, firebaseUser, verifiedPhone, booking, onSuccess }) 
           bookingCode: code,
           fullName: form.fullName.trim(),
           email: form.email.trim().toLowerCase(),
-          phone: verifiedPhone,
+          phone: null,
           arrivalTime: form.arrivalTime,
           guestCount: parseInt(form.guestCount, 10),
           specialRequests: form.specialRequests.trim() || null,
@@ -152,7 +144,7 @@ function DetailsForm({ code, firebaseUser, verifiedPhone, booking, onSuccess }) 
         return;
       }
 
-      // Ensure bookingCode claim is set for this booking
+      // Set custom claims for Firestore access
       try {
         const freshToken = await firebaseAuth.currentUser.getIdToken();
         await fetch('/api/guests/set-claims', {
@@ -168,7 +160,7 @@ function DetailsForm({ code, firebaseUser, verifiedPhone, booking, onSuccess }) 
         console.error('Set claims error:', claimErr);
       }
 
-      onSuccess(form.fullName.trim());
+      router.push(`/g/${code}?welcome=1`);
     } catch (err) {
       console.error('Submit error:', err);
       setErrors({ submit: 'Something went wrong. Please try again.' });
@@ -177,210 +169,105 @@ function DetailsForm({ code, firebaseUser, verifiedPhone, booking, onSuccess }) 
     }
   }
 
-  // Build arrival time options (hourly, 12h format, starting at 3 PM)
+  // Build arrival time options
   const timeOptions = [];
   for (let h = 15; h <= 23; h++) {
     const label = new Date(2000, 0, 1, h).toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
     timeOptions.push({ value: `${String(h).padStart(2, '0')}:00`, label });
   }
 
-  return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-      <div className="text-center mb-1">
-        <h2 className="text-lg font-bold text-gray-900">Tell us about yourself</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          Phone verified. Fill in a few quick details.
-        </p>
+  // Wait for anonymous auth to complete
+  if (authLoading || !user) {
+    return (
+      <div className="px-4 py-12 flex justify-center">
+        <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
       </div>
-
-      <Field label="Full name" error={errors.fullName}>
-        <Input
-          type="text"
-          placeholder="Jane Smith"
-          value={form.fullName}
-          onChange={(e) => set('fullName', e.target.value)}
-          autoComplete="name"
-          required
-        />
-      </Field>
-
-      <Field label="Email address" error={errors.email}>
-        <Input
-          type="email"
-          placeholder="jane@example.com"
-          value={form.email}
-          onChange={(e) => set('email', e.target.value)}
-          autoComplete="email"
-          required
-        />
-      </Field>
-
-      <Field label="Expected arrival time" error={errors.arrivalTime}>
-        <select
-          value={form.arrivalTime}
-          onChange={(e) => set('arrivalTime', e.target.value)}
-          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900
-            focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition appearance-none"
-          required
-        >
-          <option value="">Select a time…</option>
-          {timeOptions.map(({ value, label }) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-          <option value="late">After midnight (late arrival)</option>
-        </select>
-      </Field>
-
-      <Field label="Number of guests (including yourself)" error={errors.guestCount}>
-        <Input
-          type="number"
-          min={1}
-          max={20}
-          placeholder="1"
-          value={form.guestCount}
-          onChange={(e) => set('guestCount', e.target.value)}
-          inputMode="numeric"
-          required
-        />
-      </Field>
-
-      <Field label="Special requests (optional)">
-        <Textarea
-          placeholder="Early check-in, accessibility needs, or anything else we should know…"
-          value={form.specialRequests}
-          onChange={(e) => set('specialRequests', e.target.value)}
-        />
-      </Field>
-
-      {errors.submit && (
-        <p className="text-sm text-red-500 text-center">{errors.submit}</p>
-      )}
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full py-3.5 rounded-xl bg-green-600 text-white font-semibold text-sm mt-1
-          hover:bg-green-700 active:bg-green-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
-      >
-        {loading ? 'Saving...' : 'Complete Check-In'}
-      </button>
-    </form>
-  );
-}
-
-// ─── Step 3 — Success ──────────────────────────────────────────────────────────
-function SuccessState({ name, code }) {
-  return (
-    <div className="flex flex-col items-center text-center gap-4 py-4">
-      <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10 text-green-600">
-          <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
-        </svg>
-      </div>
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">
-          You&apos;re all set{name ? `, ${name.split(' ')[0]}` : ''}!
-        </h2>
-        <p className="text-sm text-gray-500 mt-2 leading-relaxed max-w-xs mx-auto">
-          Your check-in is complete. Explore the portal below to find everything you need for a great stay.
-        </p>
-      </div>
-
-      <div className="w-full bg-green-50 border border-green-100 rounded-xl p-4 text-left flex flex-col gap-2">
-        <p className="text-sm font-semibold text-green-800">What&apos;s next</p>
-        <ul className="text-sm text-green-700 flex flex-col gap-1">
-          <li className="flex gap-2 items-start">
-            <span className="mt-0.5 text-green-500" aria-hidden="true">&#x2713;</span>
-            Check the Check-In Guide for arrival instructions
-          </li>
-          <li className="flex gap-2 items-start">
-            <span className="mt-0.5 text-green-500" aria-hidden="true">&#x2713;</span>
-            Review your parking spot on the Parking page
-          </li>
-          <li className="flex gap-2 items-start">
-            <span className="mt-0.5 text-green-500" aria-hidden="true">&#x2713;</span>
-            Grab the WiFi password from Access Codes
-          </li>
-        </ul>
-      </div>
-
-      <a
-        href={`/g/${code}`}
-        className="w-full py-3.5 rounded-xl bg-green-600 text-white font-semibold text-sm text-center
-          hover:bg-green-700 active:bg-green-800 transition block"
-      >
-        Go to Home
-      </a>
-    </div>
-  );
-}
-
-// ─── Page ──────────────────────────────────────────────────────────────────────
-export default function CheckInPage({ params }) {
-  const code = params.code;
-
-  const { user } = useAuth();
-  const [step, setStep] = useState(1);
-  const [verifiedUser, setVerifiedUser] = useState(null);
-  const [verifiedPhone, setVerifiedPhone] = useState('');
-  const [guestName, setGuestName] = useState('');
-
-  // Fetch booking to pre-populate details form
-  const { data: bookings } = useCollection('bookings', [
-    where('code', '==', code),
-  ]);
-  const booking = bookings?.[0] ?? null;
-
-  // Check if already checked in
-  const { data: existingCheckin } = useDocument('checkins', code);
-
-  useEffect(() => {
-    if (existingCheckin?.checkedIn && user) {
-      setGuestName(existingCheckin.fullName || '');
-      setStep(3);
-    }
-  }, [existingCheckin, user]);
-
-  // If already signed in but not checked in, skip phone step
-  useEffect(() => {
-    if (user && step === 1 && !existingCheckin?.checkedIn) {
-      setVerifiedUser(user);
-      setVerifiedPhone(user.phoneNumber || '');
-      setStep(2);
-    }
-  }, [user, step, existingCheckin]);
-
-  function handleVerified(firebaseUser, phone) {
-    setVerifiedUser(firebaseUser);
-    setVerifiedPhone(phone);
-    setStep(2);
-  }
-
-  function handleSuccess(name) {
-    setGuestName(name);
-    setStep(3);
+    );
   }
 
   return (
     <div className="px-4 py-6">
-      <StepIndicator current={step} />
-
       <div className="bg-white rounded-2xl shadow-sm border border-gray-50 p-5">
-        {step === 1 && (
-          <PhoneStep code={code} onVerified={handleVerified} />
-        )}
-        {step === 2 && verifiedUser && (
-          <DetailsForm
-            code={code}
-            firebaseUser={verifiedUser}
-            verifiedPhone={verifiedPhone}
-            booking={booking}
-            onSuccess={handleSuccess}
-          />
-        )}
-        {step === 3 && (
-          <SuccessState name={guestName} code={code} />
-        )}
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+          <div className="text-center mb-1">
+            <h2 className="text-lg font-bold text-gray-900">Welcome to Casa Coqui</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Fill in a few quick details to get started.
+            </p>
+          </div>
+
+          <Field label="Full name" error={errors.fullName}>
+            <Input
+              type="text"
+              placeholder="Jane Smith"
+              value={form.fullName}
+              onChange={(e) => set('fullName', e.target.value)}
+              autoComplete="name"
+              required
+            />
+          </Field>
+
+          <Field label="Email address" error={errors.email}>
+            <Input
+              type="email"
+              placeholder="jane@example.com"
+              value={form.email}
+              onChange={(e) => set('email', e.target.value)}
+              autoComplete="email"
+              required
+            />
+          </Field>
+
+          <Field label="Expected arrival time" error={errors.arrivalTime}>
+            <select
+              value={form.arrivalTime}
+              onChange={(e) => set('arrivalTime', e.target.value)}
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900
+                focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition appearance-none"
+              required
+            >
+              <option value="">Select a time...</option>
+              {timeOptions.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+              <option value="late">After midnight (late arrival)</option>
+            </select>
+          </Field>
+
+          <Field label="Number of guests (including yourself)" error={errors.guestCount}>
+            <Input
+              type="number"
+              min={1}
+              max={20}
+              placeholder="1"
+              value={form.guestCount}
+              onChange={(e) => set('guestCount', e.target.value)}
+              inputMode="numeric"
+              required
+            />
+          </Field>
+
+          <Field label="Special requests (optional)">
+            <Textarea
+              placeholder="Early check-in, accessibility needs, or anything else we should know..."
+              value={form.specialRequests}
+              onChange={(e) => set('specialRequests', e.target.value)}
+            />
+          </Field>
+
+          {errors.submit && (
+            <p className="text-sm text-red-500 text-center">{errors.submit}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 rounded-xl bg-green-600 text-white font-semibold text-sm mt-1
+              hover:bg-green-700 active:bg-green-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Saving...' : 'Complete Check-In'}
+          </button>
+        </form>
       </div>
     </div>
   );

@@ -65,7 +65,7 @@ export async function POST(request) {
     if (authError) return authError;
 
     const body = await request.json();
-    const { title, description, assigneeId, dueDate, priority, unit } = body;
+    const { title, description, assigneeId, dueDate, priority, unit, photoUrl } = body;
 
     if (!title) {
       return NextResponse.json(
@@ -124,6 +124,7 @@ export async function POST(request) {
       priority: resolvedPriority,
       dueDate: dueDate || null,
       unit: unit || null,
+      photoUrl: photoUrl || null,
       completionNote: '',
       completedAt: null,
       createdAt: now,

@@ -520,6 +520,22 @@ body {
 }
 
 
+/* ------------------------------------------------------------------ */
+/*  11. WELCOME — Gold line expansion from center                     */
+/* ------------------------------------------------------------------ */
+
+@keyframes welcomeLineExpand {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+
 /* ================================================================== */
 /*  ANIMATION UTILITY CLASSES                                         */
 /*  Each class is GPU-composited (transform + opacity only).          */
@@ -616,6 +632,11 @@ body {
   .animate-shimmer-sweep {
     animation: shimmerSweep 4s ease-in-out infinite;
     background-size: 200% 100%;
+  }
+
+  /* --- Welcome --- */
+  .animate-welcome-line-expand {
+    animation: welcomeLineExpand 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 }
 
@@ -744,14 +765,16 @@ body {
   .animate-shimmer-sweep,
   .animate-admin-in,
   .animate-admin-slide-down,
-  .animate-admin-shimmer {
+  .animate-admin-shimmer,
+  .animate-welcome-line-expand {
     animation: none !important;
   }
 
   /* Allow entrance animations to still show final state (no motion, just appears) */
   .animate-fade-in-up,
   .animate-stagger-fade-in,
-  .animate-admin-in {
+  .animate-admin-in,
+  .animate-welcome-line-expand {
     opacity: 1 !important;
     transform: none !important;
   }

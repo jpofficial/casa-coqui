@@ -3,7 +3,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
 import { sendDirectMessage } from '@/lib/notifications';
 
-const VALID_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'];
+const VALID_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled', 'archived'];
 
 // Map assignment statuses to maintenance statuses
 const ASSIGNMENT_TO_MAINTENANCE_STATUS = {

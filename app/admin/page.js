@@ -314,9 +314,9 @@ function FullAdminDashboard() {
   } = useCollection('bookings', [orderBy('checkInDate', 'desc')]);
 
   const {
-    data: maintenanceRequests,
-    loading: maintenanceLoading,
-  } = useCollection('maintenance', [where('status', '==', 'open')]);
+    data: openTasks,
+    loading: tasksLoading,
+  } = useCollection('assignments', [where('status', 'in', ['pending', 'in_progress'])]);
 
   const {
     data: revenue,
@@ -372,10 +372,10 @@ function FullAdminDashboard() {
           bgTint="bg-atardecer-50 border-atardecer-100"
         />
         <StatsCard
-          label="Open Maintenance"
-          value={maintenanceRequests.length}
-          accent={maintenanceRequests.length > 0 ? 'text-flamboyan-600' : 'text-coqui-900'}
-          loading={maintenanceLoading}
+          label="Open Tasks"
+          value={openTasks.length}
+          accent={openTasks.length > 0 ? 'text-flamboyan-600' : 'text-coqui-900'}
+          loading={tasksLoading}
           bgTint="bg-flamboyan-50 border-flamboyan-100"
         />
         <StatsCard

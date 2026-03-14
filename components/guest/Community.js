@@ -189,11 +189,23 @@ function PostSkeleton() {
 }
 
 // ─── Post card ─────────────────────────────────────────────────────────────────
-function PostCard({ post, showBookingCode }) {
+function PostCard({ post, showBookingCode, canDelete, onDelete }) {
   const [showReplies, setShowReplies] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const relativeTime = getRelativeTime(post.createdAt);
   const isHost = post.postedByRole === 'admin' || post.postedByRole === 'cohost';
   const accentColor = typeAccent(post.type);
+
+  async function handleDelete() {
+    if (!confirm('Delete this post?')) return;
+    setDeleting(true);
+    try {
+      await onDelete(post.id);
+    } catch (err) {
+      console.error('Delete failed:', err);
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-brand border border-cafe-100 overflow-hidden">
@@ -216,6 +228,19 @@ function PostCard({ post, showBookingCode }) {
                 <span className="text-xs text-coqui-800/50 mt-0.5 block">{relativeTime}</span>
               )}
             </div>
+            {canDelete && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="text-coqui-800/30 hover:text-flamboyan-600 transition-colors p-1 min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
+                aria-label="Delete post"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            )}
           </div>
 
           {/* ── Divider ──────────────────────────────────── */}
@@ -255,13 +280,14 @@ function PostCard({ post, showBookingCode }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
-export default function Community({ code, showBookingCode = false, hidePostButton = false, dateFrom = null, dateTo = null }) {
+export default function Community({ code, showBookingCode = false, hidePostButton = false, dateFrom = null, dateTo = null, canDelete = false, onDelete = null }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
 
   const isDateScoped = !!(dateFrom || dateTo);
+  const visiblePosts = posts.filter((p) => !p.deletedAt);
 
   useEffect(() => {
     const constraints = [orderBy('createdAt', 'desc'), limit(30)];
@@ -344,16 +370,16 @@ export default function Community({ code, showBookingCode = false, hidePostButto
       )}
 
       {/* Post list */}
-      {!loading && !error && posts.length > 0 && (
+      {!loading && !error && visiblePosts.length > 0 && (
         <div className="flex flex-col gap-3">
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} showBookingCode={showBookingCode} />
+          {visiblePosts.map((post) => (
+            <PostCard key={post.id} post={post} showBookingCode={showBookingCode} canDelete={canDelete} onDelete={onDelete} />
           ))}
         </div>
       )}
 
       {/* Empty state */}
-      {!loading && !error && posts.length === 0 && (
+      {!loading && !error && visiblePosts.length === 0 && (
         <div className="bg-white rounded-xl shadow-brand border border-cafe-100 p-8 flex flex-col items-center gap-3 text-center">
           <div className="w-12 h-12 rounded-full bg-coqui-50 flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-coqui-300" aria-hidden="true">
