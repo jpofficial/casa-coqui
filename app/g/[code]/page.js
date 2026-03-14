@@ -265,10 +265,13 @@ export default function GuestHome({ params }) {
 
   // Welcome experience — plays once per booking code
   const [showWelcome, setShowWelcome] = useState(false);
+  // Install App banner — hidden after user visits install guide
+  const [installGuideSeen, setInstallGuideSeen] = useState(true);
   useEffect(() => {
     if (!localStorage.getItem(`welcome_seen_${code}`)) {
       setShowWelcome(true);
     }
+    setInstallGuideSeen(!!localStorage.getItem(`install_guide_seen_${code}`));
   }, [code]);
 
   function handleWelcomeComplete() {
@@ -407,8 +410,25 @@ export default function GuestHome({ params }) {
         <DashboardSkeleton />
       ) : hasCheckedIn ? (
         <section className="mb-6 flex flex-col gap-3">
-          {/* WiFi quick view */}
-          <WifiQuickView settings={settings} booking={booking} />
+          {/* Install App banner — hides once user visits install guide */}
+          {!installGuideSeen && (
+            <Link href={`/g/${code}/install-guide`}>
+              <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-3 hover:bg-indigo-100 active:scale-[0.99] transition-all cursor-pointer">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-600 text-white flex-shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-indigo-900">Add Casa Coqui to Home Screen</p>
+                  <p className="text-xs text-indigo-600">Quick access — works like a native app</p>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-indigo-400 flex-shrink-0">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </div>
+            </Link>
+          )}
 
           {/* Laundry real-time status */}
           <LaundryQuickStatus code={code} />
@@ -503,16 +523,11 @@ export default function GuestHome({ params }) {
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
           More
         </h2>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-50 divide-y divide-gray-50">
-          <UtilityLink
-            href={`/g/${code}/install-guide`}
-            label="Install App"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-5 h-5 text-gray-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
-              </svg>
-            }
-          />
+        <div className="flex flex-col gap-3">
+          {/* WiFi credentials — inline with copy buttons */}
+          <WifiQuickView settings={settings} booking={booking} />
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-50 divide-y divide-gray-50">
           <UtilityLink
             href="https://www.airbnb.com/guest/messages"
             label="Contact Host on Airbnb"
@@ -523,6 +538,7 @@ export default function GuestHome({ params }) {
               </svg>
             }
           />
+          </div>
         </div>
       </section>
 

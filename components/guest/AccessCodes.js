@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { resolveUnitWifi } from '@/lib/units';
 
 // ─── Copy button with "Copied!" feedback ──────────────────────────────────────
 function CopyButton({ value, label }) {
@@ -143,9 +144,8 @@ function WifiCard({ ssid, password }) {
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function AccessCodes({ bookingData, settings }) {
-  // Settings take priority, then booking data, then null
-  const wifiSsid = settings?.wifiNetwork || bookingData?.wifiSsid || bookingData?.wifi?.ssid || null;
-  const wifiPassword = settings?.wifiPassword || bookingData?.wifiPassword || bookingData?.wifi?.password || null;
+  // Resolve per-unit WiFi (falls back to global settings, then booking fields)
+  const { ssid: wifiSsid, password: wifiPassword } = resolveUnitWifi(bookingData, settings);
   const gateCode = settings?.gateCode || bookingData?.gateCode || bookingData?.gate || null;
   const lockboxCode = settings?.lockboxCode || bookingData?.lockboxCode || bookingData?.lockbox || null;
 

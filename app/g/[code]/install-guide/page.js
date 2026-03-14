@@ -267,7 +267,8 @@ export default function InstallGuidePage({ params }) {
 
   useEffect(() => {
     setActiveTab(platform);
-  }, [platform]);
+    localStorage.setItem(`install_guide_seen_${code}`, '1');
+  }, [platform, code]);
 
   if (isStandalone) {
     return (

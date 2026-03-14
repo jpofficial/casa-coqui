@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { resolveUnitWifi } from '@/lib/units';
 
 function CopyBtn({ value, label }) {
   const [copied, setCopied] = useState(false);
@@ -50,8 +51,7 @@ function CopyBtn({ value, label }) {
  * Shows network name and password with copy buttons.
  */
 export default function WifiQuickView({ settings, booking }) {
-  const ssid = settings?.wifiNetwork || booking?.wifiSsid || booking?.wifi?.ssid || null;
-  const password = settings?.wifiPassword || booking?.wifiPassword || booking?.wifi?.password || null;
+  const { ssid, password } = resolveUnitWifi(booking, settings);
 
   if (!ssid && !password) return null;
 

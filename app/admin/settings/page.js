@@ -72,6 +72,7 @@ export default function SettingsPage() {
   const [toast, setToast] = useState('');
   const [openSections, setOpenSections] = useState({ units: true });
   const [parkingTab, setParkingTab] = useState('A');
+  const [wifiTab, setWifiTab] = useState('A');
   const [unitsSaving, setUnitsSaving] = useState(false);
 
   // Initialize form from Firestore
@@ -85,6 +86,12 @@ export default function SettingsPage() {
         emergencyContact: settings.emergencyContact || { name: '', phone: '' },
         wifiNetwork: settings.wifiNetwork || '',
         wifiPassword: settings.wifiPassword || '',
+        unitWifi: Array.isArray(settings.unitWifi) && settings.unitWifi.length > 0
+          ? settings.unitWifi
+          : [
+              { unitId: 'unit-a', ssid: '', password: '' },
+              { unitId: 'unit-b', ssid: '', password: '' },
+            ],
         gateCode: settings.gateCode || '',
         lockboxCode: settings.lockboxCode || '',
         checkInSteps: settings.checkInSteps || [],
@@ -233,15 +240,46 @@ export default function SettingsPage() {
 
       {/* B. Access Codes */}
       <Section title="Access Codes" open={openSections.access} onToggle={() => toggleSection('access')}>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-medium text-gray-500 mb-1 block">WiFi Network</label>
-            <input className={INPUT_CLASS} value={form.wifiNetwork} onChange={(e) => set('wifiNetwork', e.target.value)} />
+        {/* Per-unit WiFi */}
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-2 block">WiFi (per unit)</label>
+          <div className="flex gap-2 mb-3">
+            {['A', 'B'].map((tab, idx) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setWifiTab(tab)}
+                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition ${
+                  wifiTab === tab
+                    ? 'bg-green-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {form.units?.[idx]?.name || `Unit ${tab}`}
+              </button>
+            ))}
           </div>
-          <div>
-            <label className="text-xs font-medium text-gray-500 mb-1 block">WiFi Password</label>
-            <input className={INPUT_CLASS} value={form.wifiPassword} onChange={(e) => set('wifiPassword', e.target.value)} />
-          </div>
+          {(() => {
+            const idx = wifiTab === 'A' ? 0 : 1;
+            const wifi = form.unitWifi[idx] || { unitId: idx === 0 ? 'unit-a' : 'unit-b', ssid: '', password: '' };
+            function updateWifi(field, value) {
+              const arr = [...form.unitWifi];
+              arr[idx] = { ...wifi, [field]: value };
+              set('unitWifi', arr);
+            }
+            return (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 mb-1 block">Network Name</label>
+                  <input className={INPUT_CLASS} value={wifi.ssid} onChange={(e) => updateWifi('ssid', e.target.value)} placeholder="SSID" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 mb-1 block">Password</label>
+                  <input className={INPUT_CLASS} value={wifi.password} onChange={(e) => updateWifi('password', e.target.value)} placeholder="Password" />
+                </div>
+              </div>
+            );
+          })()}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>

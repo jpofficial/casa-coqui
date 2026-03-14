@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useDocument } from '@/hooks/useFirestore';
-import { getUnitNames } from '@/lib/units';
+import { resolveUnitDisplayName } from '@/lib/units';
 
 // Status options
 const STATUS = {
@@ -185,10 +185,42 @@ function MachineSkeleton() {
   );
 }
 
+// ─── Location directions per unit ───────────────────────────────────────────────
+function getLocationText(unitName) {
+  const lower = (unitName || '').toLowerCase();
+  if (lower.includes('cielo')) {
+    return 'The laundry is on the first floor next to the stairs. From your unit, head downstairs from the room that leads to the balcony — it\u2019s the first door on your right.';
+  }
+  if (lower.includes('tierra')) {
+    return 'The laundry is in the back of the premises, right next to the stairs. Head toward the rear of your unit and you\u2019ll find it there.';
+  }
+  // Fallback for unknown unit or no booking
+  return 'The laundry is on the first floor, right next to the stairs.';
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
-export default function Laundry() {
+export default function Laundry({ code }) {
   const { data: settings } = useDocument('settings', 'property');
-  const unitNames = getUnitNames(settings);
+  const [unitName, setUnitName] = useState(null);
+
+  // Fetch booking to determine the guest's unit
+  useEffect(() => {
+    if (!code) return;
+    async function fetchUnit() {
+      try {
+        const q = query(collection(db, 'bookings'), where('code', '==', code));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const booking = snap.docs[0].data();
+          setUnitName(resolveUnitDisplayName(booking, settings));
+        }
+      } catch (err) {
+        console.error('Failed to fetch booking for unit:', err);
+      }
+    }
+    fetchUnit();
+  }, [code, settings]);
+
   const machines = [
     {
       machineId: 'washer',
@@ -246,7 +278,7 @@ export default function Laundry() {
         <div>
           <p className="text-sm font-semibold text-gray-900">Location</p>
           <p className="text-xs text-gray-500 mt-0.5 leading-snug">
-            Laundry room is in the common area between {unitNames[0]} and {unitNames[1]}, accessible from the courtyard. Detergent is provided under the counter.
+            {getLocationText(unitName)}
           </p>
         </div>
       </div>

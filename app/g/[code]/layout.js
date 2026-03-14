@@ -170,16 +170,6 @@ export default function GuestLayout({ children, params }) {
                 <div className="text-xs text-gray-400 font-mono bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
                   #{code}
                 </div>
-                <button
-                  onClick={() => setHelpOpen(true)}
-                  className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors"
-                  aria-label="Open help"
-                  title="Help"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-green-600">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.06-1.06 3.5 3.5 0 014.753.45A3.5 3.5 0 0113.5 9.5a2.25 2.25 0 01-2.25 2.25.75.75 0 01-.75-.75v-1a.75.75 0 01.75-.75A.75.75 0 0012 8.5a2 2 0 00-3.06-1.56zM10 15a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                  </svg>
-                </button>
               </div>
             </div>
           </header>
