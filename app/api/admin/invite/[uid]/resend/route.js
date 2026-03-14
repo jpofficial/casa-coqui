@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { resend } from '@/lib/resend';
 import { requireRole } from '@/lib/api-auth';
+import { getAppUrl } from '@/lib/url';
 
 export async function POST(request, { params }) {
   try {
@@ -37,7 +38,12 @@ export async function POST(request, { params }) {
     }
 
     // Generate new password reset link
-    const resetLink = await adminAuth.generatePasswordResetLink(userData.email);
+    const appUrl = getAppUrl(request);
+    const actionCodeSettings = {
+      url: `${appUrl}/admin/login`,
+      handleCodeInApp: false,
+    };
+    const resetLink = await adminAuth.generatePasswordResetLink(userData.email, actionCodeSettings);
 
     // Send invite email
     let emailSent = false;

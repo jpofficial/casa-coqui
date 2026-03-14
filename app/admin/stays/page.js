@@ -3,35 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import useAuth from '@/hooks/useAuth';
-
-// ---------------------------------------------------------------------------
-// Unit palette — matches calendar teal/amber scheme
-// ---------------------------------------------------------------------------
-const UNIT_PALETTES = {
-  'Unit A': {
-    accent: 'bg-teal-500',
-    text: 'text-teal-600',
-    progressBg: 'bg-teal-100',
-    progressFill: 'bg-teal-500',
-  },
-  'Unit B': {
-    accent: 'bg-amber-500',
-    text: 'text-amber-600',
-    progressBg: 'bg-amber-100',
-    progressFill: 'bg-amber-500',
-  },
-};
-
-const DEFAULT_PALETTE = {
-  accent: 'bg-gray-500',
-  text: 'text-gray-600',
-  progressBg: 'bg-gray-100',
-  progressFill: 'bg-gray-500',
-};
-
-function getPalette(unit) {
-  return UNIT_PALETTES[unit] || DEFAULT_PALETTE;
-}
+import { useDocument } from '@/hooks/useFirestore';
+import { getUnitNames, getUnitPalette } from '@/lib/units';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -112,8 +85,8 @@ function SkeletonCard() {
 // ---------------------------------------------------------------------------
 // Stay Card
 // ---------------------------------------------------------------------------
-function StayCard({ stay, isAdmin }) {
-  const palette = getPalette(stay.unit);
+function StayCard({ stay, isAdmin, unitNames }) {
+  const palette = getUnitPalette(stay.unit, unitNames);
   const progress = getProgressPercent(stay);
   const label = getProgressLabel(stay);
   const [copied, setCopied] = useState(false);
@@ -389,6 +362,8 @@ function EmptyState({ isAdmin }) {
 // ---------------------------------------------------------------------------
 export default function StaysPage() {
   const { user, isAdmin } = useAuth();
+  const { data: settings } = useDocument('settings', 'property');
+  const unitNames = getUnitNames(settings);
   const [stays, setStays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -416,13 +391,6 @@ export default function StaysPage() {
     }
     fetchStays();
   }, [user]);
-
-  // Derive unique unit names from the data
-  const unitNames = useMemo(() => {
-    const units = [...new Set(stays.map((s) => s.unit).filter(Boolean))];
-    units.sort();
-    return units;
-  }, [stays]);
 
   // Filter by unit
   const filteredStays = useMemo(() => {
@@ -456,7 +424,7 @@ export default function StaysPage() {
       </div>
 
       {/* Unit filter pills */}
-      {!loading && unitNames.length > 1 && (
+      {!loading && unitNames.length > 0 && (
         <div className="flex gap-2">
           {['All', ...unitNames].map((unit) => (
             <button
@@ -485,7 +453,7 @@ export default function StaysPage() {
       ) : (
         <div className="space-y-3">
           {filteredStays.map((stay) => (
-            <StayCard key={stay.id} stay={stay} isAdmin={isAdmin} />
+            <StayCard key={stay.id} stay={stay} isAdmin={isAdmin} unitNames={unitNames} />
           ))}
         </div>
       )}

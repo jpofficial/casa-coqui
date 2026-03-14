@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireAuth } from '@/lib/api-auth';
 import { resend } from '@/lib/resend';
+import { getAppUrl } from '@/lib/url';
 
 const MAX_MEMBERS = 6;
 
@@ -109,7 +110,7 @@ export async function POST(request) {
     });
 
     // Build invite link
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+    const appUrl = getAppUrl(request);
     const inviteLink = `${appUrl}/g/${bookingCode}/join?token=${token}`;
 
     // Send invite email

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { resend } from '@/lib/resend';
 import { requireRole } from '@/lib/api-auth';
+import { getAppUrl } from '@/lib/url';
 import crypto from 'crypto';
 
 export async function POST(request) {
@@ -71,7 +72,12 @@ export async function POST(request) {
     await adminAuth.setCustomUserClaims(uid, { role });
 
     // Generate password reset link so they can set/reset their password
-    const resetLink = await adminAuth.generatePasswordResetLink(email);
+    const appUrl = getAppUrl(request);
+    const actionCodeSettings = {
+      url: `${appUrl}/admin/login`,
+      handleCodeInApp: false,
+    };
+    const resetLink = await adminAuth.generatePasswordResetLink(email, actionCodeSettings);
 
     // Send invite email
     let emailSent = false;

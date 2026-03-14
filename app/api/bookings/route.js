@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { nanoid } from 'nanoid';
 import { requireRole } from '@/lib/api-auth';
+import { getAppUrl } from '@/lib/url';
 
 // ---------------------------------------------------------------------------
 // GET /api/bookings
@@ -87,7 +88,7 @@ export async function POST(request) {
     }
 
     const code = nanoid(10);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+    const appUrl = getAppUrl(request);
     const guestLink = `${appUrl}/g/${code}/checkin`;
 
     const booking = {
