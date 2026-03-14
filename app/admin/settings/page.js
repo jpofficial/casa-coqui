@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { useDocument } from '@/hooks/useFirestore';
 import ImageUpload from '@/components/ui/ImageUpload';
 import Parking from '@/components/guest/Parking';
+import { DEFAULT_UNITS } from '@/lib/units';
 
 const INPUT_CLASS =
   'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent';
@@ -69,8 +70,9 @@ export default function SettingsPage() {
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
-  const [openSections, setOpenSections] = useState({ property: true });
+  const [openSections, setOpenSections] = useState({ units: true });
   const [parkingTab, setParkingTab] = useState('A');
+  const [unitsSaving, setUnitsSaving] = useState(false);
 
   // Initialize form from Firestore
   useEffect(() => {
@@ -95,6 +97,9 @@ export default function SettingsPage() {
             },
         houseRules: settings.houseRules || [],
         propertyPhotos: settings.propertyPhotos || [],
+        units: settings.units && Array.isArray(settings.units) && settings.units.length > 0
+          ? settings.units
+          : DEFAULT_UNITS,
       });
     }
   }, [settings, form]);
@@ -141,6 +146,50 @@ export default function SettingsPage() {
     <div className="px-4 py-6 flex flex-col gap-4">
       <h1 className="text-xl font-bold text-gray-900">Property Settings</h1>
       <p className="text-sm text-gray-500 -mt-2">Edit content shown to guests. Changes appear in real-time.</p>
+
+      {/* 0. Property & Units */}
+      <Section title="Property &amp; Units" open={openSections.units} onToggle={() => toggleSection('units')}>
+        <p className="text-xs text-gray-500 -mt-1">
+          Rename your units here. The names will update everywhere — bookings, calendar, expenses, and revenue.
+        </p>
+        {form.units.map((unit, i) => (
+          <div key={unit.id} className="flex items-center gap-3">
+            <span className="text-xs font-medium text-gray-400 w-14 flex-shrink-0">Unit {i + 1}</span>
+            <input
+              className={INPUT_CLASS}
+              value={unit.name}
+              onChange={(e) => {
+                const arr = [...form.units];
+                arr[i] = { ...arr[i], name: e.target.value };
+                set('units', arr);
+              }}
+              placeholder={`Unit ${i + 1} name`}
+            />
+          </div>
+        ))}
+        <button
+          type="button"
+          disabled={unitsSaving}
+          onClick={async () => {
+            setUnitsSaving(true);
+            try {
+              await updateDoc(doc(db, 'settings', 'property'), {
+                units: form.units,
+                updatedAt: new Date().toISOString(),
+              });
+              setToast('Unit names saved!');
+            } catch (err) {
+              console.error('Save units error:', err);
+              setToast('Error saving unit names.');
+            } finally {
+              setUnitsSaving(false);
+            }
+          }}
+          className="w-full py-2.5 rounded-lg bg-green-600 text-white font-semibold text-sm hover:bg-green-700 active:bg-green-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {unitsSaving ? 'Saving...' : 'Save Unit Names'}
+        </button>
+      </Section>
 
       {/* A. Property Info */}
       <Section title="Property Info" open={openSections.property} onToggle={() => toggleSection('property')}>
@@ -295,9 +344,9 @@ export default function SettingsPage() {
 
       {/* D. Parking */}
       <Section title="Parking" open={openSections.parking} onToggle={() => toggleSection('parking')}>
-        {/* Apartment tabs */}
+        {/* Unit tabs */}
         <div className="flex gap-2">
-          {['A', 'B'].map((tab) => (
+          {['A', 'B'].map((tab, idx) => (
             <button
               key={tab}
               type="button"
@@ -308,7 +357,7 @@ export default function SettingsPage() {
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              Apartment {tab}
+              {form.units?.[idx]?.name || `Unit ${tab}`}
             </button>
           ))}
         </div>
@@ -332,7 +381,7 @@ export default function SettingsPage() {
                 <textarea
                   className={INPUT_CLASS + ' resize-none'}
                   rows={3}
-                  placeholder={`Parking instructions for Apartment ${parkingTab}`}
+                  placeholder={`Parking instructions for ${form.units?.[parkingTab === 'A' ? 0 : 1]?.name || `Unit ${parkingTab}`}`}
                   value={apt.instructions}
                   onChange={(e) => updateApt('instructions', e.target.value)}
                 />
@@ -437,13 +486,13 @@ export default function SettingsPage() {
 
         {/* Guest Preview */}
         <div>
-          <p className="text-xs font-medium text-gray-500 mb-2">Guest Preview — Apartment {parkingTab}</p>
+          <p className="text-xs font-medium text-gray-500 mb-2">Guest Preview — {form.units?.[parkingTab === 'A' ? 0 : 1]?.name || `Unit ${parkingTab}`}</p>
           <div className="border-[12px] border-gray-800 rounded-[2.5rem] max-w-[375px] mx-auto shadow-xl bg-white overflow-hidden">
             <div className="flex justify-center pt-2 pb-1">
               <div className="w-24 h-1.5 bg-gray-300 rounded-full" />
             </div>
             <div className="px-4 py-3 max-h-[500px] overflow-y-auto">
-              <Parking bookingData={{ unit: parkingTab }} settings={{ parkingInfo: form.parkingInfo }} />
+              <Parking bookingData={{ unit: parkingTab }} settings={{ parkingInfo: form.parkingInfo, units: form.units }} />
             </div>
           </div>
         </div>

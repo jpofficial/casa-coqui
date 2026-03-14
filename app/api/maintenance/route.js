@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireRole, requireAuth } from '@/lib/api-auth';
+import { notifyAdminAndCohost } from '@/lib/staff-notifications';
 
 const VALID_CATEGORIES = ['Plumbing', 'Electrical', 'HVAC', 'Appliance', 'Other'];
 const VALID_URGENCIES = ['low', 'medium', 'high'];
@@ -110,6 +111,44 @@ export async function POST(request) {
     };
 
     const docRef = await adminDb.collection('maintenance').add(doc);
+
+    // Fire-and-forget notification to admin + co-host
+    const snippet = doc.description.length > 80
+      ? doc.description.slice(0, 80) + '...'
+      : doc.description;
+    notifyAdminAndCohost({
+      title: `Maintenance: ${doc.category} (${doc.urgency})`,
+      body: snippet,
+      type: 'maintenance',
+      data: { requestId: docRef.id, category: doc.category, urgency: doc.urgency },
+    }).catch((err) => console.error('[POST /api/maintenance] Notification error:', err));
+
+    // Auto-create an assignment/task so admin sees it in the tasks view
+    const now = new Date().toISOString();
+    const assignment = {
+      title: `Maintenance: ${doc.category}`,
+      description: doc.description.substring(0, 500),
+      assigneeId: null,
+      assigneeName: 'Unassigned',
+      assigneeRole: null,
+      createdBy: caller.uid,
+      createdByName: 'Guest',
+      status: 'pending',
+      priority: doc.urgency,
+      dueDate: null,
+      unit: null,
+      completionNote: '',
+      completedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      source: 'maintenance',
+      maintenanceId: docRef.id,
+      photoUrl: doc.photoUrl,
+      bookingCode: doc.bookingCode,
+      guestId: doc.guestId,
+    };
+    adminDb.collection('assignments').add(assignment)
+      .catch((err) => console.error('[POST /api/maintenance] Assignment creation error:', err));
 
     return NextResponse.json(
       { success: true, data: { id: docRef.id, ...doc } },

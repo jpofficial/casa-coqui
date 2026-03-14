@@ -9,8 +9,8 @@ import Community from '@/components/guest/Community';
 const POST_TYPES = [
   { value: 'general', label: 'General' },
   { value: 'parking', label: 'Parking' },
-  { value: 'noise', label: 'Noise' },
-  { value: 'lost_found', label: 'Lost & Found' },
+  { value: 'laundry', label: 'Laundry' },
+  { value: 'property_issue', label: 'Property Issue' },
 ];
 
 export default function AdminCommunityPage() {
@@ -57,7 +57,7 @@ export default function AdminCommunityPage() {
           <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          Post to Community Board
+          Post to Broadcast
         </button>
       )}
 
@@ -116,7 +116,7 @@ export default function AdminCommunityPage() {
           <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
-          <p className="text-sm text-green-800 font-medium">Posted to community board</p>
+          <p className="text-sm text-green-800 font-medium">Posted to Broadcast</p>
         </div>
       )}
 

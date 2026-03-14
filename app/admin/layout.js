@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { AuthProvider } from '@/hooks/useAuth';
@@ -15,6 +15,8 @@ function AdminLayoutInner({ children }) {
   const { requestPermission, supported: pushSupported } = usePush();
 
   const isLoginPage = pathname === '/admin/login';
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef(null);
 
   // Register FCM token for staff push notifications
   useEffect(() => {
@@ -35,6 +37,27 @@ function AdminLayoutInner({ children }) {
       router.replace(getDefaultRedirect(role));
     }
   }, [loading, isStaff, role, router, isLoginPage, pathname]);
+
+  // Close More menu when clicking outside
+  useEffect(() => {
+    if (!moreOpen) return;
+    function handleClickOutside(e) {
+      if (moreRef.current && !moreRef.current.contains(e.target)) {
+        setMoreOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [moreOpen]);
+
+  // Close More menu on route change
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
 
   // Login page renders without the admin shell
   if (isLoginPage) {
@@ -104,20 +127,20 @@ function AdminLayoutInner({ children }) {
       ),
     },
     {
-      href: '/admin/bookings',
-      label: 'Bookings',
+      href: '/admin/stays',
+      label: 'Active Stays',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       ),
     },
     {
-      href: '/admin/messages',
-      label: 'Messages',
+      href: '/admin/assignments',
+      label: 'Tasks',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 16a2 2 0 01-2 2H7l-4 4V6a2 2 0 012-2h14a2 2 0 012 2v10z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
         </svg>
       ),
     },
@@ -133,12 +156,10 @@ function AdminLayoutInner({ children }) {
   ];
 
   const allMoreLinks = [
-    { href: '/admin/stays', label: 'Stays' },
-    { href: '/admin/assignments', label: 'Assignments' },
-    { href: '/admin/notify', label: 'Broadcast' },
-    { href: '/admin/maintenance', label: 'Maintenance' },
+    { href: '/admin/bookings', label: 'Bookings' },
+    { href: '/admin/notify', label: 'Alerts' },
     { href: '/admin/cleaning', label: 'Cleaning' },
-    { href: '/admin/community', label: 'Community' },
+    { href: '/admin/community', label: 'Broadcast' },
     { href: '/admin/expenses', label: 'Expenses' },
     { href: '/admin/supplies', label: 'Supplies' },
     { href: '/admin/receipts', label: 'Receipts' },
@@ -199,23 +220,29 @@ function AdminLayoutInner({ children }) {
               if (moreLinks.length === 0) return null;
 
               return (
-                <div key="more" className="flex-1 relative group">
-                  <button className={`w-full flex flex-col items-center justify-center gap-1 py-2 min-h-[56px] transition-colors ${active ? 'text-green-600' : 'text-gray-400'}`}>
+                <div key="more" className="flex-1 relative" ref={moreRef}>
+                  <button
+                    type="button"
+                    onClick={() => setMoreOpen((prev) => !prev)}
+                    className={`w-full flex flex-col items-center justify-center gap-1 py-2 min-h-[56px] transition-colors ${active || moreOpen ? 'text-green-600' : 'text-gray-400'}`}
+                  >
                     {tab.icon}
                     <span className="text-[10px] font-medium leading-none">{tab.label}</span>
                   </button>
-                  {/* More dropdown — opens upward on tap via focus-within */}
-                  <div className="absolute bottom-full right-0 mb-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden opacity-0 pointer-events-none group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity z-50">
-                    {moreLinks.map((link) => (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 border-b border-gray-50 last:border-0"
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
-                  </div>
+                  {/* More dropdown — opens upward on tap */}
+                  {moreOpen && (
+                    <div className="absolute bottom-full right-0 mb-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
+                      {moreLinks.map((link) => (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 border-b border-gray-50 last:border-0"
+                        >
+                          {link.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             }

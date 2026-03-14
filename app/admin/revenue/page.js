@@ -4,7 +4,8 @@ import { useState, useMemo } from 'react';
 import { orderBy, where } from 'firebase/firestore';
 import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useCollection } from '@/hooks/useFirestore';
+import { useCollection, useDocument } from '@/hooks/useFirestore';
+import { getUnitNames } from '@/lib/units';
 import {
   BarChart,
   Bar,
@@ -15,12 +16,13 @@ import {
   Cell,
 } from 'recharts';
 
-const UNITS = ['Unit A', 'Unit B'];
+// Color palette for unit chips and charts — cycles for additional units
+const UNIT_COLOR_PALETTE = ['#10b981', '#6366f1', '#f59e0b', '#ef4444'];
 
-const UNIT_COLORS = {
-  'Unit A': '#10b981',
-  'Unit B': '#6366f1',
-};
+function getUnitColor(unit, unitNames) {
+  const idx = unitNames.indexOf(unit);
+  return UNIT_COLOR_PALETTE[idx >= 0 ? idx % UNIT_COLOR_PALETTE.length : 0];
+}
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -69,6 +71,8 @@ function SummaryCard({ label, value, accent, loading }) {
 export default function Revenue() {
   const { data: allRevenue, loading, error } = useCollection('revenue', [orderBy('date', 'desc')]);
   const { data: bookings } = useCollection('bookings', [where('status', '==', 'active')]);
+  const { data: settings } = useDocument('settings', 'property');
+  const UNITS = getUnitNames(settings);
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonthYM());
   const [selectedYear, setSelectedYear] = useState(currentYear());
@@ -80,7 +84,7 @@ export default function Revenue() {
   const [form, setForm] = useState({
     amount: '',
     description: '',
-    unit: 'Unit A',
+    unit: UNITS[0] || 'Unit A',
     date: todayISO(),
     bookingId: '',
   });
@@ -99,22 +103,32 @@ export default function Revenue() {
   const monthTotal = useMemo(() => monthRevenue.reduce((s, r) => s + (r.amount || 0), 0), [monthRevenue]);
   const yearTotal = useMemo(() => yearRevenue.reduce((s, r) => s + (r.amount || 0), 0), [yearRevenue]);
 
-  const unitAMonth = useMemo(() => monthRevenue.filter((r) => r.unit === 'Unit A').reduce((s, r) => s + (r.amount || 0), 0), [monthRevenue]);
-  const unitBMonth = useMemo(() => monthRevenue.filter((r) => r.unit === 'Unit B').reduce((s, r) => s + (r.amount || 0), 0), [monthRevenue]);
+  // Per-unit monthly totals — keyed by unit name
+  const unitMonthTotals = useMemo(() => {
+    const totals = {};
+    for (const u of UNITS) {
+      totals[u] = monthRevenue.filter((r) => r.unit === u).reduce((s, r) => s + (r.amount || 0), 0);
+    }
+    return totals;
+  }, [monthRevenue, UNITS]);
 
-  // Monthly chart data for selected year
+  // Monthly chart data for selected year — one key per unit
   const monthlyChartData = useMemo(() => {
     return MONTHS_SHORT.map((label, idx) => {
       const monthStr = `${selectedYear}-${String(idx + 1).padStart(2, '0')}`;
-      const unitA = yearRevenue
-        .filter((r) => r.date && r.date.startsWith(monthStr) && r.unit === 'Unit A')
-        .reduce((s, r) => s + (r.amount || 0), 0);
-      const unitB = yearRevenue
-        .filter((r) => r.date && r.date.startsWith(monthStr) && r.unit === 'Unit B')
-        .reduce((s, r) => s + (r.amount || 0), 0);
-      return { label, unitA, unitB, total: unitA + unitB };
+      const row = { label };
+      let total = 0;
+      for (const u of UNITS) {
+        const val = yearRevenue
+          .filter((r) => r.date && r.date.startsWith(monthStr) && r.unit === u)
+          .reduce((s, r) => s + (r.amount || 0), 0);
+        row[u] = val;
+        total += val;
+      }
+      row.total = total;
+      return row;
     });
-  }, [yearRevenue, selectedYear]);
+  }, [yearRevenue, selectedYear, UNITS]);
 
   // Available months for filter
   const availableMonths = useMemo(() => {
@@ -165,7 +179,7 @@ export default function Revenue() {
         bookingId: form.bookingId || null,
         createdAt: new Date().toISOString(),
       });
-      setForm({ amount: '', description: '', unit: 'Unit A', date: todayISO(), bookingId: '' });
+      setForm({ amount: '', description: '', unit: UNITS[0] || 'Unit A', date: todayISO(), bookingId: '' });
       setShowForm(false);
       setSelectedMonth(form.date.substring(0, 7));
       setSelectedYear(form.date.substring(0, 4));
@@ -332,18 +346,15 @@ export default function Revenue() {
             accent="text-green-600"
             loading={loading}
           />
-          <SummaryCard
-            label="Unit A"
-            value={formatCurrency(unitAMonth)}
-            accent="text-emerald-600"
-            loading={loading}
-          />
-          <SummaryCard
-            label="Unit B"
-            value={formatCurrency(unitBMonth)}
-            accent="text-indigo-600"
-            loading={loading}
-          />
+          {UNITS.map((u, idx) => (
+            <SummaryCard
+              key={u}
+              label={u}
+              value={formatCurrency(unitMonthTotals[u] || 0)}
+              accent={idx === 0 ? 'text-emerald-600' : 'text-indigo-600'}
+              loading={loading}
+            />
+          ))}
         </div>
       </div>
 
@@ -366,7 +377,7 @@ export default function Revenue() {
         <div className="flex items-center gap-4 mb-3">
           {UNITS.map((unit) => (
             <div key={unit} className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: UNIT_COLORS[unit] }} />
+              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: getUnitColor(unit, UNITS) }} />
               <span className="text-xs text-gray-500">{unit}</span>
             </div>
           ))}
@@ -387,11 +398,18 @@ export default function Revenue() {
               tickFormatter={(v) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`}
             />
             <Tooltip
-              formatter={(value, name) => [formatCurrency(value), name === 'unitA' ? 'Unit A' : 'Unit B']}
+              formatter={(value, name) => [formatCurrency(value), name]}
               contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
             />
-            <Bar dataKey="unitA" stackId="a" fill={UNIT_COLORS['Unit A']} radius={[0, 0, 0, 0]} />
-            <Bar dataKey="unitB" stackId="a" fill={UNIT_COLORS['Unit B']} radius={[4, 4, 0, 0]} />
+            {UNITS.map((u, idx) => (
+              <Bar
+                key={u}
+                dataKey={u}
+                stackId="a"
+                fill={getUnitColor(u, UNITS)}
+                radius={idx === UNITS.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+              />
+            ))}
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -431,8 +449,8 @@ export default function Revenue() {
                       <span
                         className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
                         style={{
-                          backgroundColor: `${UNIT_COLORS[entry.unit] || '#10b981'}22`,
-                          color: UNIT_COLORS[entry.unit] || '#10b981',
+                          backgroundColor: `${getUnitColor(entry.unit, UNITS)}22`,
+                          color: getUnitColor(entry.unit, UNITS),
                         }}
                       >
                         {entry.unit}

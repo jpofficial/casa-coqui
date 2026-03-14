@@ -38,7 +38,7 @@ service cloud.firestore {
     // Only admin can write (invites, role changes).
     // -------------------------------------------------------------------------
     match /users/{userId} {
-      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       // Staff can update their own status (e.g. pending → active on first login)
       allow update: if isAuthenticated() && request.auth.uid == userId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
@@ -134,23 +134,29 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // revenue — admin only
+    // revenue — admin and staff can read, only admin can write
     // -------------------------------------------------------------------------
     match /revenue/{revenueId} {
-      allow read, write: if isAdmin();
+      allow read: if isStaff();
+      allow write: if isAdmin();
     }
 
     // -------------------------------------------------------------------------
     // maintenance
-    // Admin has full access. Guests can create new requests and read only the
-    // requests they created (matched by the guestId field on the document).
+    // Staff has full read access. Guests can create new requests and read only
+    // the requests they created (matched by the guestId field on the document).
     // -------------------------------------------------------------------------
     match /maintenance/{requestId} {
-      allow read: if isAdmin() ||
+      allow read: if isStaff() ||
         (isAuthenticated() && resource.data.guestId == request.auth.uid);
       allow create: if isAuthenticated() &&
         request.resource.data.guestId == request.auth.uid;
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        isStaff() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'notes', 'estimatedTime', 'guestResponse', 'respondedAt', 'respondedBy', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
     }
 
     // -------------------------------------------------------------------------
@@ -221,20 +227,20 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // assignments (admin-assigned tasks for co-host/staff)
-    // Admin has full access. Staff can read their own assignments and
-    // update status/completionNote on their own assignments.
+    // assignments (admin-assigned tasks + auto-created maintenance tasks)
+    // Admin has full access. Staff can read all and update allowed fields
+    // on their own assignments or maintenance-sourced tasks.
     // -------------------------------------------------------------------------
     match /assignments/{assignmentId} {
-      allow read: if isStaff() && (
-        isAdmin() || resource.data.assigneeId == request.auth.uid
-      );
+      allow read: if isStaff();
       allow create: if isAdmin();
       allow update: if isAdmin() || (
         isStaff() &&
-        resource.data.assigneeId == request.auth.uid &&
+        (resource.data.assigneeId == request.auth.uid || resource.data.assigneeId == null) &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'completionNote', 'completedAt', 'updatedAt'])
+          .hasOnly(['status', 'completionNote', 'completedAt', 'updatedAt',
+                    'guestResponse', 'estimatedTime', 'respondedAt', 'respondedBy',
+                    'assigneeId', 'assigneeName', 'assigneeRole'])
       );
       allow delete: if isAdmin();
     }
@@ -244,9 +250,7 @@ service cloud.firestore {
     // Admin has full access. Assigned cleaner can read and update own jobs.
     // -------------------------------------------------------------------------
     match /cleaning_jobs/{jobId} {
-      allow read: if isStaff() && (
-        isAdmin() || resource.data.assigneeId == request.auth.uid
-      );
+      allow read: if isStaff();
       allow create: if isAdmin();
       allow update: if isAdmin() || (
         isStaff() && resource.data.assigneeId == request.auth.uid

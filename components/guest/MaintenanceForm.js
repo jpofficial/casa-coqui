@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { storage, auth } from '@/lib/firebase';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { storage, auth, db } from '@/lib/firebase';
 
 const CATEGORIES = ['Plumbing', 'Electrical', 'HVAC', 'Appliance', 'Other'];
 const URGENCIES = [
@@ -82,6 +84,126 @@ function SuccessView({ onReset }) {
       >
         Submit another
       </button>
+    </div>
+  );
+}
+
+// ─── Status badge styles ──────────────────────────────────────────────────────
+const STATUS_STYLES = {
+  open: 'bg-red-100 text-red-600',
+  'in-progress': 'bg-amber-100 text-amber-700',
+  done: 'bg-green-100 text-green-700',
+};
+
+const STATUS_LABELS = {
+  open: 'Open',
+  'in-progress': 'In Progress',
+  done: 'Done',
+};
+
+// ─── Request history ──────────────────────────────────────────────────────────
+function RequestHistory() {
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let unsubFirestore = null;
+
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      if (unsubFirestore) unsubFirestore();
+
+      if (!user) {
+        setRequests([]);
+        setLoading(false);
+        return;
+      }
+
+      const q = query(
+        collection(db, 'maintenance'),
+        where('guestId', '==', user.uid),
+        orderBy('createdAt', 'desc')
+      );
+
+      unsubFirestore = onSnapshot(
+        q,
+        (snapshot) => {
+          setRequests(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+          setLoading(false);
+        },
+        (err) => {
+          console.error('Failed to load request history:', err);
+          setLoading(false);
+        }
+      );
+    });
+
+    return () => {
+      unsubAuth();
+      if (unsubFirestore) unsubFirestore();
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2].map((i) => (
+          <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 animate-pulse">
+            <div className="h-3 bg-gray-100 rounded w-1/3 mb-2" />
+            <div className="h-3 bg-gray-100 rounded w-full" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (requests.length === 0) return null;
+
+  function formatDate(dateValue) {
+    if (!dateValue) return '';
+    const date = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <h3 className="text-sm font-bold text-gray-900">Your Requests</h3>
+      {requests.map((req) => {
+        const status = req.status || 'open';
+        return (
+          <div
+            key={req.id}
+            className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-2"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500">{req.category}</span>
+                <span className="text-xs text-gray-300">{formatDate(req.createdAt)}</span>
+              </div>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[status] || 'bg-gray-100 text-gray-500'}`}>
+                {STATUS_LABELS[status] || status}
+              </span>
+            </div>
+            <p className="text-sm text-gray-700 line-clamp-2">{req.description}</p>
+
+            {(req.guestResponse || req.estimatedTime) && (
+              <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs space-y-1">
+                {req.guestResponse && (
+                  <p className="text-green-800">
+                    <span className="font-medium">Staff: </span>
+                    {req.guestResponse}
+                  </p>
+                )}
+                {req.estimatedTime && (
+                  <p className="text-green-700">
+                    <span className="font-medium">ETA: </span>
+                    {req.estimatedTime}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -223,6 +345,7 @@ export default function MaintenanceForm({ code }) {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <SuccessView onReset={handleReset} />
         </div>
+        <RequestHistory />
       </div>
     );
   }
@@ -460,6 +583,8 @@ export default function MaintenanceForm({ code }) {
           )}
         </button>
       </form>
+
+      <RequestHistory />
     </div>
   );
 }

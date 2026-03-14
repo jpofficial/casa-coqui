@@ -43,9 +43,10 @@ export async function POST(request) {
       );
     }
 
-    // Create Firebase Auth user with random temp password
+    // Create Firebase Auth user, or re-invite if they already exist
     const tempPassword = crypto.randomBytes(16).toString('hex');
     let uid;
+    let isExisting = false;
     try {
       const newUser = await adminAuth.createUser({
         email,
@@ -55,18 +56,21 @@ export async function POST(request) {
       uid = newUser.uid;
     } catch (err) {
       if (err.code === 'auth/email-already-exists') {
-        return NextResponse.json(
-          { success: false, error: 'A user with that email already exists' },
-          { status: 409 }
-        );
+        // Look up the existing user and update their role
+        const existingUser = await adminAuth.getUserByEmail(email);
+        uid = existingUser.uid;
+        isExisting = true;
+        // Update display name if provided
+        await adminAuth.updateUser(uid, { displayName });
+      } else {
+        throw err;
       }
-      throw err;
     }
 
-    // Set custom claims
+    // Set custom claims (new or updated role)
     await adminAuth.setCustomUserClaims(uid, { role });
 
-    // Generate password reset link
+    // Generate password reset link so they can set/reset their password
     const resetLink = await adminAuth.generatePasswordResetLink(email);
 
     // Send invite email
@@ -78,7 +82,9 @@ export async function POST(request) {
       const { error: emailError } = await resend.emails.send({
         from: 'Casa Coqui <hello@contact.casa-coqui.cc>',
         to: email,
-        subject: "You've been invited to Casa Coqui",
+        subject: isExisting
+          ? "Your Casa Coqui role has been updated"
+          : "You've been invited to Casa Coqui",
         html: buildInviteEmail({ displayName, roleLabel, resetLink }),
       });
       if (emailError) {
@@ -92,25 +98,42 @@ export async function POST(request) {
       emailErrorMsg = emailErr.message || 'Email delivery failed';
     }
 
-    // Write Firestore doc (after email attempt so we can store delivery status)
+    // Write or update Firestore doc
     const now = new Date().toISOString();
-    await adminDb.collection('users').doc(uid).set({
-      email,
-      role,
-      displayName,
-      status: 'pending',
-      invitedBy: caller.email || 'admin',
-      invitedAt: now,
-      createdAt: now,
-      emailSent,
-      emailError: emailErrorMsg,
-      inviteAttempts: 1,
-      lastInviteAt: now,
-    });
+    const userDocRef = adminDb.collection('users').doc(uid);
+    const existingDoc = await userDocRef.get();
+
+    if (existingDoc.exists) {
+      // Update existing doc — preserve createdAt, bump invite count
+      const prev = existingDoc.data();
+      await userDocRef.update({
+        role,
+        displayName,
+        status: 'pending',
+        emailSent,
+        emailError: emailErrorMsg,
+        inviteAttempts: (prev.inviteAttempts || 0) + 1,
+        lastInviteAt: now,
+      });
+    } else {
+      await userDocRef.set({
+        email,
+        role,
+        displayName,
+        status: 'pending',
+        invitedBy: caller.email || 'admin',
+        invitedAt: now,
+        createdAt: now,
+        emailSent,
+        emailError: emailErrorMsg,
+        inviteAttempts: 1,
+        lastInviteAt: now,
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      data: { uid, email, role, resetLink, emailSent, emailError: emailErrorMsg },
+      data: { uid, email, role, resetLink, emailSent, emailError: emailErrorMsg, reinvited: isExisting },
     });
   } catch (err) {
     console.error('[invite] Error:', err);

@@ -31,7 +31,9 @@ export function AuthProvider({ children }) {
 
         // Fetch role from Firestore users doc
         try {
+          console.log('[useAuth] Fetching user doc for:', firebaseUser.uid, firebaseUser.email);
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          console.log('[useAuth] Doc exists:', userDoc.exists(), userDoc.exists() ? userDoc.data() : null);
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setRole(userData.role || null);
@@ -46,14 +48,28 @@ export function AuthProvider({ children }) {
             // Fallback: no Firestore doc but email matches admin
             setRole('admin');
           } else {
-            setRole(null);
+            // No Firestore doc — try custom claims from token as fallback
+            const tokenResult = await firebaseUser.getIdTokenResult();
+            setRole(tokenResult.claims.role || null);
           }
-        } catch {
-          // Fallback on Firestore error
-          if (firebaseUser.email === ADMIN_EMAIL) {
-            setRole('admin');
-          } else {
-            setRole(null);
+        } catch (err) {
+          console.error('[useAuth] Failed to fetch user doc:', err.code, err.message);
+          // Fallback: try custom claims from token
+          try {
+            const tokenResult = await firebaseUser.getIdTokenResult(true);
+            if (tokenResult.claims.role) {
+              setRole(tokenResult.claims.role);
+            } else if (firebaseUser.email === ADMIN_EMAIL) {
+              setRole('admin');
+            } else {
+              setRole(null);
+            }
+          } catch {
+            if (firebaseUser.email === ADMIN_EMAIL) {
+              setRole('admin');
+            } else {
+              setRole(null);
+            }
           }
         }
       } else {

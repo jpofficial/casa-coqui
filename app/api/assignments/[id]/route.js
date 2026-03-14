@@ -1,17 +1,29 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
+import { sendDirectMessage } from '@/lib/notifications';
 
 const VALID_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'];
+
+// Map assignment statuses to maintenance statuses
+const ASSIGNMENT_TO_MAINTENANCE_STATUS = {
+  pending: 'open',
+  in_progress: 'in-progress',
+  completed: 'done',
+  cancelled: 'done',
+};
 
 // ---------------------------------------------------------------------------
 // PATCH /api/assignments/[id]
 //
 // Updates an assignment.
 // Admin can update any field. Assignee can only update status and completionNote.
+// For maintenance-sourced tasks, syncs status to the linked maintenance doc
+// and supports guestResponse/estimatedTime fields.
 //
 // Request body (any subset):
-//   { status?, completionNote?, title?, description?, priority?, dueDate?, assigneeId? }
+//   { status?, completionNote?, title?, description?, priority?, dueDate?,
+//     assigneeId?, guestResponse?, estimatedTime? }
 // ---------------------------------------------------------------------------
 export async function PATCH(request, { params }) {
   try {
@@ -36,9 +48,10 @@ export async function PATCH(request, { params }) {
 
     const existing = docSnap.data();
     const isAdmin = caller.role === 'admin';
+    const isCohost = caller.role === 'cohost';
     const isAssignee = existing.assigneeId === caller.uid;
 
-    if (!isAdmin && !isAssignee) {
+    if (!isAdmin && !isCohost && !isAssignee) {
       return NextResponse.json(
         { success: false, error: 'You can only update your own assignments.' },
         { status: 403 }
@@ -48,8 +61,8 @@ export async function PATCH(request, { params }) {
     const updates = {};
     const now = new Date().toISOString();
 
-    if (isAdmin) {
-      // Admin can update any field
+    if (isAdmin || isCohost) {
+      // Admin and cohost can update most fields
       if (body.title !== undefined) updates.title = String(body.title).trim().substring(0, 120);
       if (body.description !== undefined) updates.description = String(body.description).trim().substring(0, 500);
       if (body.priority !== undefined) updates.priority = body.priority;
@@ -57,6 +70,8 @@ export async function PATCH(request, { params }) {
       if (body.unit !== undefined) updates.unit = body.unit;
       if (body.status !== undefined) updates.status = body.status;
       if (body.completionNote !== undefined) updates.completionNote = body.completionNote;
+      if (body.guestResponse !== undefined) updates.guestResponse = String(body.guestResponse);
+      if (body.estimatedTime !== undefined) updates.estimatedTime = String(body.estimatedTime);
 
       // If admin reassigns, update assignee info
       if (body.assigneeId && body.assigneeId !== existing.assigneeId) {
@@ -73,9 +88,17 @@ export async function PATCH(request, { params }) {
         updates.assigneeRole = assigneeData.role;
       }
     } else {
-      // Assignee can only update status and completionNote
+      // Assignee can only update status, completionNote, and guest-facing fields
       if (body.status !== undefined) updates.status = body.status;
       if (body.completionNote !== undefined) updates.completionNote = String(body.completionNote).trim().substring(0, 500);
+      if (body.guestResponse !== undefined) updates.guestResponse = String(body.guestResponse);
+      if (body.estimatedTime !== undefined) updates.estimatedTime = String(body.estimatedTime);
+    }
+
+    // Track who responded when guest-facing fields are set
+    if (body.guestResponse !== undefined || body.estimatedTime !== undefined) {
+      updates.respondedAt = now;
+      updates.respondedBy = caller.uid;
     }
 
     // Validate status if being updated
@@ -104,6 +127,40 @@ export async function PATCH(request, { params }) {
 
     updates.updatedAt = now;
     await docRef.update(updates);
+
+    // Sync to linked maintenance doc (fire-and-forget)
+    if (existing.source === 'maintenance' && existing.maintenanceId) {
+      const maintenanceUpdates = { updatedAt: now };
+
+      // Sync status
+      if (updates.status) {
+        maintenanceUpdates.status = ASSIGNMENT_TO_MAINTENANCE_STATUS[updates.status] || updates.status;
+      }
+
+      // Sync guest response fields
+      if (updates.guestResponse !== undefined) maintenanceUpdates.guestResponse = updates.guestResponse;
+      if (updates.estimatedTime !== undefined) maintenanceUpdates.estimatedTime = updates.estimatedTime;
+      if (updates.respondedAt) {
+        maintenanceUpdates.respondedAt = updates.respondedAt;
+        maintenanceUpdates.respondedBy = updates.respondedBy;
+      }
+
+      adminDb.collection('maintenance').doc(existing.maintenanceId).update(maintenanceUpdates)
+        .catch((err) => console.error('[PATCH /api/assignments] Maintenance sync error:', err));
+
+      // Notify guest if response/ETA was provided
+      if ((body.guestResponse || body.estimatedTime) && existing.bookingCode) {
+        const parts = [];
+        if (body.guestResponse) parts.push(body.guestResponse);
+        if (body.estimatedTime) parts.push(`ETA: ${body.estimatedTime}`);
+
+        sendDirectMessage({
+          bookingCode: existing.bookingCode,
+          title: 'Maintenance Update',
+          body: parts.join(' — '),
+        }).catch((err) => console.error('[PATCH /api/assignments] Guest notification error:', err));
+      }
+    }
 
     return NextResponse.json({ success: true, data: { id, ...updates } });
   } catch (error) {

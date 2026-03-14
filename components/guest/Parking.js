@@ -1,9 +1,16 @@
 'use client';
 
+import { getUnitNames } from '@/lib/units';
+
 // ─── SVG parking map (fallback when no map image uploaded) ───────────────────
-function ParkingMap({ unit }) {
-  const unitA = unit === 'A';
-  const unitB = unit === 'B';
+function ParkingMap({ unitIndex, unitNames }) {
+  const isFirst = unitIndex === 0;
+  const isSecond = unitIndex === 1;
+  const firstName = unitNames[0] || 'Unit A';
+  const secondName = unitNames[1] || 'Unit B';
+  // Short label for the large letter in the SVG
+  const firstLabel = firstName.replace(/^Unit\s*/i, '').charAt(0).toUpperCase();
+  const secondLabel = secondName.replace(/^Unit\s*/i, '').charAt(0).toUpperCase();
 
   const highlightFill = '#dcfce7';
   const highlightStroke = '#16a34a';
@@ -17,7 +24,7 @@ function ParkingMap({ unit }) {
       xmlns="http://www.w3.org/2000/svg"
       className="w-full rounded-xl"
       role="img"
-      aria-label={`Parking map. ${unit ? `Your spot is Unit ${unit}.` : 'Both units shown.'}`}
+      aria-label={`Parking map. ${unitIndex != null ? `Your spot is ${unitNames[unitIndex]}.` : 'Both units shown.'}`}
     >
       <rect width="320" height="220" fill="#f0fdf4" rx="12" />
       <rect x="0" y="175" width="320" height="45" fill={roadFill} rx="0" />
@@ -31,18 +38,18 @@ function ParkingMap({ unit }) {
       <text x="160" y="167" textAnchor="middle" fontSize="9" fill="#15803d" fontFamily="system-ui, sans-serif" fontWeight="600">GATE</text>
       <rect x="60" y="20" width="200" height="100" rx="6" fill="white" stroke="#d1d5db" strokeWidth="1.5" />
       <text x="160" y="14" textAnchor="middle" fontSize="9" fill="#9ca3af" fontFamily="system-ui, sans-serif">Main Building</text>
-      <rect x="62" y="22" width="95" height="96" rx="4" fill={unitA ? highlightFill : neutralFill} stroke={unitA ? highlightStroke : neutralStroke} strokeWidth={unitA ? 2 : 1} />
-      <text x="109" y="68" textAnchor="middle" fontSize="14" fill={unitA ? '#15803d' : '#6b7280'} fontFamily="system-ui, sans-serif" fontWeight="700">A</text>
-      <text x="109" y="84" textAnchor="middle" fontSize="9" fill={unitA ? '#16a34a' : '#9ca3af'} fontFamily="system-ui, sans-serif">Unit A</text>
-      {unitA && <text x="109" y="100" textAnchor="middle" fontSize="8" fill="#16a34a" fontFamily="system-ui, sans-serif" fontWeight="600">Your unit</text>}
-      <rect x="163" y="22" width="95" height="96" rx="4" fill={unitB ? highlightFill : neutralFill} stroke={unitB ? highlightStroke : neutralStroke} strokeWidth={unitB ? 2 : 1} />
-      <text x="210" y="68" textAnchor="middle" fontSize="14" fill={unitB ? '#15803d' : '#6b7280'} fontFamily="system-ui, sans-serif" fontWeight="700">B</text>
-      <text x="210" y="84" textAnchor="middle" fontSize="9" fill={unitB ? '#16a34a' : '#9ca3af'} fontFamily="system-ui, sans-serif">Unit B</text>
-      {unitB && <text x="210" y="100" textAnchor="middle" fontSize="8" fill="#16a34a" fontFamily="system-ui, sans-serif" fontWeight="600">Your unit</text>}
-      <rect x="62" y="130" width="88" height="36" rx="3" fill={unitA ? highlightFill : neutralFill} stroke={unitA ? highlightStroke : neutralStroke} strokeWidth={unitA ? 2 : 1} strokeDasharray={unitA ? '0' : '4 3'} />
-      <text x="106" y="149" textAnchor="middle" fontSize="10" fill={unitA ? '#15803d' : '#9ca3af'} fontFamily="system-ui, sans-serif" fontWeight={unitA ? '700' : '400'}>{unitA ? 'Your Spot' : 'Spot A'}</text>
-      <rect x="170" y="130" width="88" height="36" rx="3" fill={unitB ? highlightFill : neutralFill} stroke={unitB ? highlightStroke : neutralStroke} strokeWidth={unitB ? 2 : 1} strokeDasharray={unitB ? '0' : '4 3'} />
-      <text x="214" y="149" textAnchor="middle" fontSize="10" fill={unitB ? '#15803d' : '#9ca3af'} fontFamily="system-ui, sans-serif" fontWeight={unitB ? '700' : '400'}>{unitB ? 'Your Spot' : 'Spot B'}</text>
+      <rect x="62" y="22" width="95" height="96" rx="4" fill={isFirst ? highlightFill : neutralFill} stroke={isFirst ? highlightStroke : neutralStroke} strokeWidth={isFirst ? 2 : 1} />
+      <text x="109" y="68" textAnchor="middle" fontSize="14" fill={isFirst ? '#15803d' : '#6b7280'} fontFamily="system-ui, sans-serif" fontWeight="700">{firstLabel}</text>
+      <text x="109" y="84" textAnchor="middle" fontSize="9" fill={isFirst ? '#16a34a' : '#9ca3af'} fontFamily="system-ui, sans-serif">{firstName}</text>
+      {isFirst && <text x="109" y="100" textAnchor="middle" fontSize="8" fill="#16a34a" fontFamily="system-ui, sans-serif" fontWeight="600">Your unit</text>}
+      <rect x="163" y="22" width="95" height="96" rx="4" fill={isSecond ? highlightFill : neutralFill} stroke={isSecond ? highlightStroke : neutralStroke} strokeWidth={isSecond ? 2 : 1} />
+      <text x="210" y="68" textAnchor="middle" fontSize="14" fill={isSecond ? '#15803d' : '#6b7280'} fontFamily="system-ui, sans-serif" fontWeight="700">{secondLabel}</text>
+      <text x="210" y="84" textAnchor="middle" fontSize="9" fill={isSecond ? '#16a34a' : '#9ca3af'} fontFamily="system-ui, sans-serif">{secondName}</text>
+      {isSecond && <text x="210" y="100" textAnchor="middle" fontSize="8" fill="#16a34a" fontFamily="system-ui, sans-serif" fontWeight="600">Your unit</text>}
+      <rect x="62" y="130" width="88" height="36" rx="3" fill={isFirst ? highlightFill : neutralFill} stroke={isFirst ? highlightStroke : neutralStroke} strokeWidth={isFirst ? 2 : 1} strokeDasharray={isFirst ? '0' : '4 3'} />
+      <text x="106" y="149" textAnchor="middle" fontSize="10" fill={isFirst ? '#15803d' : '#9ca3af'} fontFamily="system-ui, sans-serif" fontWeight={isFirst ? '700' : '400'}>{isFirst ? 'Your Spot' : firstName}</text>
+      <rect x="170" y="130" width="88" height="36" rx="3" fill={isSecond ? highlightFill : neutralFill} stroke={isSecond ? highlightStroke : neutralStroke} strokeWidth={isSecond ? 2 : 1} strokeDasharray={isSecond ? '0' : '4 3'} />
+      <text x="214" y="149" textAnchor="middle" fontSize="10" fill={isSecond ? '#15803d' : '#9ca3af'} fontFamily="system-ui, sans-serif" fontWeight={isSecond ? '700' : '400'}>{isSecond ? 'Your Spot' : secondName}</text>
       <g transform="translate(290, 30)">
         <circle cx="0" cy="0" r="12" fill="white" stroke="#e5e7eb" strokeWidth="1" />
         <text x="0" y="4" textAnchor="middle" fontSize="10" fill="#6b7280" fontFamily="system-ui, sans-serif" fontWeight="700">N</text>
@@ -54,8 +61,23 @@ function ParkingMap({ unit }) {
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function Parking({ bookingData, settings }) {
   const rawUnit = bookingData?.unit ?? null;
-  // Normalize: "Unit A" → "A", "B" → "B"
+  const unitNames = getUnitNames(settings);
+
+  // Find which unit index this booking belongs to by matching the booking's unit
+  // against the configured unit names (case-insensitive, also tries legacy "A"/"B" matching)
+  let unitIndex = null;
+  if (rawUnit) {
+    const normalized = rawUnit.replace(/^Unit\s*/i, '').trim().toLowerCase();
+    unitIndex = unitNames.findIndex((name) => {
+      const nameNorm = name.replace(/^Unit\s*/i, '').trim().toLowerCase();
+      return nameNorm === normalized || name.toLowerCase() === rawUnit.toLowerCase();
+    });
+    if (unitIndex === -1) unitIndex = null;
+  }
+
+  // Legacy compat: derive the old single-letter unit for parkingInfo apartment keys
   const unit = rawUnit ? rawUnit.replace(/^Unit\s*/i, '') : null;
+  const unitDisplayName = unitIndex != null ? unitNames[unitIndex] : rawUnit;
   const parkingInfo = settings?.parkingInfo;
 
   // Per-apartment data (new schema)
@@ -82,7 +104,7 @@ export default function Parking({ bookingData, settings }) {
           <h2 className="text-base font-bold text-gray-900">Parking</h2>
           {unit ? (
             <p className="text-sm text-gray-500 mt-0.5">
-              Your designated spot is <span className="font-semibold text-green-700">Spot {unit}</span>.
+              Your designated spot is <span className="font-semibold text-green-700">{unitDisplayName || rawUnit}</span>.
             </p>
           ) : (
             <p className="text-sm text-gray-500 mt-0.5">Parking information for the property.</p>
@@ -92,7 +114,7 @@ export default function Parking({ bookingData, settings }) {
           {parkingInfo?.mapImageUrl ? (
             <img src={parkingInfo.mapImageUrl} alt="Parking map" className="w-full rounded-xl object-cover" />
           ) : (
-            <ParkingMap unit={unit} />
+            <ParkingMap unitIndex={unitIndex} unitNames={unitNames} />
           )}
         </div>
         {ruleLines.length > 0 && (
@@ -117,13 +139,13 @@ export default function Parking({ bookingData, settings }) {
       {/* Heading */}
       <div>
         <h2 className="text-base font-bold text-gray-900">
-          Parking{unit ? ` — Unit ${unit}` : ''}
+          Parking{unitDisplayName ? ` — ${unitDisplayName}` : ''}
         </h2>
         {apartment?.instructions ? (
           <p className="text-sm text-gray-500 mt-0.5">{apartment.instructions}</p>
         ) : unit ? (
           <p className="text-sm text-gray-500 mt-0.5">
-            Your designated spot is <span className="font-semibold text-green-700">Spot {unit}</span>.
+            Your designated spot is <span className="font-semibold text-green-700">{unitDisplayName || rawUnit}</span>.
           </p>
         ) : (
           <p className="text-sm text-gray-500 mt-0.5">Parking information for the property.</p>
@@ -133,10 +155,10 @@ export default function Parking({ bookingData, settings }) {
       {/* Map */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-50 p-3">
         {apartment?.mapImageUrl ? (
-          <img src={apartment.mapImageUrl} alt={`Parking map for Unit ${unit}`} className="w-full rounded-xl object-cover" />
+          <img src={apartment.mapImageUrl} alt={`Parking map for ${unitDisplayName || rawUnit}`} className="w-full rounded-xl object-cover" />
         ) : (
           <>
-            <ParkingMap unit={unit} />
+            <ParkingMap unitIndex={unitIndex} unitNames={unitNames} />
             <div className="flex gap-4 mt-2 px-1 justify-center">
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded-sm bg-green-100 border-2 border-green-600" />

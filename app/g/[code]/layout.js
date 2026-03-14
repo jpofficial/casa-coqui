@@ -90,9 +90,8 @@ function BottomNav({ code }) {
   const moreLinks = [
     { href: `/g/${code}/rules`, label: 'House Rules' },
     { href: `/g/${code}/laundry`, label: 'Laundry' },
-    { href: `/g/${code}/community`, label: 'Community' },
+    { href: `/g/${code}/community`, label: 'Broadcast' },
     { href: `/g/${code}/maintenance`, label: 'Maintenance' },
-    { href: `/g/${code}/chat`, label: 'Message Host' },
   ];
 
   const isMoreActive = moreLinks.some((l) => pathname.startsWith(l.href));

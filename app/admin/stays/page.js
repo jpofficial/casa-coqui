@@ -46,7 +46,7 @@ export default function StaysPage() {
 
   return (
     <div className="p-4 max-w-lg mx-auto">
-      <h1 className="text-xl font-bold text-gray-900 mb-4">Current Stays</h1>
+      <h1 className="text-xl font-bold text-gray-900 mb-4">Active Stays</h1>
 
       {stays.length === 0 ? (
         <div className="text-center text-gray-500 py-12">

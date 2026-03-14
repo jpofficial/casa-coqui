@@ -22,7 +22,8 @@ export async function GET(request) {
     if (authError) return authError;
 
     let query;
-    if (caller.role === 'admin') {
+    if (caller.role === 'admin' || caller.role === 'cohost') {
+      // Admin and cohost see all assignments (including unassigned maintenance tasks)
       query = adminDb.collection('assignments').orderBy('createdAt', 'desc');
     } else {
       query = adminDb
@@ -66,9 +67,9 @@ export async function POST(request) {
     const body = await request.json();
     const { title, description, assigneeId, dueDate, priority, unit } = body;
 
-    if (!title || !assigneeId) {
+    if (!title) {
       return NextResponse.json(
-        { success: false, error: 'title and assigneeId are required.' },
+        { success: false, error: 'title is required.' },
         { status: 400 }
       );
     }
@@ -88,29 +89,35 @@ export async function POST(request) {
       );
     }
 
-    // Verify assignee exists and is active staff
-    const assigneeDoc = await adminDb.collection('users').doc(assigneeId).get();
-    if (!assigneeDoc.exists) {
-      return NextResponse.json(
-        { success: false, error: 'Assignee not found.' },
-        { status: 404 }
-      );
-    }
-    const assigneeData = assigneeDoc.data();
-    if (assigneeData.status === 'deactivated') {
-      return NextResponse.json(
-        { success: false, error: 'Cannot assign to a deactivated user.' },
-        { status: 400 }
-      );
+    // Resolve assignee info (optional — null for auto-generated tasks)
+    let assigneeName = 'Unassigned';
+    let assigneeRole = null;
+    if (assigneeId) {
+      const assigneeDoc = await adminDb.collection('users').doc(assigneeId).get();
+      if (!assigneeDoc.exists) {
+        return NextResponse.json(
+          { success: false, error: 'Assignee not found.' },
+          { status: 404 }
+        );
+      }
+      const assigneeData = assigneeDoc.data();
+      if (assigneeData.status === 'deactivated') {
+        return NextResponse.json(
+          { success: false, error: 'Cannot assign to a deactivated user.' },
+          { status: 400 }
+        );
+      }
+      assigneeName = assigneeData.displayName || assigneeData.email;
+      assigneeRole = assigneeData.role;
     }
 
     const now = new Date().toISOString();
     const assignment = {
       title: String(title).trim(),
       description: description ? String(description).trim().substring(0, 500) : '',
-      assigneeId,
-      assigneeName: assigneeData.displayName || assigneeData.email,
-      assigneeRole: assigneeData.role,
+      assigneeId: assigneeId || null,
+      assigneeName,
+      assigneeRole,
       createdBy: caller.uid,
       createdByName: caller.email,
       status: 'pending',
@@ -122,6 +129,15 @@ export async function POST(request) {
       createdAt: now,
       updatedAt: now,
     };
+
+    // Include extra fields for maintenance-sourced tasks
+    if (body.source === 'maintenance') {
+      assignment.source = 'maintenance';
+      assignment.maintenanceId = body.maintenanceId || null;
+      assignment.photoUrl = body.photoUrl || null;
+      assignment.bookingCode = body.bookingCode || null;
+      assignment.guestId = body.guestId || null;
+    }
 
     const docRef = await adminDb.collection('assignments').add(assignment);
 

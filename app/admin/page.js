@@ -189,7 +189,7 @@ function CohostDashboard() {
             </span>
           </Link>
           <Link
-            href="/admin/maintenance"
+            href="/admin/assignments"
             className="flex flex-col items-center gap-2 bg-white rounded-xl shadow-sm p-4 min-h-[72px] active:bg-gray-50 transition-colors"
           >
             <span className="text-green-600">
@@ -212,7 +212,7 @@ function CohostDashboard() {
               </svg>
             </span>
             <span className="text-xs font-medium text-gray-700 text-center leading-tight">
-              Current Stays
+              Active Stays
             </span>
           </Link>
         </div>
@@ -399,20 +399,20 @@ function FullAdminDashboard() {
               </svg>
             </span>
             <span className="text-xs font-medium text-gray-700 text-center leading-tight">
-              Broadcast
+              Send Alert
             </span>
           </Link>
           <Link
-            href="/admin/messages"
+            href="/admin/community"
             className="flex flex-col items-center gap-2 bg-white rounded-xl shadow-sm p-4 min-h-[72px] active:bg-gray-50 transition-colors"
           >
             <span className="text-green-600">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 16a2 2 0 01-2 2H7l-4 4V6a2 2 0 012-2h14a2 2 0 012 2v10z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46" />
               </svg>
             </span>
             <span className="text-xs font-medium text-gray-700 text-center leading-tight">
-              Messages
+              Broadcast
             </span>
           </Link>
         </div>

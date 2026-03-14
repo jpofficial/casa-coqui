@@ -33,9 +33,12 @@ function getRelativeTime(timestamp) {
 // ─── Type badge ────────────────────────────────────────────────────────────────
 const TYPE_STYLES = {
   parking: { label: 'Parking', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+  laundry: { label: 'Laundry', bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200' },
+  property_issue: { label: 'Property Issue', bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
+  general: { label: 'General', bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
+  // Legacy types (for backward compatibility with old posts)
   noise: { label: 'Noise', bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
   lost_found: { label: 'Lost & Found', bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
-  general: { label: 'General', bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
 };
 
 function TypeBadge({ type }) {
@@ -260,9 +263,9 @@ export default function Community({ code, showBookingCode = false }) {
     <div className="flex flex-col gap-4">
       {/* Header */}
       <div>
-        <h2 className="text-base font-bold text-gray-900">Community Board</h2>
+        <h2 className="text-base font-bold text-gray-900">Broadcast</h2>
         <p className="text-sm text-gray-500 mt-0.5">
-          Share updates with fellow guests
+          Parking, laundry, and property coordination
         </p>
       </div>
 

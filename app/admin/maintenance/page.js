@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { orderBy } from 'firebase/firestore';
 import { useCollection } from '@/hooks/useFirestore';
-import { db } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
 
 const FILTER_TABS = ['All', 'Open', 'In Progress', 'Done'];
 
@@ -67,12 +67,33 @@ function timeAgo(dateValue) {
   return `${days}d ago`;
 }
 
+async function patchMaintenance(id, updates) {
+  const idToken = await auth.currentUser.getIdToken();
+  const res = await fetch(`/api/maintenance/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify(updates),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to update');
+  }
+  return data;
+}
+
 function MaintenanceCard({ request }) {
   const [expanded, setExpanded] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState(request.notes || '');
   const [saving, setSaving] = useState(false);
   const [viewPhoto, setViewPhoto] = useState(false);
+  const [showRespond, setShowRespond] = useState(false);
+  const [guestResponse, setGuestResponse] = useState(request.guestResponse || '');
+  const [estimatedTime, setEstimatedTime] = useState(request.estimatedTime || '');
+  const [sendingResponse, setSendingResponse] = useState(false);
 
   const urgency = request.urgency || 'Low';
   const category = request.category || 'Other';
@@ -83,10 +104,7 @@ function MaintenanceCard({ request }) {
 
   async function handleStatusChange(newStatus) {
     try {
-      await updateDoc(doc(db, 'maintenance', request.id), {
-        status: newStatus,
-        updatedAt: serverTimestamp(),
-      });
+      await patchMaintenance(request.id, { status: newStatus });
     } catch (err) {
       console.error('Failed to update status:', err);
     }
@@ -95,15 +113,28 @@ function MaintenanceCard({ request }) {
   async function handleSaveNotes() {
     setSaving(true);
     try {
-      await updateDoc(doc(db, 'maintenance', request.id), {
-        notes: notes.trim(),
-        updatedAt: serverTimestamp(),
-      });
+      await patchMaintenance(request.id, { notes: notes.trim() });
       setShowNotes(false);
     } catch (err) {
       console.error('Failed to save notes:', err);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSendResponse() {
+    if (!guestResponse.trim() && !estimatedTime.trim()) return;
+    setSendingResponse(true);
+    try {
+      const updates = {};
+      if (guestResponse.trim()) updates.guestResponse = guestResponse.trim();
+      if (estimatedTime.trim()) updates.estimatedTime = estimatedTime.trim();
+      await patchMaintenance(request.id, updates);
+      setShowRespond(false);
+    } catch (err) {
+      console.error('Failed to send response:', err);
+    } finally {
+      setSendingResponse(false);
     }
   }
 
@@ -174,6 +205,27 @@ function MaintenanceCard({ request }) {
         {request.guestName && <span className="truncate ml-2">{request.guestName}</span>}
       </div>
 
+      {/* Existing guest response display */}
+      {(request.guestResponse || request.estimatedTime) && !showRespond && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs space-y-1">
+          {request.guestResponse && (
+            <p className="text-blue-800">
+              <span className="font-medium">Response: </span>
+              {request.guestResponse}
+            </p>
+          )}
+          {request.estimatedTime && (
+            <p className="text-blue-700">
+              <span className="font-medium">ETA: </span>
+              {request.estimatedTime}
+            </p>
+          )}
+          {request.respondedAt && (
+            <p className="text-blue-400">Sent {timeAgo(request.respondedAt)}</p>
+          )}
+        </div>
+      )}
+
       {/* Admin notes preview */}
       {request.notes && !showNotes && (
         <div className="bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-600">
@@ -210,6 +262,46 @@ function MaintenanceCard({ request }) {
         </div>
       )}
 
+      {/* Respond to Guest editor */}
+      {showRespond && (
+        <div className="space-y-2 bg-blue-50 rounded-xl p-3">
+          <p className="text-xs font-semibold text-blue-800">Respond to Guest</p>
+          <textarea
+            value={guestResponse}
+            onChange={(e) => setGuestResponse(e.target.value)}
+            placeholder="Message to guest (e.g. 'We've dispatched a plumber')"
+            rows={3}
+            className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+          />
+          <input
+            type="text"
+            value={estimatedTime}
+            onChange={(e) => setEstimatedTime(e.target.value)}
+            placeholder="Estimated time (e.g. 'Tomorrow morning', '2-3 hours')"
+            className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleSendResponse}
+              disabled={sendingResponse || (!guestResponse.trim() && !estimatedTime.trim())}
+              className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-xs font-semibold disabled:opacity-50 active:bg-blue-700 transition-colors"
+            >
+              {sendingResponse ? 'Sending...' : 'Send to Guest'}
+            </button>
+            <button
+              onClick={() => {
+                setGuestResponse(request.guestResponse || '');
+                setEstimatedTime(request.estimatedTime || '');
+                setShowRespond(false);
+              }}
+              className="flex-1 bg-white text-gray-600 border border-gray-200 rounded-xl py-2.5 text-xs font-semibold active:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Action row */}
       <div className="flex flex-wrap gap-2 pt-1">
         {transitions.map((t) => (
@@ -226,6 +318,12 @@ function MaintenanceCard({ request }) {
           className="flex-1 min-w-[100px] border border-gray-200 text-gray-600 rounded-xl py-2.5 text-xs font-semibold active:bg-gray-50 transition-colors"
         >
           {showNotes ? 'Hide Notes' : request.notes ? 'Edit Note' : 'Add Note'}
+        </button>
+        <button
+          onClick={() => setShowRespond(!showRespond)}
+          className="flex-1 min-w-[100px] bg-blue-50 text-blue-700 border border-blue-200 rounded-xl py-2.5 text-xs font-semibold active:bg-blue-100 transition-colors"
+        >
+          {showRespond ? 'Hide Response' : request.guestResponse ? 'Edit Response' : 'Respond to Guest'}
         </button>
       </div>
     </div>

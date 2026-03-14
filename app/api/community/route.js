@@ -7,18 +7,14 @@ import { broadcastToActiveGuests } from '@/lib/notifications';
 const AUTO_MESSAGES = {
   parking:
     "Hey all! Friendly reminder — there's a car parked in an assigned spot. Does anyone know whose car this is?",
-  noise:
-    'Hi neighbors! Just a friendly heads-up about noise levels. Let\u2019s keep things comfortable for everyone.',
-  lost_found:
-    'Hey! Something was found in the common area. Check the photo below — is it yours?',
 };
 
 // Friendly titles for push notifications.
 const PUSH_TITLES = {
   parking: 'Parking Alert',
-  noise: 'Noise Notice',
-  lost_found: 'Lost & Found',
-  general: 'Community Post',
+  laundry: 'Laundry Update',
+  property_issue: 'Property Update',
+  general: 'Broadcast Post',
 };
 
 // ---------------------------------------------------------------------------
@@ -37,7 +33,7 @@ export async function POST(request) {
     const { type, message: customMessage, photoUrl } = body;
 
     // Validate type.
-    const validTypes = ['parking', 'noise', 'lost_found', 'general'];
+    const validTypes = ['parking', 'laundry', 'property_issue', 'general'];
     if (!type || !validTypes.includes(type)) {
       return NextResponse.json(
         { success: false, error: 'Invalid post type.' },
@@ -45,8 +41,8 @@ export async function POST(request) {
       );
     }
 
-    // Parking and lost_found require a photo.
-    if ((type === 'parking' || type === 'lost_found') && !photoUrl) {
+    // Parking and property_issue require a photo.
+    if ((type === 'parking' || type === 'property_issue') && !photoUrl) {
       return NextResponse.json(
         { success: false, error: 'A photo is required for this post type.' },
         { status: 400 }
@@ -82,13 +78,17 @@ export async function POST(request) {
 
     const docRef = await adminDb.collection('community').add(postData);
 
-    // Broadcast push + SMS to all active guests.
-    const pushTitle = PUSH_TITLES[type] || 'Community Post';
-    await broadcastToActiveGuests({
-      title: pushTitle,
-      body: message.length > 100 ? message.slice(0, 97) + '...' : message,
-      type: 'community',
-    });
+    // Only auto-broadcast push + SMS for parking alerts (urgent, safety-related).
+    // Other post types are discoverable via the board's real-time listener —
+    // broadcasting every post breaks anonymity by revealing timing and activity.
+    if (type === 'parking') {
+      const pushTitle = PUSH_TITLES[type] || 'Broadcast Post';
+      await broadcastToActiveGuests({
+        title: pushTitle,
+        body: message.length > 100 ? message.slice(0, 97) + '...' : message,
+        type: 'community',
+      });
+    }
 
     return NextResponse.json({
       success: true,

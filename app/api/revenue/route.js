@@ -2,7 +2,20 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
 
-const VALID_UNITS = ['Unit A', 'Unit B'];
+const DEFAULT_VALID_UNITS = ['Unit A', 'Unit B'];
+
+async function getValidUnits() {
+  try {
+    const settingsDoc = await adminDb.collection('settings').doc('property').get();
+    const settings = settingsDoc.exists ? settingsDoc.data() : null;
+    if (settings?.units && Array.isArray(settings.units) && settings.units.length > 0) {
+      return settings.units.map((u) => u.name);
+    }
+  } catch (err) {
+    console.error('Failed to fetch unit settings:', err);
+  }
+  return DEFAULT_VALID_UNITS;
+}
 
 // ---------------------------------------------------------------------------
 // GET /api/revenue
@@ -73,9 +86,10 @@ export async function POST(request) {
       );
     }
 
-    if (unit && !VALID_UNITS.includes(unit)) {
+    const validUnits = await getValidUnits();
+    if (unit && !validUnits.includes(unit)) {
       return NextResponse.json(
-        { success: false, error: `unit must be one of: ${VALID_UNITS.join(', ')}.` },
+        { success: false, error: `unit must be one of: ${validUnits.join(', ')}.` },
         { status: 400 }
       );
     }
@@ -87,7 +101,7 @@ export async function POST(request) {
     const entry = {
       amount: parsedAmount,
       description: description ? String(description).trim() : '',
-      unit: unit || 'Unit A',
+      unit: unit || validUnits[0],
       date,
       month,
       year,

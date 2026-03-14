@@ -4,7 +4,8 @@ import { useState, useMemo } from 'react';
 import { orderBy } from 'firebase/firestore';
 import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useCollection } from '@/hooks/useFirestore';
+import { useCollection, useDocument } from '@/hooks/useFirestore';
+import { getUnitsWithShared } from '@/lib/units';
 import {
   BarChart,
   Bar,
@@ -16,7 +17,6 @@ import {
 } from 'recharts';
 
 const CATEGORIES = ['Utilities', 'Cleaning', 'Repairs', 'Supplies', 'Insurance', 'Other'];
-const UNITS = ['Unit A', 'Unit B', 'Shared'];
 
 const CATEGORY_COLORS = {
   Utilities: '#6366f1',
@@ -52,6 +52,8 @@ const INPUT_CLASS =
 
 export default function Expenses() {
   const { data: expenses, loading, error } = useCollection('expenses', [orderBy('date', 'desc')]);
+  const { data: settings } = useDocument('settings', 'property');
+  const UNITS = getUnitsWithShared(settings);
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonthYM());
   const [selectedCategory, setSelectedCategory] = useState('All');

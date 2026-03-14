@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { orderBy } from 'firebase/firestore';
-import { useCollection } from '@/hooks/useFirestore';
+import { useCollection, useDocument } from '@/hooks/useFirestore';
+import { getUnitNames } from '@/lib/units';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -70,21 +71,16 @@ const STATUS_STYLES = {
   },
 };
 
-const UNIT_COLORS = {
-  'Unit A': {
-    active: 'bg-green-500',
-    upcoming: 'bg-blue-500',
-    completed: 'bg-gray-300',
-  },
-  'Unit B': {
-    active: 'bg-emerald-400',
-    upcoming: 'bg-indigo-400',
-    completed: 'bg-gray-200',
-  },
-};
+// Color palette for units — cycles if more than 2 units
+const UNIT_COLOR_PALETTE = [
+  { active: 'bg-green-500', upcoming: 'bg-blue-500', completed: 'bg-gray-300' },
+  { active: 'bg-emerald-400', upcoming: 'bg-indigo-400', completed: 'bg-gray-200' },
+];
 
-function getUnitBarColor(unit, status) {
-  return UNIT_COLORS[unit]?.[status] || STATUS_STYLES[status]?.bar || 'bg-gray-300';
+function getUnitBarColor(unit, status, unitNames) {
+  const idx = unitNames.indexOf(unit);
+  const palette = UNIT_COLOR_PALETTE[idx >= 0 ? idx % UNIT_COLOR_PALETTE.length : 0];
+  return palette?.[status] || STATUS_STYLES[status]?.bar || 'bg-gray-300';
 }
 
 // ---------------------------------------------------------------------------
@@ -207,7 +203,7 @@ function BookingDetailModal({ booking, onClose }) {
 // ---------------------------------------------------------------------------
 // Calendar Day Cell
 // ---------------------------------------------------------------------------
-function DayCell({ cell, bookingsInDay, onBookingTap, isToday }) {
+function DayCell({ cell, bookingsInDay, onBookingTap, isToday, unitNames }) {
   if (!cell) {
     return <div className="min-h-[52px]" />;
   }
@@ -230,7 +226,7 @@ function DayCell({ cell, bookingsInDay, onBookingTap, isToday }) {
           <button
             key={booking.id}
             onClick={() => onBookingTap(booking)}
-            className={`w-full h-3 rounded-sm ${getUnitBarColor(booking.unit, status)} opacity-80 hover:opacity-100 active:opacity-100 transition-opacity`}
+            className={`w-full h-3 rounded-sm ${getUnitBarColor(booking.unit, status, unitNames)} opacity-80 hover:opacity-100 active:opacity-100 transition-opacity`}
             title={`${booking.guestName || 'Guest'} · ${booking.unit}`}
           />
         ))}
@@ -244,6 +240,8 @@ function DayCell({ cell, bookingsInDay, onBookingTap, isToday }) {
 // ---------------------------------------------------------------------------
 export default function OccupancyCalendar() {
   const { data: bookings, loading, error } = useCollection('bookings', [orderBy('checkInDate', 'asc')]);
+  const { data: settings } = useDocument('settings', 'property');
+  const unitNames = getUnitNames(settings);
 
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
@@ -325,7 +323,7 @@ export default function OccupancyCalendar() {
 
       {/* Unit filter */}
       <div className="flex gap-2">
-        {['All', 'Unit A', 'Unit B'].map((unit) => (
+        {['All', ...unitNames].map((unit) => (
           <button
             key={unit}
             onClick={() => setUnitFilter(unit)}
@@ -406,6 +404,7 @@ export default function OccupancyCalendar() {
                       bookingsInDay={bookingsInDay}
                       onBookingTap={setSelectedBooking}
                       isToday={isToday}
+                      unitNames={unitNames}
                     />
                   );
                 })}
@@ -416,22 +415,21 @@ export default function OccupancyCalendar() {
 
         {/* Legend */}
         <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-x-4 gap-y-2">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm bg-green-500" />
-            <span className="text-xs text-gray-500">Unit A Active</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm bg-blue-500" />
-            <span className="text-xs text-gray-500">Unit A Upcoming</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm bg-emerald-400" />
-            <span className="text-xs text-gray-500">Unit B Active</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm bg-indigo-400" />
-            <span className="text-xs text-gray-500">Unit B Upcoming</span>
-          </div>
+          {unitNames.map((name, idx) => {
+            const palette = UNIT_COLOR_PALETTE[idx % UNIT_COLOR_PALETTE.length];
+            return (
+              <div key={name} className="contents">
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-3 h-3 rounded-sm ${palette.active}`} />
+                  <span className="text-xs text-gray-500">{name} Active</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-3 h-3 rounded-sm ${palette.upcoming}`} />
+                  <span className="text-xs text-gray-500">{name} Upcoming</span>
+                </div>
+              </div>
+            );
+          })}
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-sm bg-gray-300" />
             <span className="text-xs text-gray-500">Completed</span>
@@ -491,7 +489,7 @@ export default function OccupancyCalendar() {
                     </div>
                   </div>
                   {/* Mini unit-colored bar */}
-                  <div className={`mt-2 h-1.5 rounded-full ${getUnitBarColor(booking.unit, status)}`} style={{ width: '100%', opacity: 0.5 }} />
+                  <div className={`mt-2 h-1.5 rounded-full ${getUnitBarColor(booking.unit, status, unitNames)}`} style={{ width: '100%', opacity: 0.5 }} />
                 </button>
               );
             })}

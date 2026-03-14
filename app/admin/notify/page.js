@@ -125,11 +125,11 @@ export default function NotifyPage() {
             if (stats.sms) parts.push(`${stats.sms} SMS`);
             detail = parts.length ? ` (${parts.join(', ')})` : '';
           }
-          setResult({ success: true, message: `Broadcast sent${detail}.` });
+          setResult({ success: true, message: `Alert sent${detail}.` });
           setTitle('');
           setMessage('');
         } else {
-          setResult({ success: false, message: json.error || 'Failed to send broadcast.' });
+          setResult({ success: false, message: json.error || 'Failed to send alert.' });
         }
       } catch {
         setResult({ success: false, message: 'Network error. Please try again.' });
@@ -144,8 +144,8 @@ export default function NotifyPage() {
     <div className="px-4 pt-5 pb-6 max-w-2xl mx-auto space-y-6">
       {/* Page title */}
       <div>
-        <h1 className="text-xl font-bold text-gray-900">Broadcast</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Send a message to all active guests</p>
+        <h1 className="text-xl font-bold text-gray-900">Alerts</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Send a push notification to all active guests</p>
       </div>
 
       {/* Quick-send templates */}
@@ -226,7 +226,7 @@ export default function NotifyPage() {
       {/* Recent broadcasts */}
       <div>
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          Recent Broadcasts
+          Recent Alerts
         </h2>
 
         {broadcastsLoading ? (
@@ -240,7 +240,7 @@ export default function NotifyPage() {
           </div>
         ) : broadcasts.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm p-6 text-center">
-            <p className="text-gray-400 text-sm">No broadcasts sent yet</p>
+            <p className="text-gray-400 text-sm">No alerts sent yet</p>
           </div>
         ) : (
           <div className="space-y-3">

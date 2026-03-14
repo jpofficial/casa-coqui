@@ -2,8 +2,9 @@
 
 import { useState, useCallback } from 'react';
 import { orderBy } from 'firebase/firestore';
-import { useCollection } from '@/hooks/useFirestore';
+import { useCollection, useDocument } from '@/hooks/useFirestore';
 import useAuth from '@/hooks/useAuth';
+import { getUnitNames } from '@/lib/units';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -95,7 +96,8 @@ const EMPTY_FORM = {
   checkOutDate: '',
 };
 
-function BookingForm({ onCreated, user }) {
+function BookingForm({ onCreated, user, settings }) {
+  const unitNames = getUnitNames(settings);
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -226,8 +228,9 @@ function BookingForm({ onCreated, user }) {
           className={inputClass}
           required
         >
-          <option value="Unit A">Unit A</option>
-          <option value="Unit B">Unit B</option>
+          {unitNames.map((u) => (
+            <option key={u} value={u}>{u}</option>
+          ))}
         </select>
       </div>
 
@@ -404,6 +407,7 @@ function BookingCard({ booking, onCancel }) {
 
 export default function BookingsPage() {
   const { user } = useAuth();
+  const { data: settings } = useDocument('settings', 'property');
   const [newBooking, setNewBooking] = useState(null);
   const [cancelError, setCancelError] = useState('');
 
@@ -456,7 +460,7 @@ export default function BookingsPage() {
       )}
 
       {/* Creation form */}
-      <BookingForm onCreated={handleCreated} user={user} />
+      <BookingForm onCreated={handleCreated} user={user} settings={settings} />
 
       {/* Existing bookings */}
       <div>

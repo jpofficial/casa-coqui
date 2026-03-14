@@ -3,7 +3,20 @@ import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
 
 const VALID_CATEGORIES = ['Utilities', 'Cleaning', 'Repairs', 'Supplies', 'Insurance', 'Other'];
-const VALID_UNITS = ['Unit A', 'Unit B', 'Shared'];
+const DEFAULT_VALID_UNITS = ['Unit A', 'Unit B', 'Shared'];
+
+async function getValidUnits() {
+  try {
+    const settingsDoc = await adminDb.collection('settings').doc('property').get();
+    const settings = settingsDoc.exists ? settingsDoc.data() : null;
+    if (settings?.units && Array.isArray(settings.units) && settings.units.length > 0) {
+      return [...settings.units.map((u) => u.name), 'Shared'];
+    }
+  } catch (err) {
+    console.error('Failed to fetch unit settings:', err);
+  }
+  return DEFAULT_VALID_UNITS;
+}
 
 // ---------------------------------------------------------------------------
 // GET /api/expenses
@@ -82,9 +95,10 @@ export async function POST(request) {
       );
     }
 
-    if (!VALID_UNITS.includes(unit)) {
+    const validUnits = await getValidUnits();
+    if (!validUnits.includes(unit)) {
       return NextResponse.json(
-        { success: false, error: `unit must be one of: ${VALID_UNITS.join(', ')}.` },
+        { success: false, error: `unit must be one of: ${validUnits.join(', ')}.` },
         { status: 400 }
       );
     }
