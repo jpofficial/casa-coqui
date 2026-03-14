@@ -145,9 +145,9 @@ function CohostDashboard() {
   }, [user]);
 
   const {
-    data: maintenanceRequests,
-    loading: maintenanceLoading,
-  } = useCollection('maintenance', [where('status', '==', 'open')]);
+    data: openTasks,
+    loading: tasksLoading,
+  } = useCollection('assignments', [where('status', 'in', ['pending', 'in_progress'])]);
 
   return (
     <div className="px-4 pt-5 pb-6 max-w-2xl mx-auto space-y-6">
@@ -168,11 +168,11 @@ function CohostDashboard() {
           bgTint="bg-coqui-50 border-coqui-100"
         />
         <StatsCard
-          label="Open Maintenance"
-          value={maintenanceRequests.length}
-          accent={maintenanceRequests.length > 0 ? 'text-flamboyan-600' : 'text-coqui-900'}
-          loading={maintenanceLoading}
-          bgTint="bg-flamboyan-50 border-flamboyan-100"
+          label="Open Tasks"
+          value={openTasks.length}
+          accent={openTasks.length > 0 ? 'text-atardecer-600' : 'text-coqui-900'}
+          loading={tasksLoading}
+          bgTint="bg-atardecer-50 border-atardecer-100"
         />
       </div>
 
