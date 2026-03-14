@@ -116,6 +116,7 @@ export async function POST(request) {
         role,
         displayName,
         status: 'pending',
+        onboardingComplete: false,
         emailSent,
         emailError: emailErrorMsg,
         inviteAttempts: (prev.inviteAttempts || 0) + 1,
@@ -127,6 +128,7 @@ export async function POST(request) {
         role,
         displayName,
         status: 'pending',
+        onboardingComplete: false,
         invitedBy: caller.email || 'admin',
         invitedAt: now,
         createdAt: now,
@@ -142,15 +144,40 @@ export async function POST(request) {
       data: { uid, email, role, resetLink, emailSent, emailError: emailErrorMsg, reinvited: isExisting },
     });
   } catch (err) {
-    console.error('[invite] Error:', err);
+    console.error('[invite] Error:', err?.code || err?.name, err?.message, err?.stack);
+
+    // Surface actionable error messages instead of generic 500
+    let userMessage = 'Internal server error';
+    if (err?.code === 'auth/unauthorized-continue-uri') {
+      userMessage = 'Firebase rejected the continue URL. Ensure your app domain is whitelisted in Firebase Console > Authentication > Settings > Authorized domains.';
+    } else if (err?.code === 'auth/invalid-email') {
+      userMessage = 'The email address is invalid.';
+    } else if (err?.code === 'auth/operation-not-allowed') {
+      userMessage = 'Email/password accounts are not enabled in Firebase. Enable them in Firebase Console > Authentication > Sign-in method.';
+    } else if (err?.code?.startsWith?.('auth/')) {
+      userMessage = `Firebase Auth error: ${err.message || err.code}`;
+    } else if (err?.message) {
+      userMessage = `Server error: ${err.message}`;
+    }
+
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: userMessage },
       { status: 500 }
     );
   }
 }
 
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function buildInviteEmail({ displayName, roleLabel, resetLink }) {
+  const safeName = escapeHtml(displayName);
+  const safeRole = escapeHtml(roleLabel);
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -166,9 +193,9 @@ function buildInviteEmail({ displayName, roleLabel, resetLink }) {
           </tr>
           <tr>
             <td style="padding:28px 24px 12px">
-              <h2 style="margin:0 0 8px;font-size:18px;color:#111827">Hi ${displayName},</h2>
+              <h2 style="margin:0 0 8px;font-size:18px;color:#111827">Hi ${safeName},</h2>
               <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6">
-                You've been invited to join the Casa Coqui team as a <strong>${roleLabel}</strong>. Click the button below to set your password and get started.
+                You've been invited to join the Casa Coqui team as a <strong>${safeRole}</strong>. Click the button below to set your password and get started.
               </p>
             </td>
           </tr>

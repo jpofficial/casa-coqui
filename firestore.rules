@@ -40,8 +40,9 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       // Staff can update their own status (e.g. pending → active on first login)
+      // and mark onboarding complete
       allow update: if isAuthenticated() && request.auth.uid == userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'onboardingComplete']);
       allow write: if isAdmin();
     }
 
@@ -176,7 +177,8 @@ service cloud.firestore {
     // (doc ID is the booking code).
     // -------------------------------------------------------------------------
     match /checkins/{code} {
-      allow read: if isAdmin() || isAuthenticated();
+      allow read: if isAdmin() ||
+        (isAuthenticated() && code == request.auth.token.bookingCode);
       allow write: if isAdmin() ||
         (isAuthenticated() && code == request.auth.token.bookingCode);
     }

@@ -9,12 +9,13 @@ import { canAccessRoute, getDefaultRedirect } from '@/lib/roles';
 import usePush from '@/hooks/usePush';
 
 function AdminLayoutInner({ children }) {
-  const { user, loading, role, isStaff, signOut } = useAuth();
+  const { user, loading, role, isStaff, needsOnboarding, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const { requestPermission, supported: pushSupported } = usePush();
 
   const isLoginPage = pathname === '/admin/login';
+  const isGettingStartedPage = pathname === '/admin/getting-started';
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef(null);
 
@@ -32,11 +33,17 @@ function AdminLayoutInner({ children }) {
       return;
     }
 
+    // Redirect new team members to onboarding (admins skip)
+    if (needsOnboarding && role !== 'admin' && !isGettingStartedPage) {
+      router.replace('/admin/getting-started');
+      return;
+    }
+
     // Route guard: redirect if role can't access current path
     if (role && !canAccessRoute(role, pathname)) {
       router.replace(getDefaultRedirect(role));
     }
-  }, [loading, isStaff, role, router, isLoginPage, pathname]);
+  }, [loading, isStaff, role, router, isLoginPage, pathname, needsOnboarding, isGettingStartedPage]);
 
   // Close More menu when clicking outside
   useEffect(() => {

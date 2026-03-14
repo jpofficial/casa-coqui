@@ -19,6 +19,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [displayName, setDisplayName] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -45,6 +47,14 @@ export function AuthProvider({ children }) {
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setRole(userData.role || null);
+            setDisplayName(userData.displayName || firebaseUser.displayName || null);
+
+            // Detect first-time login needing onboarding
+            if (userData.onboardingComplete === false) {
+              setNeedsOnboarding(true);
+            } else {
+              setNeedsOnboarding(false);
+            }
 
             // Flip status from pending to active on first login (best-effort)
             if (userData.status === 'pending') {
@@ -83,6 +93,8 @@ export function AuthProvider({ children }) {
       } else {
         setUser(null);
         setRole(null);
+        setNeedsOnboarding(false);
+        setDisplayName(null);
         // Clear session cookie
         document.cookie = 'casa-coqui-session=; path=/; max-age=0';
       }
@@ -118,6 +130,9 @@ export function AuthProvider({ children }) {
         role,
         isAdmin,
         isStaff,
+        needsOnboarding,
+        setNeedsOnboarding,
+        displayName,
         signInWithPhone,
         signInAdmin,
         signOut,
