@@ -164,7 +164,6 @@ function AdminLayoutInner({ children }) {
     { href: '/admin/supplies', label: 'Supplies' },
     { href: '/admin/receipts', label: 'Receipts' },
     { href: '/admin/revenue', label: 'Revenue' },
-    { href: '/admin/calendar', label: 'Calendar' },
     { href: '/admin/settings', label: 'Settings' },
     { href: '/admin/team', label: 'Team' },
   ];
