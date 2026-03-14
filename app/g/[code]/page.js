@@ -8,6 +8,7 @@ import { where } from 'firebase/firestore';
 import { auth as firebaseAuth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 import WelcomeExperience from '@/components/guest/WelcomeExperience';
+import { resolveUnitDisplayName } from '@/lib/units';
 
 // ─── Card skeleton ────────────────────────────────────────────────────────────
 function CardSkeleton() {
@@ -316,7 +317,7 @@ export default function GuestHome({ params }) {
   }
 
   const guestName = booking?.guestName ?? booking?.name ?? null;
-  const unitLabel = booking?.unit ? `Unit ${booking.unit}` : null;
+  const unitLabel = resolveUnitDisplayName(booking, settings);
   const propertyPhotos = settings?.propertyPhotos ?? [];
   const propertyName = settings?.propertyName || 'Casa Coqui';
 

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useDocument } from '@/hooks/useFirestore';
+import { getUnitNames } from '@/lib/units';
 
 // Status options
 const STATUS = {
@@ -185,6 +187,8 @@ function MachineSkeleton() {
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function Laundry() {
+  const { data: settings } = useDocument('settings', 'property');
+  const unitNames = getUnitNames(settings);
   const machines = [
     {
       machineId: 'washer',
@@ -242,7 +246,7 @@ export default function Laundry() {
         <div>
           <p className="text-sm font-semibold text-gray-900">Location</p>
           <p className="text-xs text-gray-500 mt-0.5 leading-snug">
-            Laundry room is in the common area between Units A and B, accessible from the courtyard. Detergent is provided under the counter.
+            Laundry room is in the common area between {unitNames[0]} and {unitNames[1]}, accessible from the courtyard. Detergent is provided under the counter.
           </p>
         </div>
       </div>

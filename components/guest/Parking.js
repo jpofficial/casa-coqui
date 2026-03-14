@@ -1,6 +1,6 @@
 'use client';
 
-import { getUnitNames } from '@/lib/units';
+import { getUnitNames, resolveUnitDisplayName } from '@/lib/units';
 
 // ─── SVG parking map (fallback when no map image uploaded) ───────────────────
 function ParkingMap({ unitIndex, unitNames }) {
@@ -62,22 +62,12 @@ function ParkingMap({ unitIndex, unitNames }) {
 export default function Parking({ bookingData, settings }) {
   const rawUnit = bookingData?.unit ?? null;
   const unitNames = getUnitNames(settings);
-
-  // Find which unit index this booking belongs to by matching the booking's unit
-  // against the configured unit names (case-insensitive, also tries legacy "A"/"B" matching)
-  let unitIndex = null;
-  if (rawUnit) {
-    const normalized = rawUnit.replace(/^Unit\s*/i, '').trim().toLowerCase();
-    unitIndex = unitNames.findIndex((name) => {
-      const nameNorm = name.replace(/^Unit\s*/i, '').trim().toLowerCase();
-      return nameNorm === normalized || name.toLowerCase() === rawUnit.toLowerCase();
-    });
-    if (unitIndex === -1) unitIndex = null;
-  }
+  const unitDisplayName = resolveUnitDisplayName(bookingData, settings);
+  const matchIdx = unitDisplayName ? unitNames.indexOf(unitDisplayName) : -1;
+  const unitIndex = matchIdx >= 0 ? matchIdx : null;
 
   // Legacy compat: derive the old single-letter unit for parkingInfo apartment keys
   const unit = rawUnit ? rawUnit.replace(/^Unit\s*/i, '') : null;
-  const unitDisplayName = unitIndex != null ? unitNames[unitIndex] : rawUnit;
   const parkingInfo = settings?.parkingInfo;
 
   // Per-apartment data (new schema)

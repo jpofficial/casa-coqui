@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { orderBy } from 'firebase/firestore';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
 import useAuth from '@/hooks/useAuth';
-import { getUnitNames } from '@/lib/units';
+import { getUnitNames, getUnits } from '@/lib/units';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -102,19 +102,21 @@ function CopyButton({ text, className = '' }) {
 // Booking Creation Form
 // ---------------------------------------------------------------------------
 
-const EMPTY_FORM = {
-  guestName: '',
-  guestEmail: '',
-  unit: 'Unit A',
-  checkInDate: '',
-  checkOutDate: '',
-};
-
 function BookingForm({ onCreated, onClose, user, settings }) {
-  const unitNames = getUnitNames(settings);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const units = getUnits(settings);
+  const unitNames = units.map((u) => u.name);
+  const [form, setForm] = useState({
+    guestName: '',
+    guestEmail: '',
+    unit: unitNames[0] || '',
+    checkInDate: '',
+    checkOutDate: '',
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Derive the stable unitId from the currently selected unit name
+  const selectedUnitId = units.find((u) => u.name === form.unit)?.id || null;
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -146,6 +148,7 @@ function BookingForm({ onCreated, onClose, user, settings }) {
         },
         body: JSON.stringify({
           unit: form.unit,
+          unitId: selectedUnitId,
           guestName: form.guestName.trim(),
           guestEmail: form.guestEmail.trim(),
           checkInDate: form.checkInDate,
@@ -169,7 +172,10 @@ function BookingForm({ onCreated, onClose, user, settings }) {
         try {
           const emailRes = await fetch('/api/email/guest-link', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
             body: JSON.stringify({
               guestEmail,
               guestName: form.guestName.trim(),
@@ -186,7 +192,7 @@ function BookingForm({ onCreated, onClose, user, settings }) {
         }
       }
 
-      setForm(EMPTY_FORM);
+      setForm({ guestName: '', guestEmail: '', unit: unitNames[0] || '', checkInDate: '', checkOutDate: '' });
       onCreated({ ...booking, guestEmail, emailSent });
       onClose();
     } catch (err) {

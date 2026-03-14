@@ -50,7 +50,7 @@ export async function POST(request) {
     if (authError) return authError;
 
     const body = await request.json();
-    const { unit, guestName = '', guestEmail = '', checkInDate, checkOutDate } = body;
+    const { unit, unitId = null, guestName = '', guestEmail = '', checkInDate, checkOutDate } = body;
 
     // Validate required fields
     if (!unit || !checkInDate || !checkOutDate) {
@@ -94,6 +94,7 @@ export async function POST(request) {
     const booking = {
       code,
       unit,
+      ...(unitId && { unitId }),
       guestName: String(guestName).trim(),
       guestEmail: String(guestEmail).trim().toLowerCase(),
       checkInDate,
