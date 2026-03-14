@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { resend } from '@/lib/resend';
 import { requireRole } from '@/lib/api-auth';
@@ -6,6 +8,13 @@ export async function POST(request) {
   try {
     const { error: authError } = await requireRole(request, ['admin']);
     if (authError) return authError;
+
+    if (!resend) {
+      return NextResponse.json(
+        { success: false, error: 'Email service not configured' },
+        { status: 500 }
+      );
+    }
 
     const { guestEmail, guestName, guestLink, checkInDate, checkOutDate, unit } =
       await request.json();

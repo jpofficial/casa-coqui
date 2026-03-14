@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { resend } from '@/lib/resend';
@@ -7,6 +9,13 @@ export async function POST(request, { params }) {
   try {
     const { error: authError } = await requireRole(request, ['admin']);
     if (authError) return authError;
+
+    if (!resend) {
+      return NextResponse.json(
+        { success: false, error: 'Email service not configured' },
+        { status: 500 }
+      );
+    }
 
     const { uid } = await params;
 
