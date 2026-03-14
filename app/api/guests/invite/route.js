@@ -8,14 +8,20 @@ import { resend } from '@/lib/resend';
 import { getAppUrl } from '@/lib/url';
 
 const MAX_MEMBERS = 6;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ---------------------------------------------------------------------------
-// POST /api/guests/invite — Send an invite to a new group member
+// POST /api/guests/invite — Send invites to one or more guests (bulk)
 // ---------------------------------------------------------------------------
 export async function POST(request) {
   try {
     const { caller, error: authError } = await requireAuth(request);
-    if (authError) return authError;
+    if (authError) {
+      console.log('[POST /api/guests/invite] Auth failed');
+      return authError;
+    }
+
+    console.log('[POST /api/guests/invite] caller:', { uid: caller.uid, bookingCode: caller.bookingCode, role: caller.role });
 
     if (!caller.bookingCode) {
       return NextResponse.json(
@@ -24,22 +30,29 @@ export async function POST(request) {
       );
     }
 
-    const { email, name } = await request.json();
+    const { emails } = await request.json();
 
-    if (!email || !name) {
+    if (!Array.isArray(emails) || emails.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'email and name are required.' },
+        { success: false, error: 'emails array is required.' },
         { status: 400 }
       );
     }
 
-    // Validate email format
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    // Normalize & deduplicate
+    const normalized = [...new Set(
+      emails.map((e) => (typeof e === 'string' ? e.trim().toLowerCase() : '')).filter(Boolean)
+    )];
+
+    // Validate formats
+    const invalid = normalized.filter((e) => !EMAIL_RE.test(e));
+    if (invalid.length > 0 && normalized.length === invalid.length) {
       return NextResponse.json(
-        { success: false, error: 'Invalid email address.' },
+        { success: false, error: 'No valid email addresses provided.' },
         { status: 400 }
       );
     }
+    const validEmails = normalized.filter((e) => EMAIL_RE.test(e));
 
     const bookingCode = caller.bookingCode;
 
@@ -59,102 +72,124 @@ export async function POST(request) {
       );
     }
 
-    // Check for duplicate (same email + booking)
-    const dupSnap = await adminDb
+    // Fetch existing members for duplicate check + count
+    const existingSnap = await adminDb
       .collection('booking_members')
       .where('bookingCode', '==', bookingCode)
-      .where('email', '==', email.trim().toLowerCase())
-      .limit(1)
       .get();
 
-    if (!dupSnap.empty) {
+    const existingEmails = new Set(existingSnap.docs.map((d) => d.data().email));
+    const duplicates = validEmails.filter((e) => existingEmails.has(e));
+    const newEmails = validEmails.filter((e) => !existingEmails.has(e));
+
+    const spotsAvailable = MAX_MEMBERS - existingSnap.size;
+    const toInvite = newEmails.slice(0, Math.max(0, spotsAvailable));
+    const capped = newEmails.slice(spotsAvailable);
+
+    if (toInvite.length === 0) {
+      const reason = duplicates.length > 0
+        ? 'All emails have already been invited.'
+        : `Group is full (${MAX_MEMBERS} members maximum).`;
       return NextResponse.json(
-        { success: false, error: 'This email has already been invited.' },
+        { success: false, error: reason, data: { duplicates, capped } },
         { status: 409 }
       );
     }
 
-    // Check member count
-    const allMembersSnap = await adminDb
-      .collection('booking_members')
-      .where('bookingCode', '==', bookingCode)
+    // Look up booking data + inviter name once
+    const bookingSnap = await adminDb
+      .collection('bookings')
+      .where('code', '==', bookingCode)
+      .limit(1)
       .get();
-
-    if (allMembersSnap.size >= MAX_MEMBERS) {
-      return NextResponse.json(
-        { success: false, error: `Maximum of ${MAX_MEMBERS} group members reached.` },
-        { status: 400 }
-      );
-    }
-
-    // Create booking_members doc
-    const memberRef = await adminDb.collection('booking_members').add({
-      bookingCode,
-      role: 'member',
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      phone: null,
-      uid: null,
-      status: 'pending',
-      invitedBy: caller.uid,
-      createdAt: new Date().toISOString(),
-    });
-
-    // Generate invite token
-    const token = crypto.randomUUID();
-    await adminDb.collection('invite_tokens').doc(token).set({
-      bookingCode,
-      email: email.trim().toLowerCase(),
-      createdAt: new Date().toISOString(),
-      used: false,
-    });
-
-    // Build invite link
+    const bookingData = bookingSnap.empty ? null : bookingSnap.docs[0].data();
+    const inviterName = primarySnap.docs[0].data().name;
     const appUrl = getAppUrl(request);
-    const inviteLink = `${appUrl}/g/${bookingCode}/join?token=${token}`;
 
-    // Send invite email
-    if (resend) {
+    // Process each email
+    const results = [];
+    for (const email of toInvite) {
       try {
-        const firstName = name.trim().split(' ')[0];
-        // Look up booking for stay details
-        const bookingSnap = await adminDb
-          .collection('bookings')
-          .where('code', '==', bookingCode)
-          .limit(1)
-          .get();
-        const bookingData = bookingSnap.empty ? null : bookingSnap.docs[0].data();
-
-        const { error: emailError } = await resend.emails.send({
-          from: 'Casa Coqui <hello@contact.casa-coqui.cc>',
-          to: email.trim().toLowerCase(),
-          subject: "You're invited to Casa Coqui!",
-          html: buildInviteEmail({
-            firstName,
-            inviteLink,
-            inviterName: primarySnap.docs[0].data().name,
-            unit: bookingData?.unit,
-            checkIn: bookingData?.checkInDate,
-            checkOut: bookingData?.checkOutDate,
-          }),
+        // Create booking_members doc
+        const memberRef = await adminDb.collection('booking_members').add({
+          bookingCode,
+          role: 'member',
+          name: null,
+          email,
+          phone: null,
+          uid: null,
+          status: 'pending',
+          invitedBy: caller.uid,
+          createdAt: new Date().toISOString(),
         });
-        if (emailError) {
-          console.error('[invite] Resend error:', emailError);
+
+        // Generate invite token
+        const token = crypto.randomUUID();
+        await adminDb.collection('invite_tokens').doc(token).set({
+          bookingCode,
+          email,
+          createdAt: new Date().toISOString(),
+          used: false,
+        });
+
+        const inviteLink = `${appUrl}/g/${bookingCode}/join?token=${token}`;
+
+        // Send invite email
+        let emailSent = false;
+        let emailErrorMsg = null;
+        if (resend) {
+          try {
+            const { error: emailError } = await resend.emails.send({
+              from: 'Casa Coqui <hello@contact.casa-coqui.cc>',
+              to: email,
+              subject: "You're invited to Casa Coqui!",
+              html: buildInviteEmail({
+                inviteLink,
+                inviterName,
+                unit: bookingData?.unit,
+                checkIn: bookingData?.checkInDate,
+                checkOut: bookingData?.checkOutDate,
+              }),
+            });
+            if (emailError) {
+              console.error('[invite] Resend error:', emailError);
+              emailErrorMsg = emailError.message || 'Email delivery failed';
+            } else {
+              emailSent = true;
+            }
+          } catch (emailErr) {
+            console.error('[invite] Email send error:', emailErr);
+            emailErrorMsg = emailErr.message || 'Email delivery failed';
+          }
+        } else {
+          emailErrorMsg = 'Email service not configured';
         }
-      } catch (emailErr) {
-        console.error('[invite] Email send error:', emailErr);
-        // Don't fail the invite if email fails — the link still works
+
+        // Persist email delivery status and invite link on the member doc
+        await memberRef.update({
+          emailSent,
+          emailError: emailErrorMsg,
+          inviteLink,
+          sentAt: new Date().toISOString(),
+        });
+
+        results.push({ email, memberId: memberRef.id, emailSent, emailError: emailErrorMsg, inviteLink });
+      } catch (err) {
+        console.error(`[invite] Failed for ${email}:`, err);
+        results.push({ email, error: 'Failed to process invite.' });
       }
     }
 
+    const sent = results.filter((r) => !r.error).length;
+
     return NextResponse.json(
-      { success: true, data: { memberId: memberRef.id } },
+      { success: true, data: { sent, duplicates, capped, results } },
       { status: 201 }
     );
   } catch (error) {
     console.error('[POST /api/guests/invite]', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to send invite.' },
+      { success: false, error: 'Failed to send invites.' },
       { status: 500 }
     );
   }
@@ -178,10 +213,11 @@ export async function GET(request) {
     const snap = await adminDb
       .collection('booking_members')
       .where('bookingCode', '==', caller.bookingCode)
-      .orderBy('createdAt', 'asc')
       .get();
 
-    const members = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const members = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
 
     return NextResponse.json({ success: true, data: members });
   } catch (error) {
@@ -285,7 +321,7 @@ export async function DELETE(request) {
 // ---------------------------------------------------------------------------
 // Invite email template
 // ---------------------------------------------------------------------------
-function buildInviteEmail({ firstName, inviteLink, inviterName, unit, checkIn, checkOut }) {
+function buildInviteEmail({ inviteLink, inviterName, unit, checkIn, checkOut }) {
   const stayInfo =
     checkIn && checkOut
       ? `<p style="margin:0;font-size:14px;color:#166534">${unit ? `${unit} · ` : ''}${checkIn} — ${checkOut}</p>`
@@ -300,23 +336,27 @@ function buildInviteEmail({ firstName, inviteLink, inviterName, unit, checkIn, c
       <td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
           <tr>
-            <td style="background:#166534;padding:24px 24px 20px;text-align:center">
-              <h1 style="margin:0;font-size:20px;color:#ffffff;font-weight:700">Casa Coqui</h1>
+            <td style="background:linear-gradient(135deg, #166534 0%, #15803d 100%);padding:28px 24px 24px;text-align:center">
+              <h1 style="margin:0;font-size:22px;color:#ffffff;font-weight:700;letter-spacing:0.02em">Casa Coqu&iacute;</h1>
+              <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.7);letter-spacing:0.1em;text-transform:uppercase">Guest Portal</p>
             </td>
           </tr>
           <tr>
             <td style="padding:28px 24px 12px">
-              <h2 style="margin:0 0 8px;font-size:18px;color:#111827">Hi ${firstName}!</h2>
+              <h2 style="margin:0 0 8px;font-size:18px;color:#111827">You're invited!</h2>
               <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6">
-                ${inviterName || 'Your host'} has invited you to join their group at Casa Coqui. Tap the button below to verify your phone and access the guest portal.
+                ${inviterName || 'Your host'} has invited you to join their stay at <strong>Casa Coqu&iacute;</strong>. You'll get your own access to the guest portal with check-in details, house info, and more.
               </p>
-              ${stayInfo ? `<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-radius:8px;margin-bottom:20px"><tr><td style="padding:16px"><p style="margin:0 0 4px;font-size:12px;color:#15803d;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Stay Details</p>${stayInfo}</td></tr></table>` : ''}
+              ${stayInfo ? `<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-radius:8px;margin-bottom:20px"><tr><td style="padding:16px"><p style="margin:0 0 4px;font-size:12px;color:#15803d;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Your Stay</p>${stayInfo}</td></tr></table>` : ''}
+              <p style="margin:0 0 4px;font-size:13px;color:#6b7280;line-height:1.5">
+                Tap the button below to confirm your details and get access. Once you're in, you'll receive real-time updates and notifications for your stay.
+              </p>
             </td>
           </tr>
           <tr>
-            <td style="padding:0 24px 28px" align="center">
-              <a href="${inviteLink}" style="display:inline-block;background:#16a34a;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 28px;border-radius:8px">
-                Join the Group
+            <td style="padding:8px 24px 28px" align="center">
+              <a href="${inviteLink}" style="display:inline-block;background:#16a34a;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 32px;border-radius:10px;box-shadow:0 2px 8px rgba(22,163,74,0.3)">
+                Accept Invitation
               </a>
             </td>
           </tr>
@@ -330,7 +370,7 @@ function buildInviteEmail({ firstName, inviteLink, inviterName, unit, checkIn, c
           </tr>
           <tr>
             <td style="padding:16px 24px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center">
-              <p style="margin:0;font-size:11px;color:#9ca3af">Casa Coqui Guest Portal</p>
+              <p style="margin:0;font-size:11px;color:#9ca3af">Casa Coqu&iacute; &middot; Puerto Rico</p>
             </td>
           </tr>
         </table>
