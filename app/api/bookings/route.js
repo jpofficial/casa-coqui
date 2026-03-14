@@ -88,7 +88,7 @@ export async function POST(request) {
 
     const code = nanoid(10);
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-    const guestLink = `${appUrl}/g/${code}`;
+    const guestLink = `${appUrl}/g/${code}/checkin`;
 
     const booking = {
       code,

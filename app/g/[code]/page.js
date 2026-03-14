@@ -104,9 +104,9 @@ function getNavCards(code) {
       bg: 'bg-teal-50',
     },
     {
-      id: 'broadcast',
-      title: 'Broadcast',
-      description: 'Parking, laundry, and property updates',
+      id: 'community',
+      title: 'Community Board',
+      description: 'Posts and updates from the property',
       href: `/g/${code}/community`,
       phase2: false,
       icon: (
@@ -145,6 +145,20 @@ function getNavCards(code) {
       ),
       color: 'text-cyan-600',
       bg: 'bg-cyan-50',
+    },
+    {
+      id: 'install',
+      title: 'Install App',
+      description: 'Add to your home screen',
+      href: `/g/${code}/install-guide`,
+      phase2: false,
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-6 h-6">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+        </svg>
+      ),
+      color: 'text-green-600',
+      bg: 'bg-green-50',
     },
     {
       id: 'contact',
@@ -227,6 +241,9 @@ export default function GuestHome({ params }) {
   function handleWelcomeComplete() {
     localStorage.setItem(`welcome_seen_${code}`, '1');
     setShowWelcome(false);
+    if (!localStorage.getItem(`getstarted_seen_${code}`)) {
+      router.push(`/g/${code}/get-started`);
+    }
   }
 
   // Check if current user is the primary guest (must be before early returns)

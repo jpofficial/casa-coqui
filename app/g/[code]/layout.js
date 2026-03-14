@@ -139,7 +139,7 @@ export default function GuestLayout({ children, params }) {
   const [helpOpen, setHelpOpen] = useState(false);
 
   // Clean, chrome-free layout for check-in and join flows
-  const isOnboarding = pathname.endsWith('/checkin') || pathname.endsWith('/join');
+  const isOnboarding = pathname.endsWith('/checkin') || pathname.endsWith('/join') || pathname.endsWith('/get-started');
 
   const pageKey = getHelpContext(pathname, code);
 

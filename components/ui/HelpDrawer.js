@@ -2,11 +2,23 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getArticlesForPage, getAllArticles, searchArticles } from '@/lib/help-articles';
+import {
+  HomeScreen, CheckinScreen, AccessScreen, BottomNavScreen,
+  MaintenanceScreen, MaintenanceSuccessScreen, LaundryScreen,
+  CommunityScreen, InviteScreen, ParkingScreen, RulesScreen,
+} from '@/components/ui/ScreenMockup';
+
+// ─── Screen component registry ──────────────────────────────────────────────
+const SCREEN_COMPONENTS = {
+  HomeScreen, CheckinScreen, AccessScreen, BottomNavScreen,
+  MaintenanceScreen, MaintenanceSuccessScreen, LaundryScreen,
+  CommunityScreen, InviteScreen, ParkingScreen, RulesScreen,
+};
 
 // ─── Article body renderer ──────────────────────────────────────────────────
 function ArticleBody({ body }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {body.map((block, i) => {
         switch (block.type) {
           case 'text':
@@ -21,19 +33,20 @@ function ArticleBody({ body }) {
                 {block.content}
               </h4>
             );
-          case 'steps':
+          case 'step':
             return (
-              <ol key={i} className="space-y-2 ml-0.5">
-                {block.content.map((step, j) => (
-                  <li key={j} className="flex gap-3 text-sm text-gray-700">
-                    <span className="flex-none w-5 h-5 rounded-full bg-green-100 text-green-700 text-xs font-semibold flex items-center justify-center mt-0.5">
-                      {j + 1}
-                    </span>
-                    <span className="leading-relaxed">{step}</span>
-                  </li>
-                ))}
-              </ol>
+              <div key={i} className="flex gap-3 text-sm text-gray-700">
+                <span className="flex-none w-5 h-5 rounded-full bg-green-100 text-green-700 text-xs font-semibold flex items-center justify-center mt-0.5">
+                  {block.number}
+                </span>
+                <span className="leading-relaxed">{block.content}</span>
+              </div>
             );
+          case 'screen': {
+            const ScreenComp = SCREEN_COMPONENTS[block.component];
+            if (!ScreenComp) return null;
+            return <ScreenComp key={i} {...(block.props || {})} />;
+          }
           case 'tip':
             return (
               <div key={i} className="flex gap-2.5 bg-green-50 border border-green-100 rounded-lg px-3 py-2.5">
