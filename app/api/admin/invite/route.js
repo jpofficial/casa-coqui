@@ -73,8 +73,10 @@ export async function POST(request) {
 
     // Generate password reset link so they can set/reset their password
     const appUrl = getAppUrl(request);
+    const continueUrl = `${appUrl}/admin/login`;
+    console.log('[invite] Resolved continueUrl:', continueUrl);
     const actionCodeSettings = {
-      url: `${appUrl}/admin/login`,
+      url: continueUrl,
       handleCodeInApp: false,
     };
     const resetLink = await adminAuth.generatePasswordResetLink(email, actionCodeSettings);
@@ -149,7 +151,7 @@ export async function POST(request) {
     // Surface actionable error messages instead of generic 500
     let userMessage = 'Internal server error';
     if (err?.code === 'auth/unauthorized-continue-uri') {
-      userMessage = 'Firebase rejected the continue URL. Ensure your app domain is whitelisted in Firebase Console > Authentication > Settings > Authorized domains.';
+      userMessage = `Firebase rejected the continue URL. The URL being used is: "${err.message || 'unknown'}". Ensure this exact domain is whitelisted in Firebase Console > Authentication > Settings > Authorized domains.`;
     } else if (err?.code === 'auth/invalid-email') {
       userMessage = 'The email address is invalid.';
     } else if (err?.code === 'auth/operation-not-allowed') {
