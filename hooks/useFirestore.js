@@ -31,6 +31,7 @@ export function useDocument(collectionName, docId) {
           setLoading(false);
         },
         (err) => {
+          console.error(`[Firestore] ${collectionName}/${docId} listener error:`, err.code, err.message);
           setError(err);
           setLoading(false);
         }
@@ -71,6 +72,7 @@ export function useCollection(collectionName, queryConstraints = []) {
           setLoading(false);
         },
         (err) => {
+          console.error(`[Firestore] ${collectionName} collection listener error:`, err.code, err.message);
           setError(err);
           setLoading(false);
         }

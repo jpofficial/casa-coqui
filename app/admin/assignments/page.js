@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import useAuth from '@/hooks/useAuth';
 import { collection, query, orderBy, onSnapshot, where, getDocs } from 'firebase/firestore';
+import { auth } from '@/lib/firebase';
 import { db } from '@/lib/firebase';
 import { useDocument } from '@/hooks/useFirestore';
 import { getUnitsWithShared } from '@/lib/units';
@@ -720,28 +721,40 @@ export default function AssignmentsPage() {
       );
     }
 
-    const unsub = onSnapshot(q, (snapshot) => {
-      const items = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setAssignments(items);
-      setLoading(false);
-    });
+    const unsub = onSnapshot(q,
+      (snapshot) => {
+        const items = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setAssignments(items);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('[assignments] listener error:', err.code, err.message);
+        setLoading(false);
+      }
+    );
 
     return unsub;
   }, [user, role, canManage]);
 
-  // Fetch staff members for assignment dropdown (admin/cohost)
+  // Fetch staff members for assignment dropdown (admin/cohost) via API
   useEffect(() => {
     if (!canManage || !user) return;
 
-    const q = query(collection(db, 'users'));
-    const unsub = onSnapshot(q, (snapshot) => {
-      const members = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .filter((m) => m.status !== 'deactivated' && m.role !== 'admin');
-      setStaffMembers(members);
-    });
-
-    return unsub;
+    async function fetchStaff() {
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        const res = await fetch('/api/admin/team', {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        const json = await res.json();
+        if (json.success) {
+          setStaffMembers(json.data);
+        }
+      } catch (err) {
+        console.error('[assignments] Failed to fetch staff:', err);
+      }
+    }
+    fetchStaff();
   }, [canManage, user]);
 
   // Fetch booking info (guest name + unit) for maintenance assignments

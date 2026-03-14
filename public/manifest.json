@@ -4,8 +4,8 @@
   "description": "Guest portal for Casa Coqui",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#16a34a",
+  "background_color": "#fdfbf7",
+  "theme_color": "#137a47",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",

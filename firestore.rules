@@ -95,11 +95,11 @@ service cloud.firestore {
     // booking (matched by bookingCode custom claim on their auth token).
     // -------------------------------------------------------------------------
     match /messages/{messageId} {
-      allow read: if isAdmin() ||
+      allow read: if isStaff() ||
         (isAuthenticated() && resource.data.bookingCode == request.auth.token.bookingCode);
-      allow create: if isAdmin() ||
+      allow create: if isStaff() ||
         (isAuthenticated() && request.resource.data.bookingCode == request.auth.token.bookingCode);
-      allow update: if isAdmin();
+      allow update: if isStaff();
     }
 
     // -------------------------------------------------------------------------

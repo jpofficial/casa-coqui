@@ -24,6 +24,14 @@ export function AuthProvider({ children }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setLoading(true);
       if (firebaseUser) {
+        // Force-refresh token to pick up latest custom claims (e.g. role)
+        // so Firestore security rules see the correct token.role
+        try {
+          await firebaseUser.getIdToken(true);
+        } catch (err) {
+          console.warn('[useAuth] Token refresh failed:', err.code, err.message);
+        }
+
         setUser(firebaseUser);
 
         // Set session cookie for middleware route protection

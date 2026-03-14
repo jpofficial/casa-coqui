@@ -49,10 +49,16 @@ function CleanerView({ user }) {
       where('assigneeId', '==', user.uid),
       orderBy('scheduledDate', 'desc')
     );
-    return onSnapshot(q, (snap) => {
-      setJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    });
+    return onSnapshot(q,
+      (snap) => {
+        setJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      },
+      (err) => {
+        console.error('[cleaning_jobs] cleaner listener error:', err.code, err.message);
+        setLoading(false);
+      }
+    );
   }, [user.uid]);
 
   useEffect(() => {
@@ -156,10 +162,16 @@ function AdminCleaningDashboard({ user, role }) {
       collection(db, 'cleaning_jobs'),
       orderBy('scheduledDate', 'desc')
     );
-    const unsub = onSnapshot(q, (snap) => {
-      setJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    });
+    const unsub = onSnapshot(q,
+      (snap) => {
+        setJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      },
+      (err) => {
+        console.error('[cleaning_jobs] admin listener error:', err.code, err.message);
+        setLoading(false);
+      }
+    );
     return unsub;
   }, []);
 

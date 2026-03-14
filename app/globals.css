@@ -2,26 +2,208 @@
 @tailwind components;
 @tailwind utilities;
 
+/* === Google Fonts: DM Sans (body) + DM Serif Display (brand/headlines) === */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Serif+Display&display=swap');
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fdfbf7;  /* cafe-50: warm cream, not sterile white */
+  --foreground: #073620;  /* coqui-900: deep jungle text, warm not black */
+
+  /* Brand tokens as CSS custom properties */
+  --coqui-primary: #137a47;
+  --coqui-primary-light: #1a9a5a;
+  --coqui-primary-dark: #0f5f38;
+  --atardecer-gold: #f5b731;
+  --atardecer-warm: #e9a00e;
+  --caribe-blue: #26a9b5;
+  --cafe-cream: #fdfbf7;
+  --cafe-warm: #f9f3e8;
+  --noche-deep: #052e1a;
+  --flamboyan-coral: #ff5722;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #052e1a;  /* noche-950: deep jungle dark */
+    --foreground: #f9f3e8;  /* cafe-100: warm cream text */
   }
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+/* === Brand gradient backgrounds === */
+@layer components {
+  /* The jungle gradient: El Yunque canopy light filtering down */
+  .bg-jungle-gradient {
+    background: linear-gradient(
+      175deg,
+      #052e1a 0%,
+      #0b4a2c 25%,
+      #0f5f38 50%,
+      #137a47 75%,
+      #1a9a5a 100%
+    );
+  }
+
+  /* Warm landing gradient: sunset over the canopy */
+  .bg-landing-gradient {
+    background: linear-gradient(
+      175deg,
+      #042114 0%,
+      #073620 20%,
+      #0f5f38 55%,
+      #137a47 80%,
+      #1a9a5a 100%
+    );
+  }
+
+  /* Subtle warm background: cafe con leche morning */
+  .bg-warm-cream {
+    background: linear-gradient(
+      180deg,
+      #fdfbf7 0%,
+      #f9f3e8 100%
+    );
+  }
+
+  /* Leaf pattern overlay — a subtle CSS-only tropical texture */
+  .leaf-pattern::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.04;
+    background-image:
+      radial-gradient(ellipse 80px 120px at 15% 20%, #1a9a5a 0%, transparent 70%),
+      radial-gradient(ellipse 60px 100px at 80% 15%, #3ab878 0%, transparent 70%),
+      radial-gradient(ellipse 90px 130px at 50% 70%, #1a9a5a 0%, transparent 70%),
+      radial-gradient(ellipse 70px 110px at 85% 80%, #6dd09d 0%, transparent 70%),
+      radial-gradient(ellipse 50px 90px at 25% 90%, #3ab878 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Mist overlay — the fog rolling through El Yunque */
+  .mist-overlay::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: linear-gradient(
+      to top,
+      rgba(253, 251, 247, 0.15) 0%,
+      transparent 100%
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Gold shimmer — subtle warm light effect for accent elements */
+  .gold-shimmer {
+    background: linear-gradient(
+      135deg,
+      #f5b731 0%,
+      #fbe099 50%,
+      #f5b731 100%
+    );
+    background-size: 200% 200%;
+  }
+}
+
+/* === Login page animations === */
+
+/* Card entrance: rise from below with fade */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Bioluminescent particle float: gentle vertical drift with opacity pulse */
+@keyframes biolumFloat {
+  0%, 100% {
+    transform: translateY(0px);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-18px);
+    opacity: 0.5;
+  }
+}
+
+/* Subtle leaf sway — barely perceptible rotation */
+@keyframes leafSway {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(2.5deg);
+  }
+}
+
+/* Slow gradient shift for the background */
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Gold shimmer sweep for the divider line */
+@keyframes shimmerSweep {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out both;
+  }
+  .animate-biolum-float {
+    animation: biolumFloat 7s ease-in-out infinite;
+  }
+  .animate-leaf-sway {
+    animation: leafSway 18s ease-in-out infinite;
+  }
+  .animate-gradient-shift {
+    animation: gradientShift 20s ease infinite;
+    background-size: 200% 200%;
+  }
+  .animate-shimmer-sweep {
+    animation: shimmerSweep 4s ease-in-out infinite;
+    background-size: 200% 100%;
+  }
+}
+
+/* === Accessibility: respect reduced motion preferences === */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .animate-biolum-float,
+  .animate-leaf-sway,
+  .animate-gradient-shift,
+  .animate-shimmer-sweep {
+    animation: none !important;
   }
 }
