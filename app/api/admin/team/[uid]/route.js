@@ -73,10 +73,17 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Disable Firebase Auth user
-    await adminAuth.updateUser(uid, { disabled: true });
+    const targetData = targetDoc.exists ? targetDoc.data() : {};
 
-    // Update Firestore doc
+    if (targetData.status === 'pending') {
+      // Pending users never logged in — fully delete Auth user + Firestore doc
+      await adminAuth.deleteUser(uid);
+      await adminDb.collection('users').doc(uid).delete();
+      return NextResponse.json({ success: true, data: { uid, status: 'deleted' } });
+    }
+
+    // Active users — disable Auth, mark deactivated in Firestore
+    await adminAuth.updateUser(uid, { disabled: true });
     await adminDb.collection('users').doc(uid).update({
       status: 'deactivated',
       deactivatedAt: new Date().toISOString(),

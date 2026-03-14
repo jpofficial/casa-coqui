@@ -59,9 +59,51 @@ export default function TeamPage() {
     }
   }
 
-  function copyResetLink() {
-    if (result?.resetLink) {
-      navigator.clipboard.writeText(result.resetLink);
+  function copyToClipboard(text) {
+    navigator.clipboard.writeText(text);
+  }
+
+  async function handleResend(uid) {
+    setActionLoading(uid);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/admin/invite/${uid}/resend`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.error);
+      } else if (!data.data.emailSent) {
+        const fallback = confirm(
+          `Email failed to send: ${data.data.emailError || 'Unknown error'}.\n\nCopy the setup link instead?`
+        );
+        if (fallback && data.data.resetLink) {
+          navigator.clipboard.writeText(data.data.resetLink);
+        }
+      }
+    } catch {
+      alert('Failed to resend invite.');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleRevoke(uid, name) {
+    if (!confirm(`Revoke invitation for ${name}? This will delete their pending account.`)) return;
+    setActionLoading(uid);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/admin/team/${uid}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!data.success) alert(data.error);
+    } catch {
+      alert('Failed to revoke invitation.');
+    } finally {
+      setActionLoading(null);
     }
   }
 
@@ -111,10 +153,8 @@ export default function TeamPage() {
     maintenance: 'bg-orange-100 text-orange-800',
   };
 
-  const statusBadgeColors = {
-    active: 'bg-green-100 text-green-800',
-    pending: 'bg-orange-100 text-orange-800',
-  };
+  const pendingUsers = users.filter((m) => m.status === 'pending');
+  const activeUsers = users.filter((m) => m.status === 'active');
 
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-6">
@@ -173,12 +213,10 @@ export default function TeamPage() {
             </p>
           )}
 
-          {result && (
+          {result && result.emailSent && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-2">
               <p className="text-sm text-green-800 font-medium">
-                {result.emailSent
-                  ? `Invite email sent to ${result.email}`
-                  : `Invited ${result.email} as ${ROLES[result.role]?.label}`}
+                Invite email sent to {result.email}
               </p>
               <div className="flex items-center gap-2">
                 <input
@@ -189,16 +227,45 @@ export default function TeamPage() {
                 />
                 <button
                   type="button"
-                  onClick={copyResetLink}
+                  onClick={() => copyToClipboard(result.resetLink)}
                   className="px-3 py-2 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition"
                 >
                   Copy
                 </button>
               </div>
               <p className="text-xs text-green-700">
-                {result.emailSent
-                  ? 'They can also use this link to set their password.'
-                  : 'Share this link so they can set their password.'}
+                Backup link in case the email gets lost.
+              </p>
+            </div>
+          )}
+
+          {result && !result.emailSent && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
+              <p className="text-sm text-amber-800 font-medium">
+                User created, but the invite email failed to send
+              </p>
+              {result.emailError && (
+                <p className="text-xs text-amber-700">
+                  Error: {result.emailError}
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={result.resetLink}
+                  className="flex-1 text-xs bg-white border border-amber-300 rounded px-3 py-2 text-gray-700"
+                />
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(result.resetLink)}
+                  className="px-3 py-2 bg-amber-600 text-white text-xs font-medium rounded hover:bg-amber-700 transition"
+                >
+                  Copy
+                </button>
+              </div>
+              <p className="text-xs text-amber-700">
+                Share this link directly so they can set their password.
               </p>
             </div>
           )}
@@ -213,72 +280,130 @@ export default function TeamPage() {
         </form>
       </div>
 
-      {/* Team List */}
+      {/* Pending Invitations */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
         <h2 className="text-base font-semibold text-gray-900 mb-4">
-          Team Members
+          Pending Invitations
         </h2>
         {loading ? (
           <p className="text-sm text-gray-500">Loading...</p>
-        ) : users.length === 0 ? (
-          <p className="text-sm text-gray-500">No team members yet.</p>
+        ) : pendingUsers.length === 0 ? (
+          <p className="text-sm text-gray-500">No pending invitations.</p>
         ) : (
           <div className="space-y-3">
-            {users
-              .filter((m) => m.status !== 'deactivated')
-              .map((member) => {
-                const isSelf = member.id === user?.uid;
-                const isAdminMember = member.role === 'admin';
-                const canManage = !isSelf && !isAdminMember;
-                return (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 gap-3"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {member.displayName || member.email}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">{member.email}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {canManage ? (
-                        <select
-                          value={member.role}
-                          onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                          disabled={actionLoading === member.id}
-                          className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        >
-                          <option value="cohost">Co-host</option>
-                          <option value="cleaner">Cleaner</option>
-                          <option value="maintenance">Maintenance</option>
-                        </select>
-                      ) : (
-                        <span
-                          className={`text-xs font-semibold px-2 py-0.5 rounded-full ${roleBadgeColors[member.role] || 'bg-gray-100 text-gray-700'}`}
-                        >
-                          {ROLES[member.role]?.label || member.role}
-                        </span>
-                      )}
-                      <span
-                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusBadgeColors[member.status] || 'bg-gray-100 text-gray-600'}`}
-                      >
-                        {member.status}
+            {pendingUsers.map((member) => (
+              <div
+                key={member.id}
+                className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 gap-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {member.displayName || member.email}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">{member.email}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${roleBadgeColors[member.role] || 'bg-gray-100 text-gray-700'}`}
+                    >
+                      {ROLES[member.role]?.label || member.role}
+                    </span>
+                    {member.emailSent === true && (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                        Email sent
                       </span>
-                      {canManage && (
-                        <button
-                          onClick={() => handleRemove(member.id, member.displayName || member.email)}
-                          disabled={actionLoading === member.id}
-                          className="text-xs text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
-                          title="Remove member"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
+                    )}
+                    {member.emailSent === false && (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                        Email failed
+                      </span>
+                    )}
+                    {member.emailSent === undefined && (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                        Unknown
+                      </span>
+                    )}
                   </div>
-                );
-              })}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleResend(member.id)}
+                    disabled={actionLoading === member.id}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
+                  >
+                    Resend
+                  </button>
+                  <button
+                    onClick={() => handleRevoke(member.id, member.displayName || member.email)}
+                    disabled={actionLoading === member.id}
+                    className="text-xs text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
+                  >
+                    Revoke
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Active Members */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <h2 className="text-base font-semibold text-gray-900 mb-4">
+          Active Members
+        </h2>
+        {loading ? (
+          <p className="text-sm text-gray-500">Loading...</p>
+        ) : activeUsers.length === 0 ? (
+          <p className="text-sm text-gray-500">No active team members yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {activeUsers.map((member) => {
+              const isSelf = member.id === user?.uid;
+              const isAdminMember = member.role === 'admin';
+              const canManage = !isSelf && !isAdminMember;
+              return (
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 gap-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {member.displayName || member.email}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">{member.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {canManage ? (
+                      <select
+                        value={member.role}
+                        onChange={(e) => handleRoleChange(member.id, e.target.value)}
+                        disabled={actionLoading === member.id}
+                        className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="cohost">Co-host</option>
+                        <option value="cleaner">Cleaner</option>
+                        <option value="maintenance">Maintenance</option>
+                      </select>
+                    ) : (
+                      <span
+                        className={`text-xs font-semibold px-2 py-0.5 rounded-full ${roleBadgeColors[member.role] || 'bg-gray-100 text-gray-700'}`}
+                      >
+                        {ROLES[member.role]?.label || member.role}
+                      </span>
+                    )}
+                    {canManage && (
+                      <button
+                        onClick={() => handleRemove(member.id, member.displayName || member.email)}
+                        disabled={actionLoading === member.id}
+                        className="text-xs text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

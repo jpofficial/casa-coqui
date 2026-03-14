@@ -2,109 +2,72 @@ import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { resend } from '@/lib/resend';
 import { requireRole } from '@/lib/api-auth';
-import crypto from 'crypto';
 
-export async function POST(request) {
+export async function POST(request, { params }) {
   try {
-    const { caller, error: authError } = await requireRole(request, ['admin']);
+    const { error: authError } = await requireRole(request, ['admin']);
     if (authError) return authError;
 
-    // Parse and validate body
-    const { email, role, displayName } = await request.json();
+    const { uid } = await params;
 
-    if (!email || !role || !displayName) {
+    // Verify user exists and is pending
+    const userDoc = await adminDb.collection('users').doc(uid).get();
+    if (!userDoc.exists) {
       return NextResponse.json(
-        { success: false, error: 'email, role, and displayName are required' },
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    const userData = userDoc.data();
+    if (userData.status !== 'pending') {
+      return NextResponse.json(
+        { success: false, error: 'Can only resend invites to pending users' },
         { status: 400 }
       );
     }
 
-    if (!['cohost', 'cleaner', 'maintenance'].includes(role)) {
-      return NextResponse.json(
-        { success: false, error: 'Role must be cohost, cleaner, or maintenance' },
-        { status: 400 }
-      );
-    }
-
-    // Prevent self-invite
-    if (email.toLowerCase() === (caller.email || '').toLowerCase()) {
-      return NextResponse.json(
-        { success: false, error: 'You cannot invite yourself' },
-        { status: 400 }
-      );
-    }
-
-    // Create Firebase Auth user with random temp password
-    const tempPassword = crypto.randomBytes(16).toString('hex');
-    let uid;
-    try {
-      const newUser = await adminAuth.createUser({
-        email,
-        password: tempPassword,
-        displayName,
-      });
-      uid = newUser.uid;
-    } catch (err) {
-      if (err.code === 'auth/email-already-exists') {
-        return NextResponse.json(
-          { success: false, error: 'A user with that email already exists' },
-          { status: 409 }
-        );
-      }
-      throw err;
-    }
-
-    // Set custom claims
-    await adminAuth.setCustomUserClaims(uid, { role });
-
-    // Generate password reset link
-    const resetLink = await adminAuth.generatePasswordResetLink(email);
+    // Generate new password reset link
+    const resetLink = await adminAuth.generatePasswordResetLink(userData.email);
 
     // Send invite email
     let emailSent = false;
     let emailErrorMsg = null;
     try {
       const roleLabelMap = { cohost: 'Co-host', cleaner: 'Cleaner', maintenance: 'Maintenance' };
-      const roleLabel = roleLabelMap[role] || role;
+      const roleLabel = roleLabelMap[userData.role] || userData.role;
       const { error: emailError } = await resend.emails.send({
         from: 'Casa Coqui <hello@contact.casa-coqui.cc>',
-        to: email,
+        to: userData.email,
         subject: "You've been invited to Casa Coqui",
-        html: buildInviteEmail({ displayName, roleLabel, resetLink }),
+        html: buildResendEmail({ displayName: userData.displayName, roleLabel, resetLink }),
       });
       if (emailError) {
-        console.error('[invite] Email send error:', emailError);
+        console.error('[resend-invite] Email send error:', emailError);
         emailErrorMsg = emailError.message || 'Email delivery failed';
       } else {
         emailSent = true;
       }
     } catch (emailErr) {
-      console.error('[invite] Failed to send invite email:', emailErr);
+      console.error('[resend-invite] Failed to send invite email:', emailErr);
       emailErrorMsg = emailErr.message || 'Email delivery failed';
     }
 
-    // Write Firestore doc (after email attempt so we can store delivery status)
+    // Update Firestore with new delivery status
     const now = new Date().toISOString();
-    await adminDb.collection('users').doc(uid).set({
-      email,
-      role,
-      displayName,
-      status: 'pending',
-      invitedBy: caller.email || 'admin',
-      invitedAt: now,
-      createdAt: now,
+    await adminDb.collection('users').doc(uid).update({
       emailSent,
       emailError: emailErrorMsg,
-      inviteAttempts: 1,
+      inviteAttempts: (userData.inviteAttempts || 1) + 1,
       lastInviteAt: now,
     });
 
     return NextResponse.json({
       success: true,
-      data: { uid, email, role, resetLink, emailSent, emailError: emailErrorMsg },
+      data: { uid, resetLink, emailSent, emailError: emailErrorMsg },
     });
   } catch (err) {
-    console.error('[invite] Error:', err);
+    console.error('[resend-invite] Error:', err);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -112,7 +75,7 @@ export async function POST(request) {
   }
 }
 
-function buildInviteEmail({ displayName, roleLabel, resetLink }) {
+function buildResendEmail({ displayName, roleLabel, resetLink }) {
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -130,7 +93,7 @@ function buildInviteEmail({ displayName, roleLabel, resetLink }) {
             <td style="padding:28px 24px 12px">
               <h2 style="margin:0 0 8px;font-size:18px;color:#111827">Hi ${displayName},</h2>
               <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6">
-                You've been invited to join the Casa Coqui team as a <strong>${roleLabel}</strong>. Click the button below to set your password and get started.
+                This is a reminder that you've been invited to join the Casa Coqui team as a <strong>${roleLabel}</strong>. Click the button below to set your password and get started.
               </p>
             </td>
           </tr>
