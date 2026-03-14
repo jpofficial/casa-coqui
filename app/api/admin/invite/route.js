@@ -151,7 +151,8 @@ export async function POST(request) {
     // Surface actionable error messages instead of generic 500
     let userMessage = 'Internal server error';
     if (err?.code === 'auth/unauthorized-continue-uri') {
-      userMessage = `Firebase rejected the continue URL. The URL being used is: "${err.message || 'unknown'}". Ensure this exact domain is whitelisted in Firebase Console > Authentication > Settings > Authorized domains.`;
+      const debugUrl = getAppUrl(request);
+      userMessage = `Firebase rejected the continue URL: "${debugUrl}/admin/login". Authorize the domain "${debugUrl}" in Firebase Console > Authentication > Settings > Authorized domains.`;
     } else if (err?.code === 'auth/invalid-email') {
       userMessage = 'The email address is invalid.';
     } else if (err?.code === 'auth/operation-not-allowed') {
