@@ -134,7 +134,7 @@ export default function CommunityPost({ code, onClose, onSuccess, initialType })
       return;
     }
 
-    if (selectedType === 'general' && !customMessage.trim()) {
+    if (!typeConfig.autoMessage && !customMessage.trim()) {
       setError('Please write a message.');
       return;
     }
@@ -162,7 +162,7 @@ export default function CommunityPost({ code, onClose, onSuccess, initialType })
         },
         body: JSON.stringify({
           type: selectedType,
-          message: selectedType === 'general' ? customMessage.trim() : undefined,
+          message: !typeConfig.autoMessage ? customMessage.trim() : undefined,
           photoUrl,
         }),
       });

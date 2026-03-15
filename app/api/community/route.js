@@ -8,10 +8,12 @@ const communityLimiter = createRateLimiter({ maxRequests: 5, windowMs: 15 * 60 *
 
 const MAX_MESSAGE_LENGTH = 500;
 
-// Auto-generated messages by post type.
+// Auto-generated messages by post type (used only as fallbacks if no custom message provided).
 const AUTO_MESSAGES = {
   parking:
     "Hey all! Friendly reminder — there's a car parked in an assigned spot. Does anyone know whose car this is?",
+  laundry: 'Heads up — a laundry-related update has been posted on the community board.',
+  property_issue: 'A property issue has been reported. Please check the community board for details.',
 };
 
 // Friendly titles for push notifications.
@@ -63,15 +65,9 @@ export async function POST(request) {
       );
     }
 
-    // Resolve the message — auto-generated for parking/noise/lost_found, custom for general.
+    // Resolve the message — use custom message if provided, otherwise fall back to auto-generated.
     let message;
-    if (type === 'general') {
-      if (!customMessage?.trim()) {
-        return NextResponse.json(
-          { success: false, error: 'Message is required for general posts.' },
-          { status: 400 }
-        );
-      }
+    if (customMessage?.trim()) {
       if (customMessage.trim().length > MAX_MESSAGE_LENGTH) {
         return NextResponse.json(
           { success: false, error: `Message must be ${MAX_MESSAGE_LENGTH} characters or less.` },
@@ -79,8 +75,13 @@ export async function POST(request) {
         );
       }
       message = customMessage.trim();
-    } else {
+    } else if (AUTO_MESSAGES[type]) {
       message = AUTO_MESSAGES[type];
+    } else {
+      return NextResponse.json(
+        { success: false, error: 'Message is required.' },
+        { status: 400 }
+      );
     }
 
     // Determine poster role.
