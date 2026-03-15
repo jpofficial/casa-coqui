@@ -104,22 +104,28 @@ export default function Home() {
       return;
     }
 
-    // 2. Fallback: check Firebase auth for guest custom claims
+    // 2. Fallback: check Firebase auth session
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
           const tokenResult = await user.getIdTokenResult();
+          // Guest with booking code → guest portal
           if (tokenResult.claims.bookingCode && tokenResult.claims.role === 'guest') {
             const code = tokenResult.claims.bookingCode;
             localStorage.setItem(GUEST_CODE_KEY, code);
             router.replace(`/g/${code}`);
             return;
           }
+          // Staff (non-anonymous = email/password login) → admin dashboard
+          if (!user.isAnonymous) {
+            router.replace('/admin');
+            return;
+          }
         } catch (err) {
           console.warn('[Home] Token check failed:', err);
         }
       }
-      // No guest session found — show landing page
+      // No session found — show landing page
       setChecking(false);
     });
 
