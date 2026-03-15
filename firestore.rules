@@ -84,7 +84,7 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read: if isStaff() ||
         (isAuthenticated() && (
-          resource.data.type in ['broadcast', 'parking', 'general', 'maintenance'] ||
+          resource.data.type in ['broadcast', 'parking', 'general', 'maintenance', 'community'] ||
           resource.data.guestId == request.auth.uid ||
           resource.data.bookingCode == request.auth.token.bookingCode
         ));

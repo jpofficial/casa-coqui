@@ -102,11 +102,11 @@ export async function POST(request) {
     // Other post types are discoverable via the board's real-time listener —
     // broadcasting every post breaks anonymity by revealing timing and activity.
     if (type === 'parking') {
-      const pushTitle = PUSH_TITLES[type] || 'Broadcast Post';
       await broadcastToActiveGuests({
-        title: pushTitle,
-        body: message.length > 100 ? message.slice(0, 97) + '...' : message,
-        type: 'community',
+        title: 'Parking Alert',
+        body: 'An unfamiliar vehicle has been reported in the parking area. If this is your vehicle, please move it to your designated spot.',
+        type: 'parking',
+        data: { postId: docRef.id },
       });
     }
 
