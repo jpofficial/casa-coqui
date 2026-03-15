@@ -3,8 +3,8 @@
 // Handles background push notifications when the app is not focused.
 // Version 2 — FCM-first, deep-linking, notification grouping, badge API.
 
-importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/12.10.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/12.10.0/firebase-messaging-compat.js');
 
 // These are the public Firebase config values (not secrets — they identify the
 // project and are safe to ship in the service worker).

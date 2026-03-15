@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { AuthProvider } from '@/hooks/useAuth';
 import useAuth from '@/hooks/useAuth';
 import usePush from '@/hooks/usePush';
 import useNotifications from '@/hooks/useNotifications';
 import ForegroundToast from '@/components/guest/ForegroundToast';
+import PushPermissionGate from '@/components/guest/PushPermissionGate';
 import HelpDrawer from '@/components/ui/HelpDrawer';
 import { getHelpContext } from '@/lib/help-articles';
 
@@ -159,8 +160,9 @@ const GUEST_CODE_KEY = 'casa-coqui-guest-code';
 
 function GuestLayoutInner({ children, code }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user } = useAuth();
-  const { foregroundMsg, requestPermission, permission, pushCapable } = usePush();
+  const { foregroundMsg, requestPermission, permission, pushCapable } = usePush({ bookingCode: code });
   const { unreadCount } = useNotifications({ bookingCode: code });
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -171,13 +173,23 @@ function GuestLayoutInner({ children, code }) {
     }
   }, [user, code]);
 
-  // Auto-register push token once the guest is signed in
-  // (silent — no browser prompt here; prompt is done in PushPermissionGate
-  //  or get-started page so we always have an explainer first)
-  // We do refresh the token if permission is already granted.
-  // requestPermission is safe to call repeatedly when already granted.
-  // We only silently refresh — no prompt.
-  // (see PushPermissionGate for the opt-in flow)
+  // Listen for NOTIFICATION_CLICK from the service worker so tapping a
+  // notification while the app is already open navigates to the deep link.
+  useEffect(() => {
+    function handleSWMessage(event) {
+      if (event.data?.type === 'NOTIFICATION_CLICK' && event.data?.url) {
+        const url = event.data.url;
+        // Only navigate to guest portal paths to prevent open redirect
+        if (url.startsWith(`/g/`)) {
+          router.push(url);
+        }
+      }
+    }
+    navigator.serviceWorker?.addEventListener('message', handleSWMessage);
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', handleSWMessage);
+    };
+  }, [router]);
 
   const isOnboarding =
     pathname.endsWith('/checkin') ||
@@ -231,7 +243,13 @@ function GuestLayoutInner({ children, code }) {
 
       {/* Page content */}
       <main className={`flex-1 ${!isOnboarding ? 'pb-20' : ''} max-w-lg mx-auto w-full`}>
-        {children}
+        {!isOnboarding ? (
+          <PushPermissionGate bookingCode={code} compact>
+            {children}
+          </PushPermissionGate>
+        ) : (
+          children
+        )}
       </main>
 
       {!isOnboarding && (

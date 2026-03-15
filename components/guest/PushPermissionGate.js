@@ -30,7 +30,7 @@ export default function PushPermissionGate({
   compact = false,
   children,
 }) {
-  const { permission, requestPermission, supported, pushCapable, platform, standalone } = usePush();
+  const { permission, requestPermission, supported, pushCapable, platform, standalone } = usePush({ bookingCode });
 
   const [dismissed, setDismissed] = useState(true); // start hidden until hydrated
   const [hydrated, setHydrated] = useState(false);

@@ -61,6 +61,10 @@ export function isPushCapable() {
  * usePush — FCM token lifecycle, permission state, multi-device token
  * management, foreground message handler, and preference-aware registration.
  *
+ * @param {object} [identity]
+ * @param {string} [identity.bookingCode] — booking code for guest token attribution
+ * @param {string} [identity.staffId]     — staff UID for staff token attribution
+ *
  * @returns {object}
  *   token          — current FCM token for this device, or null
  *   permission     — 'default' | 'granted' | 'denied'
@@ -72,7 +76,7 @@ export function isPushCapable() {
  *   requestPermission(opts) — triggers browser prompt + saves token to Firestore
  *   revokeToken()  — deletes this device's token from Firestore
  */
-export default function usePush() {
+export default function usePush({ bookingCode, staffId } = {}) {
   const [token, setToken] = useState(null);
   const [permission, setPermission] = useState('default');
   const [supported, setSupported] = useState(false);
@@ -120,7 +124,8 @@ export default function usePush() {
       }
     })();
 
-    // Auto-refresh token when permission is already granted
+    // Auto-refresh token when permission is already granted.
+    // Include identity fields so rotated tokens retain bookingCode/staffId.
     if (Notification.permission === 'granted') {
       (async () => {
         const msg = await getMessagingInstance();
@@ -131,9 +136,18 @@ export default function usePush() {
             vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
           });
           if (fcmToken) {
+            const refreshData = {
+              token: fcmToken,
+              updatedAt: new Date().toISOString(),
+              platform: detectPlatform(),
+              userAgent: navigator.userAgent,
+            };
+            if (bookingCode) refreshData.bookingCode = bookingCode;
+            if (staffId) refreshData.staffId = staffId;
+
             await setDoc(
               doc(db, 'fcm_tokens', fcmToken),
-              { token: fcmToken, updatedAt: new Date().toISOString() },
+              refreshData,
               { merge: true }
             );
             setToken(fcmToken);

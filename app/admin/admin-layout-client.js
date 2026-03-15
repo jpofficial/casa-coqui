@@ -7,23 +7,44 @@ import { AuthProvider } from '@/hooks/useAuth';
 import useAuth from '@/hooks/useAuth';
 import { canAccessRoute, getDefaultRedirect } from '@/lib/roles';
 import usePush from '@/hooks/usePush';
+import ForegroundToast from '@/components/guest/ForegroundToast';
 
 function AdminLayoutInner({ children }) {
   const { user, loading, role, isStaff, needsOnboarding, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const { requestPermission, supported: pushSupported } = usePush();
+  const { requestPermission, supported: pushSupported, foregroundMsg } = usePush({ staffId: user?.uid });
 
   const isLoginPage = pathname === '/admin/login';
   const isGettingStartedPage = pathname === '/admin/getting-started';
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef(null);
 
-  // Register FCM token for staff push notifications
+  // Register FCM token for staff push notifications.
+  // Only auto-refresh when already granted — never cold-prompt without explainer.
   useEffect(() => {
     if (!user || !isStaff || !pushSupported) return;
-    requestPermission({ staffId: user.uid });
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      requestPermission({ staffId: user.uid });
+    }
   }, [user, isStaff, pushSupported, requestPermission]);
+
+  // Listen for NOTIFICATION_CLICK from the service worker so tapping a
+  // notification while the admin dashboard is open navigates to the deep link.
+  useEffect(() => {
+    function handleSWMessage(event) {
+      if (event.data?.type === 'NOTIFICATION_CLICK' && event.data?.url) {
+        const url = event.data.url;
+        if (url.startsWith('/admin')) {
+          router.push(url);
+        }
+      }
+    }
+    navigator.serviceWorker?.addEventListener('message', handleSWMessage);
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', handleSWMessage);
+    };
+  }, [router]);
 
   useEffect(() => {
     if (loading || isLoginPage) return;
@@ -190,6 +211,9 @@ function AdminLayoutInner({ children }) {
 
   return (
     <div className="min-h-screen bg-cafe-50 flex flex-col">
+      {/* Foreground toast — shows in-app toast for staff notifications */}
+      <ForegroundToast foregroundMsg={foregroundMsg} code="" />
+
       {/* Top Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-cafe-200 px-4 py-3.5 flex items-center justify-between sticky top-0 z-40 shadow-brand">
         <div className="flex items-center gap-2.5">

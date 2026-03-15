@@ -86,7 +86,7 @@ const DEFAULT_PREFS = Object.fromEntries(CATEGORIES.map((c) => [c.key, true]));
  *   bookingCode  {string}
  */
 export default function NotificationSettings({ bookingCode }) {
-  const { permission, requestPermission, supported, pushCapable } = usePush();
+  const { permission, requestPermission, supported, pushCapable } = usePush({ bookingCode });
   const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
   const [loadingPrefs, setLoadingPrefs] = useState(true);

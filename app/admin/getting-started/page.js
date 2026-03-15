@@ -34,7 +34,7 @@ const ROLE_COLORS = {
 
 export default function GettingStartedPage() {
   const { user, role, displayName, setNeedsOnboarding } = useAuth();
-  const { permission, requestPermission, supported: pushSupported } = usePush();
+  const { permission, requestPermission, supported: pushSupported } = usePush({ staffId: user?.uid });
   const router = useRouter();
 
   const [showSafari, setShowSafari] = useState(false);
