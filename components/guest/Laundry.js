@@ -53,7 +53,7 @@ function formatCountdown(secondsRemaining) {
 }
 
 // ─── Machine card ──────────────────────────────────────────────────────────────
-function MachineCard({ machineId, type, displayName, icon, waitlistState, onWaitlistChange, readOnly = false }) {
+function MachineCard({ machineId, type, displayName, icon, waitlistState, onWaitlistChange, readOnly = false, code }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -212,7 +212,7 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
   const statusInfo = STATUS[status] ?? STATUS.available;
 
   const isOwner =
-    status === 'in_use' && currentUid && data?.sessionOwnerId === currentUid;
+    status === 'in_use' && currentUid && data?.sessionOwnerId === currentUid && data?.sessionBookingCode === code;
   const isOtherUser = status === 'in_use' && !isOwner;
   const isSubscribed = !!waitlistState?.[machineId];
 
@@ -582,6 +582,7 @@ export default function Laundry({ code, readOnly = false, checkInDate = null }) 
             waitlistState={waitlistState}
             onWaitlistChange={handleWaitlistChange}
             readOnly={readOnly}
+            code={code}
           />
         ))}
       </div>
