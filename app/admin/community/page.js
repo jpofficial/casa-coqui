@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 import Community from '@/components/guest/Community';
 import ImageUpload from '@/components/ui/ImageUpload';
@@ -67,14 +65,21 @@ export default function AdminCommunityPage() {
     if (!message.trim()) return;
     setSubmitting(true);
     try {
-      await addDoc(collection(db, 'community'), {
-        message: message.trim(),
-        type,
-        photoUrl: photoUrl || null,
-        bookingCode: null,
-        postedByRole: role || 'admin',
-        createdAt: new Date().toISOString(),
+      const idToken = await user.getIdToken();
+      const res = await fetch('/api/community', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          type,
+          message: message.trim(),
+          photoUrl: photoUrl || null,
+        }),
       });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
       setMessage('');
       setType('general');
       setPhotoUrl('');

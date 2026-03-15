@@ -92,11 +92,29 @@ export async function POST(request) {
       if (!tokenSnap.empty) {
         const tokenDoc = tokenSnap.docs[0];
         const { token } = tokenDoc.data();
-        const result = await sendNotification({ to: token, title, body: notifBody });
+        const result = await sendNotification({
+          to: token,
+          title,
+          body: notifBody,
+          data: { type: 'message', bookingCode },
+        });
         if (result.success) {
+          // Write in-app notification record
+          await adminDb.collection('notifications').add({
+            type: 'direct',
+            bookingCode,
+            title,
+            message: notifBody,
+            broadcast: false,
+            category: 'message',
+            readBy: [],
+            createdAt: new Date().toISOString(),
+            method: 'push',
+            status: 'sent',
+          });
           return NextResponse.json({ success: true, data: { notified: 'guest', method: 'push' } });
         }
-        // Clean up stale token before falling through to SMS
+        // Clean up stale token
         if (result.staleToken) {
           await tokenDoc.ref.delete().catch((err) => {
             console.error('[messages/notify] Stale token cleanup error:', err);
@@ -104,15 +122,23 @@ export async function POST(request) {
         }
       }
 
-      // Fallback to SMS
-      if (guest.phone) {
-        await sendNotification({ to: guest.phone, title, body: notifBody });
-        return NextResponse.json({ success: true, data: { notified: 'guest', method: 'sms' } });
-      }
+      // No FCM token (or push failed) — write in-app-only notification
+      await adminDb.collection('notifications').add({
+        type: 'direct',
+        bookingCode,
+        title,
+        message: notifBody,
+        broadcast: false,
+        category: 'message',
+        readBy: [],
+        createdAt: new Date().toISOString(),
+        method: 'none',
+        status: 'in-app-only',
+      });
 
       return NextResponse.json({
         success: true,
-        data: { notified: 'none', reason: 'No FCM token or phone for guest' },
+        data: { notified: 'guest', method: 'in-app-only' },
       });
     }
 
