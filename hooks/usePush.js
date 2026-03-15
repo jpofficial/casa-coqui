@@ -61,6 +61,32 @@ export default function usePush() {
       }
     })();
 
+    // Auto-refresh token when permission is already granted.
+    // This keeps `updatedAt` current and ensures rotated tokens are stored.
+    if (Notification.permission === 'granted') {
+      (async () => {
+        const msg = await getMessagingInstance();
+        if (!msg) return;
+
+        try {
+          const { getToken: getFCMToken } = await import('firebase/messaging');
+          const fcmToken = await getFCMToken(msg, {
+            vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+          });
+          if (fcmToken) {
+            await setDoc(
+              doc(db, 'fcm_tokens', fcmToken),
+              { token: fcmToken, updatedAt: new Date().toISOString() },
+              { merge: true }
+            );
+            setToken(fcmToken);
+          }
+        } catch (err) {
+          console.warn('[FCM] Token auto-refresh failed:', err);
+        }
+      })();
+    }
+
     return () => {
       if (typeof unsubscribeForeground === 'function') {
         unsubscribeForeground();
@@ -103,9 +129,11 @@ export default function usePush() {
       }
 
       // Persist the token so the server can send targeted pushes
+      const now = new Date().toISOString();
       const tokenData = {
         token: fcmToken,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
         userAgent: navigator.userAgent,
       };
       if (bookingCode) tokenData.bookingCode = bookingCode;

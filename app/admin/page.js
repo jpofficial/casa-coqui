@@ -2,9 +2,9 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { where, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { where, orderBy } from 'firebase/firestore';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
-import { db } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 
 const LAUNDRY_STATUSES = [
@@ -27,20 +27,77 @@ function laundryStatusColor(status) {
 
 function LaundryMachineCard({ machineId, label }) {
   const { data, loading } = useDocument('laundry', machineId);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [countdown, setCountdown] = useState(null);
 
-  async function handleOverride(newStatus) {
+  const currentStatus = data?.status || null;
+  const sessionOwnerName = data?.sessionOwnerName || null;
+  const sessionExpiresAt = data?.sessionExpiresAt || null;
+
+  // Live countdown ticker for in_use machines
+  useEffect(() => {
+    if (currentStatus !== 'in_use' || !sessionExpiresAt) {
+      setCountdown(null);
+      return;
+    }
+
+    function tick() {
+      const msLeft = new Date(sessionExpiresAt).getTime() - Date.now();
+      if (msLeft <= 0) {
+        setCountdown('Expired');
+        return;
+      }
+      const totalMinutes = Math.floor(msLeft / 60000);
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      setCountdown(hours > 0 ? `${hours}h ${minutes}m left` : `${minutes}m left`);
+    }
+
+    tick();
+    const interval = setInterval(tick, 30000);
+    return () => clearInterval(interval);
+  }, [currentStatus, sessionExpiresAt]);
+
+  async function callApi(endpoint, body) {
+    setActionLoading(true);
     try {
-      await updateDoc(doc(db, 'laundry', machineId), {
-        status: newStatus,
-        updatedAt: serverTimestamp(),
-        updatedBy: 'admin',
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify(body),
       });
+      const json = await res.json();
+      if (!json.success) {
+        console.error(`[LaundryMachineCard] ${endpoint} error:`, json.error);
+      }
     } catch (err) {
-      console.error('Failed to update laundry status:', err);
+      console.error(`[LaundryMachineCard] ${endpoint} failed:`, err);
+    } finally {
+      setActionLoading(false);
     }
   }
 
-  const currentStatus = data?.status || null;
+  async function handleOverride(newStatus) {
+    if (actionLoading) return;
+
+    if (newStatus === 'available' && currentStatus === 'in_use') {
+      // End the active session
+      await callApi('/api/laundry/end', { machineId });
+    } else if (newStatus === 'needs_attention') {
+      // Report a problem
+      await callApi('/api/laundry/attention', { machineId, action: 'report' });
+    } else if (newStatus === 'available' && currentStatus === 'needs_attention') {
+      // Clear the attention flag
+      await callApi('/api/laundry/attention', { machineId, action: 'clear' });
+    } else if (newStatus === 'in_use') {
+      // Admin test: start a session (requires staff auth, no guest bookingCode needed)
+      await callApi('/api/laundry/start', { machineId });
+    }
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-brand p-4 border border-cafe-100">
@@ -56,16 +113,38 @@ function LaundryMachineCard({ machineId, label }) {
           <span className="text-xs text-coqui-800/50">No status</span>
         )}
       </div>
+
+      {/* Session info — only when in_use */}
+      {currentStatus === 'in_use' && (sessionOwnerName || countdown) && (
+        <div className="mb-3 px-3 py-2 bg-atardecer-50 rounded-lg border border-atardecer-100 flex items-center justify-between gap-2">
+          {sessionOwnerName && (
+            <span className="text-xs text-atardecer-700 font-medium truncate">
+              {sessionOwnerName}
+            </span>
+          )}
+          {countdown && (
+            <span className="text-xs text-atardecer-600 whitespace-nowrap">
+              {countdown}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-2 flex-wrap">
         {LAUNDRY_STATUSES.map((s) => (
           <button
             key={s.key}
             onClick={() => handleOverride(s.key)}
-            className={`flex-1 min-w-[80px] text-xs font-medium py-2 px-2 rounded-lg transition-colors ${
+            disabled={actionLoading}
+            className={`flex-1 min-w-[80px] text-xs font-medium py-2 px-2 rounded-lg transition-colors disabled:opacity-50 ${
               currentStatus === s.key ? s.active : `${s.color} active:opacity-80`
             }`}
           >
-            {s.label}
+            {actionLoading && currentStatus !== s.key ? (
+              <span className="inline-block w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              s.label
+            )}
           </button>
         ))}
       </div>

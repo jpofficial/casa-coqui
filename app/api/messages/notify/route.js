@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { sendNotification } from '@/lib/notifications';
+import { notifyAdminAndCohost } from '@/lib/staff-notifications';
 import { requireAuth } from '@/lib/api-auth';
 
 // ---------------------------------------------------------------------------
@@ -44,28 +45,22 @@ export async function POST(request) {
     }
 
     if (sender === 'guest') {
-      // Notify admin — find admin FCM tokens or phone
-      const adminUsersSnap = await adminDb
-        .collection('users')
-        .where('role', 'in', ['admin', 'cohost'])
-        .get();
-
+      // Notify all admin + cohost staff members via push (with SMS fallback).
       const name = guestName || 'A guest';
       const title = 'New Message';
       const notifBody = `${name} sent you a message`;
 
-      for (const userDoc of adminUsersSnap.docs) {
-        const userData = userDoc.data();
-        // Try FCM token first (admin tokens don't have bookingCode)
-        const tokenSnap = await adminDb.collection('fcm_tokens').get();
-        // For now, we log the notification — in production you'd match admin tokens
-        // by user ID. This is a best-effort notification.
-        if (userData.phone) {
-          await sendNotification({ to: userData.phone, title, body: notifBody });
-        }
-      }
+      const result = await notifyAdminAndCohost({
+        title,
+        body: notifBody,
+        type: 'message',
+        data: { bookingCode },
+      });
 
-      return NextResponse.json({ success: true, data: { notified: 'admin' } });
+      return NextResponse.json({
+        success: true,
+        data: { notified: 'admin', ...result.data },
+      });
     }
 
     if (sender === 'host') {
@@ -95,10 +90,17 @@ export async function POST(request) {
         .get();
 
       if (!tokenSnap.empty) {
-        const { token } = tokenSnap.docs[0].data();
+        const tokenDoc = tokenSnap.docs[0];
+        const { token } = tokenDoc.data();
         const result = await sendNotification({ to: token, title, body: notifBody });
         if (result.success) {
           return NextResponse.json({ success: true, data: { notified: 'guest', method: 'push' } });
+        }
+        // Clean up stale token before falling through to SMS
+        if (result.staleToken) {
+          await tokenDoc.ref.delete().catch((err) => {
+            console.error('[messages/notify] Stale token cleanup error:', err);
+          });
         }
       }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
@@ -11,9 +11,20 @@ const STATUS = {
   needs_attention: { label: 'Attention', dot: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50' },
 };
 
+function getRemainingMinutes(sessionExpiresAt) {
+  if (!sessionExpiresAt) return null;
+  const expiresMs = new Date(sessionExpiresAt).getTime();
+  const remainingMs = expiresMs - Date.now();
+  if (remainingMs <= 0) return 0;
+  return Math.ceil(remainingMs / 60000);
+}
+
 function MachineStatusPill({ machineId, icon, label }) {
   const [status, setStatus] = useState('available');
+  const [sessionExpiresAt, setSessionExpiresAt] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [remainingMinutes, setRemainingMinutes] = useState(null);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
     const ref = doc(db, 'laundry', machineId);
@@ -21,7 +32,12 @@ function MachineStatusPill({ machineId, icon, label }) {
       ref,
       (snap) => {
         if (snap.exists()) {
-          setStatus(snap.data().status ?? 'available');
+          const d = snap.data();
+          setStatus(d.status ?? 'available');
+          setSessionExpiresAt(d.sessionExpiresAt ?? null);
+        } else {
+          setStatus('available');
+          setSessionExpiresAt(null);
         }
         setLoading(false);
       },
@@ -30,7 +46,38 @@ function MachineStatusPill({ machineId, icon, label }) {
     return unsubscribe;
   }, [machineId]);
 
+  // Update remaining minutes every minute
+  useEffect(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    if (status === 'in_use' && sessionExpiresAt) {
+      function tick() {
+        setRemainingMinutes(getRemainingMinutes(sessionExpiresAt));
+      }
+      tick();
+      intervalRef.current = setInterval(tick, 60000);
+    } else {
+      setRemainingMinutes(null);
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [status, sessionExpiresAt]);
+
   const info = STATUS[status] ?? STATUS.available;
+
+  // Compute display label
+  let displayLabel = info.label;
+  if (status === 'in_use' && remainingMinutes !== null) {
+    displayLabel = remainingMinutes > 0 ? `In Use - ${remainingMinutes}m` : 'Finishing up';
+  }
 
   if (loading) {
     return (
@@ -44,12 +91,18 @@ function MachineStatusPill({ machineId, icon, label }) {
   return (
     <div className={`flex-1 rounded-lg border p-3 ${info.bg} border-gray-100`}>
       <div className="flex items-center gap-1.5 mb-0.5">
-        <span className="text-base" aria-hidden="true">{icon}</span>
+        <span className="text-base" aria-hidden="true">
+          {icon}
+        </span>
         <span className="text-xs font-semibold text-gray-700">{label}</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${info.dot} ${status === 'in_use' ? 'animate-pulse' : ''}`} />
-        <span className={`text-xs font-semibold ${info.text}`}>{info.label}</span>
+        <span
+          className={`w-2 h-2 rounded-full flex-shrink-0 ${info.dot} ${
+            status === 'in_use' ? 'animate-pulse' : ''
+          }`}
+        />
+        <span className={`text-xs font-semibold ${info.text}`}>{displayLabel}</span>
       </div>
     </div>
   );
@@ -57,16 +110,25 @@ function MachineStatusPill({ machineId, icon, label }) {
 
 /**
  * Compact laundry status display for the guest home page.
- * Shows real-time washer/dryer status as two side-by-side pills.
- * Tapping navigates to the full laundry page.
+ * Shows real-time washer/dryer status as two side-by-side pills with
+ * remaining time when in use. Tapping navigates to the full laundry page.
  */
 export default function LaundryQuickStatus({ code }) {
   return (
     <Link href={`/g/${code}/laundry`} className="block">
       <div className="bg-white rounded-xl shadow-sm border border-gray-50 p-3 hover:shadow-md active:scale-[0.99] transition-all duration-150 cursor-pointer">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Laundry Status</span>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 text-gray-300">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Laundry Status
+          </span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+            className="w-3.5 h-3.5 text-gray-300"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
         </div>

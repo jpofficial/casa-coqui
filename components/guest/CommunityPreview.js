@@ -19,16 +19,16 @@ const TYPE_STYLES = {
  * Shows the latest community board post as a compact preview on the home page.
  * Real-time via onSnapshot. Tapping navigates to the full community board.
  */
-export default function CommunityPreview({ code }) {
+export default function CommunityPreview({ code, dateFrom = null, dateTo = null }) {
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(
-      collection(db, 'community'),
-      orderBy('createdAt', 'desc'),
-      limit(3)
-    );
+    const constraints = [orderBy('createdAt', 'desc'), limit(3)];
+    if (dateFrom) constraints.push(where('createdAt', '>=', dateFrom));
+    if (dateTo) constraints.push(where('createdAt', '<=', dateTo + 'T23:59:59.999Z'));
+
+    const q = query(collection(db, 'community'), ...constraints);
 
     const unsubscribe = onSnapshot(
       q,
@@ -44,7 +44,7 @@ export default function CommunityPreview({ code }) {
     );
 
     return unsubscribe;
-  }, []);
+  }, [dateFrom, dateTo]);
 
   if (loading) {
     return (
@@ -66,7 +66,7 @@ export default function CommunityPreview({ code }) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
             </svg>
           </div>
-          <p className="text-xs text-gray-400 mt-1.5">No updates yet — be the first to post!</p>
+          <p className="text-xs text-gray-400 mt-1.5">{dateFrom ? 'No updates during your stay yet' : 'No updates yet — be the first to post!'}</p>
         </div>
       </Link>
     );

@@ -64,6 +64,80 @@ function ProgressBar({ progress }) {
   );
 }
 
+// ─── Category picker (button → dropdown list) ──────────────────────────────
+function CategoryPicker({ value, onChange, disabled }) {
+  const [open, setOpen] = useState(false);
+  const selected = CATEGORIES.find((c) => c.value === value);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen((o) => !o)}
+        disabled={disabled}
+        className={`w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all duration-150
+          ${open
+            ? 'border-green-500 ring-2 ring-green-500/20 bg-white'
+            : selected
+              ? 'border-green-500 bg-green-50 text-green-700'
+              : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
+      >
+        {selected ? (
+          <span className="flex items-center gap-2.5">
+            <span className="text-lg" aria-hidden="true">{selected.icon}</span>
+            <span className="text-gray-900">{selected.label}</span>
+          </span>
+        ) : (
+          <span>Select an issue type</span>
+        )}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+          className={`w-4 h-4 text-gray-400 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="mt-1.5 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+          {CATEGORIES.map((cat) => {
+            const isSelected = value === cat.value;
+            return (
+              <button
+                key={cat.value}
+                type="button"
+                onClick={() => {
+                  onChange(cat.value);
+                  setOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors duration-100
+                  ${isSelected
+                    ? 'bg-green-50 text-green-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+                  }`}
+              >
+                <span className="text-lg flex-shrink-0" aria-hidden="true">{cat.icon}</span>
+                <span>{cat.label}</span>
+                {isSelected && (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-auto text-green-600" aria-hidden="true">
+                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Success state ─────────────────────────────────────────────────────────────
 function SuccessView({ onReset }) {
   return (
@@ -84,9 +158,9 @@ function SuccessView({ onReset }) {
         </svg>
       </div>
       <div>
-        <p className="text-base font-bold text-gray-900">Request submitted</p>
+        <p className="text-base font-bold text-gray-900">Got it, thanks!</p>
         <p className="text-sm text-gray-500 mt-1 leading-snug">
-          Your request has been submitted. We will get back to you soon.
+          Your host or co-host will review this and reach out with next steps or to coordinate a fix.
         </p>
       </div>
       <button
@@ -355,7 +429,7 @@ export default function MaintenanceForm({ code }) {
             Maintenance Request
           </h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Let us know about any issues
+            Something not working? Let us know and we&apos;ll take care of it.
           </p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
@@ -374,7 +448,7 @@ export default function MaintenanceForm({ code }) {
           Maintenance Request
         </h2>
         <p className="text-sm text-gray-500 mt-0.5">
-          Let us know about any issues
+          Something not working? Let us know and we&apos;ll take care of it.
         </p>
       </div>
 
@@ -382,33 +456,17 @@ export default function MaintenanceForm({ code }) {
         onSubmit={handleSubmit}
         className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col gap-4"
       >
-        {/* Category grid */}
+        {/* Category selector */}
         <div className="flex flex-col gap-1.5">
           <p className="text-sm font-semibold text-gray-700">
             What is the issue?{' '}
             <span className="text-red-500" aria-hidden="true">*</span>
           </p>
-          <div className="grid grid-cols-3 gap-2">
-            {CATEGORIES.map((cat) => {
-              const isSelected = category === cat.value;
-              return (
-                <button
-                  key={cat.value}
-                  type="button"
-                  onClick={() => { setCategory(cat.value); setError(null); }}
-                  disabled={isLoading}
-                  className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition text-center
-                    ${isSelected
-                      ? 'border-green-500 bg-green-50 text-green-700'
-                      : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-200'
-                    } disabled:opacity-50`}
-                >
-                  <span className="text-lg" aria-hidden="true">{cat.icon}</span>
-                  <span className="text-[11px] font-medium leading-tight">{cat.label}</span>
-                </button>
-              );
-            })}
-          </div>
+          <CategoryPicker
+            value={category}
+            onChange={(v) => { setCategory(v); setError(null); }}
+            disabled={isLoading}
+          />
         </div>
 
         {/* Urgency radio buttons */}
@@ -565,6 +623,16 @@ export default function MaintenanceForm({ code }) {
             {error}
           </p>
         )}
+
+        {/* Info: who receives this */}
+        <div className="flex gap-2.5 items-start bg-coqui-50 border border-coqui-100 rounded-xl p-3">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-coqui-600 flex-shrink-0 mt-0.5" aria-hidden="true">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
+          </svg>
+          <p className="text-xs text-coqui-800 leading-snug">
+            Your request goes to your host and co-host. They&apos;ll reach out with next steps or coordinate a fix directly.
+          </p>
+        </div>
 
         {/* Submit button */}
         <button

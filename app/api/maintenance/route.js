@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireRole, requireAuth } from '@/lib/api-auth';
 import { notifyAdminAndCohost } from '@/lib/staff-notifications';
+import { createRateLimiter } from '@/lib/rate-limit';
+
+const maintenanceLimiter = createRateLimiter({ maxRequests: 3, windowMs: 60 * 60 * 1000 });
 
 const VALID_CATEGORIES = [
   'lighting', 'water', 'ac_heating', 'appliance', 'lock_door',
@@ -60,6 +63,14 @@ export async function POST(request) {
   try {
     const { caller, error: authError } = await requireAuth(request);
     if (authError) return authError;
+
+    const { limited } = maintenanceLimiter.check(caller.uid);
+    if (limited) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests. Please wait before submitting another.' },
+        { status: 429 }
+      );
+    }
 
     const body = await request.json();
     const { category, urgency, description, photoUrl, bookingCode } = body;

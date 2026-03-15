@@ -58,6 +58,7 @@ export default function CheckInPage({ params }) {
   const [prefilled, setPrefilled] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState(null);
 
   // Fetch booking to pre-populate
   const { data: bookings } = useCollection('bookings', [
@@ -79,6 +80,9 @@ export default function CheckInPage({ params }) {
     if (!authLoading && !user) {
       signInAnonymously(firebaseAuth).catch((err) => {
         console.error('Anonymous sign-in error:', err);
+        setAuthError(err.code === 'auth/operation-not-allowed'
+          ? 'Anonymous sign-in is not enabled. Please enable it in the Firebase Console under Authentication → Sign-in method.'
+          : `Authentication failed: ${err.message}`);
       });
     }
   }, [authLoading, user]);
@@ -179,8 +183,15 @@ export default function CheckInPage({ params }) {
   // Wait for anonymous auth to complete
   if (authLoading || !user) {
     return (
-      <div className="px-4 py-12 flex justify-center">
-        <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+      <div className="px-4 py-12 flex flex-col items-center gap-4">
+        {authError ? (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 max-w-sm text-center">
+            <p className="text-sm font-medium text-red-800 mb-1">Unable to load check-in</p>
+            <p className="text-xs text-red-600">{authError}</p>
+          </div>
+        ) : (
+          <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+        )}
       </div>
     );
   }

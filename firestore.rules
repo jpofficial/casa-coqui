@@ -163,12 +163,34 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
     // laundry
     // Any authenticated user can read machine status.
-    // Any authenticated guest can update (self-reported, honor system).
-    // Admin can also write.
+    // No direct client writes — all mutations go through API routes which use
+    // the Admin SDK. This enforces session ownership, timer logic, and
+    // concurrency control server-side.
     // -------------------------------------------------------------------------
     match /laundry/{machineId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // laundry_sessions
+    // Any authenticated user can read (needed for UI to show session info).
+    // No direct client writes — all mutations via API (Admin SDK).
+    // -------------------------------------------------------------------------
+    match /laundry_sessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // laundry_waitlist
+    // Guests can read their own waitlist entries.
+    // No direct client writes — all mutations via API (Admin SDK).
+    // -------------------------------------------------------------------------
+    match /laundry_waitlist/{entryId} {
+      allow read: if isAuthenticated() &&
+        resource.data.guestId == request.auth.uid;
+      allow write: if false;
     }
 
     // -------------------------------------------------------------------------

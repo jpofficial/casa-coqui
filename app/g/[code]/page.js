@@ -434,7 +434,7 @@ export default function GuestHome({ params }) {
           <LaundryQuickStatus code={code} />
 
           {/* Community board latest post */}
-          <CommunityPreview code={code} />
+          <CommunityPreview code={code} dateFrom={booking?.checkInDate} dateTo={booking?.checkOutDate} />
 
           {/* Quick action: Report Parking Issue */}
           <Link href={`/g/${code}/community?type=parking`}>
