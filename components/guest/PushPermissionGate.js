@@ -65,11 +65,20 @@ export default function PushPermissionGate({
   // Do not render anything permission-related until hydrated
   if (!hydrated) return <>{children}</>;
 
+  // DEBUG: temporary banner to diagnose push issues — remove after testing
+  const debugInfo = `perm=${permission} supported=${supported} capable=${pushCapable} plat=${plat} sa=${sa} dismissed=${dismissed} vapid=${process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ? 'SET' : 'MISSING'}`;
+
   // Push is granted — nothing to show
-  if (permission === 'granted') return <>{children}</>;
+  if (permission === 'granted') return <>
+    <div className="mx-4 mt-2 mb-2 p-2 bg-blue-100 rounded text-xs font-mono text-blue-800 break-all">DEBUG: {debugInfo}</div>
+    {children}
+  </>;
 
   // Not supported at all (old browser, etc) — silently skip
-  if (!supported) return <>{children}</>;
+  if (!supported) return <>
+    <div className="mx-4 mt-2 mb-2 p-2 bg-red-100 rounded text-xs font-mono text-red-800 break-all">DEBUG: {debugInfo}</div>
+    {children}
+  </>;
 
   // iOS but not installed as PWA
   if (plat === 'ios' && !sa) {
