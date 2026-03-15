@@ -212,20 +212,16 @@ service cloud.firestore {
 
     // -------------------------------------------------------------------------
     // fcm_tokens
-    // Users can create/update/delete their own token docs only. Identity fields
-    // (bookingCode, staffId) must match the caller's auth claims. Admin can
-    // read all (for server-side queries the Admin SDK bypasses rules anyway).
+    // Any authenticated user can create a token doc (doc ID must equal the
+    // token field). Update/delete are scoped to the owner's identity.
+    // Admin can read all for server-side queries.
     // -------------------------------------------------------------------------
     match /fcm_tokens/{tokenId} {
       allow read: if isAdmin() ||
         (isAuthenticated() && resource.data.staffId == request.auth.uid) ||
         (isAuthenticated() && resource.data.bookingCode == request.auth.token.bookingCode);
       allow create: if isAuthenticated() &&
-        request.resource.data.token == tokenId &&
-        (
-          request.resource.data.bookingCode == request.auth.token.bookingCode ||
-          request.resource.data.staffId == request.auth.uid
-        );
+        request.resource.data.token == tokenId;
       allow update: if isAuthenticated() &&
         (resource.data.bookingCode == request.auth.token.bookingCode ||
          resource.data.staffId == request.auth.uid);
