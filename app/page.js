@@ -1,6 +1,11 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+
+const GUEST_CODE_KEY = 'casa-coqui-guest-code';
 
 // ─── Coqui frog SVG — the spirit of the island ──────────────────────────────
 function CoquiIcon({ className = '' }) {
@@ -87,6 +92,57 @@ function LeafDecoration() {
 
 export default function Home() {
   const router = useRouter();
+  const [checking, setChecking] = useState(true);
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState('');
+
+  useEffect(() => {
+    // 1. Check localStorage first (instant redirect for returning PWA guests)
+    const savedCode = localStorage.getItem(GUEST_CODE_KEY);
+    if (savedCode) {
+      router.replace(`/g/${savedCode}`);
+      return;
+    }
+
+    // 2. Fallback: check Firebase auth for guest custom claims
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const tokenResult = await user.getIdTokenResult();
+          if (tokenResult.claims.bookingCode && tokenResult.claims.role === 'guest') {
+            const code = tokenResult.claims.bookingCode;
+            localStorage.setItem(GUEST_CODE_KEY, code);
+            router.replace(`/g/${code}`);
+            return;
+          }
+        } catch (err) {
+          console.warn('[Home] Token check failed:', err);
+        }
+      }
+      // No guest session found — show landing page
+      setChecking(false);
+    });
+
+    return unsubscribe;
+  }, [router]);
+
+  function handleRecoverySubmit(e) {
+    e.preventDefault();
+    const code = recoveryCode.trim();
+    if (code) {
+      localStorage.setItem(GUEST_CODE_KEY, code);
+      router.push(`/g/${code}`);
+    }
+  }
+
+  // Brief loading state while checking for guest session
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-landing-gradient flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-landing-gradient relative flex flex-col items-center justify-center px-6 overflow-hidden">
@@ -129,6 +185,38 @@ export default function Home() {
           <p className="text-coqui-400 text-xs pt-3 leading-relaxed">
             Guests — use the link from your host to access your portal.
           </p>
+
+          {/* Guest recovery — re-enter booking code */}
+          {!showRecovery ? (
+            <button
+              onClick={() => setShowRecovery(true)}
+              className="text-coqui-400 hover:text-coqui-200 text-xs underline underline-offset-2 transition-colors"
+            >
+              Already checked in? Tap here.
+            </button>
+          ) : (
+            <form onSubmit={handleRecoverySubmit} className="mt-2 space-y-2">
+              <input
+                type="text"
+                value={recoveryCode}
+                onChange={(e) => setRecoveryCode(e.target.value)}
+                placeholder="Enter your booking code"
+                autoFocus
+                className="w-full rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm
+                  px-4 py-3 text-sm text-white placeholder-coqui-400
+                  focus:outline-none focus:ring-2 focus:ring-atardecer-400 focus:border-transparent transition"
+              />
+              <button
+                type="submit"
+                disabled={!recoveryCode.trim()}
+                className="w-full bg-atardecer-500 hover:bg-atardecer-600 disabled:opacity-40
+                  text-white font-semibold rounded-xl px-5 py-3 text-sm transition-all duration-200
+                  focus:outline-none focus:ring-2 focus:ring-atardecer-400 focus:ring-offset-2 focus:ring-offset-coqui-800"
+              >
+                Go to My Portal
+              </button>
+            </form>
+          )}
         </div>
       </div>
 

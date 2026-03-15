@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AuthProvider } from '@/hooks/useAuth';
@@ -155,12 +155,21 @@ function BottomNav({ code, onOpenGuide, unreadCount }) {
 }
 
 // ─── Inner layout (has access to auth + push context) ────────────────────────
+const GUEST_CODE_KEY = 'casa-coqui-guest-code';
+
 function GuestLayoutInner({ children, code }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const { foregroundMsg, requestPermission, permission, pushCapable } = usePush();
   const { unreadCount } = useNotifications({ bookingCode: code });
   const [helpOpen, setHelpOpen] = useState(false);
+
+  // Persist guest booking code so PWA can restore session from root
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem(GUEST_CODE_KEY, code);
+    }
+  }, [user, code]);
 
   // Auto-register push token once the guest is signed in
   // (silent — no browser prompt here; prompt is done in PushPermissionGate

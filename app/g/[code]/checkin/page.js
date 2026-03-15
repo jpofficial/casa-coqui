@@ -164,6 +164,9 @@ export default function CheckInPage({ params }) {
         console.error('Set claims error:', claimErr);
       }
 
+      // Persist booking code so PWA can restore session from root
+      localStorage.setItem('casa-coqui-guest-code', code);
+
       router.push(`/g/${code}?welcome=1`);
     } catch (err) {
       console.error('Submit error:', err);
