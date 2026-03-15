@@ -99,7 +99,11 @@ export default function TeamPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (!data.success) alert(data.error);
+      if (!data.success) {
+        alert(data.error);
+      } else {
+        setResult({ message: `Invitation for ${name} has been revoked.` });
+      }
     } catch {
       alert('Failed to revoke invitation.');
     } finally {
@@ -138,7 +142,11 @@ export default function TeamPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (!data.success) alert(data.error);
+      if (!data.success) {
+        alert(data.error);
+      } else {
+        setResult({ message: `${name} has been removed from the team.` });
+      }
     } catch {
       alert('Failed to remove team member.');
     } finally {
@@ -213,7 +221,7 @@ export default function TeamPage() {
             </p>
           )}
 
-          {result && result.emailSent && (
+          {result && result.resetLink && result.emailSent && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-2">
               <p className="text-sm text-green-800 font-medium">
                 Invite email sent to {result.email}
@@ -239,7 +247,7 @@ export default function TeamPage() {
             </div>
           )}
 
-          {result && !result.emailSent && (
+          {result && result.resetLink && !result.emailSent && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
               <p className="text-sm text-amber-800 font-medium">
                 User created, but the invite email failed to send
@@ -279,6 +287,20 @@ export default function TeamPage() {
           </button>
         </form>
       </div>
+
+      {/* Action success banner (for remove/revoke) */}
+      {result?.message && (
+        <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center justify-between">
+          <p className="text-sm text-green-800 font-medium">{result.message}</p>
+          <button
+            type="button"
+            onClick={() => setResult(null)}
+            className="text-green-600 hover:text-green-800 text-xs font-medium ml-4"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Pending Invitations */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
