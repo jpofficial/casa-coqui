@@ -147,7 +147,25 @@ export default function GettingStartedPage() {
                   <span className="flex-none w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">1</span>
                   <div>
                     <p className="text-sm text-coqui-800/80 leading-relaxed">
-                      Tap the <strong>Share</strong> button at the bottom of the screen
+                      Tap the <strong>three dots</strong> at the bottom of the screen
+                    </p>
+                    <div className="mt-2 inline-flex items-center gap-1.5 bg-gray-100 rounded-lg px-3 py-2">
+                      <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                        <circle cx="5" cy="12" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="19" cy="12" r="2" />
+                      </svg>
+                      <span className="text-xs text-gray-500 font-medium">Options</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div className="flex gap-3">
+                  <span className="flex-none w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">2</span>
+                  <div>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed">
+                      Tap <strong>&quot;Share&quot;</strong>
                     </p>
                     <div className="mt-2 inline-flex items-center gap-1.5 bg-gray-100 rounded-lg px-3 py-2">
                       <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -158,25 +176,36 @@ export default function GettingStartedPage() {
                   </div>
                 </div>
 
-                {/* Step 2 */}
+                {/* Step 3 */}
                 <div className="flex gap-3">
-                  <span className="flex-none w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">2</span>
+                  <span className="flex-none w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">3</span>
                   <div>
                     <p className="text-sm text-coqui-800/80 leading-relaxed">
-                      Scroll down and tap <strong>&quot;Add to Home Screen&quot;</strong>
+                      Scroll down or tap <strong>&quot;More&quot;</strong> to find <strong>&quot;Add to Home Screen&quot;</strong>
                     </p>
-                    <div className="mt-2 inline-flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
-                      <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                      <div className="inline-flex items-center gap-1.5 bg-gray-100 rounded-lg px-3 py-2">
+                        <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                        </svg>
+                        <span className="text-xs text-gray-500 font-medium">More</span>
+                      </div>
+                      <svg className="w-4 h-4 text-coqui-800/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                       </svg>
-                      <span className="text-xs text-gray-600 font-medium">Add to Home Screen</span>
+                      <div className="inline-flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
+                        <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        <span className="text-xs text-gray-600 font-medium">Add to Home Screen</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Step 3 */}
+                {/* Step 4 */}
                 <div className="flex gap-3">
-                  <span className="flex-none w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">3</span>
+                  <span className="flex-none w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">4</span>
                   <div>
                     <p className="text-sm text-coqui-800/80 leading-relaxed">
                       Tap <strong>&quot;Add&quot;</strong> in the top-right corner to confirm
@@ -221,19 +250,14 @@ export default function GettingStartedPage() {
                   <span className="flex-none w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center mt-0.5">1</span>
                   <div>
                     <p className="text-sm text-coqui-800/80 leading-relaxed">
-                      Tap the <strong>More</strong> menu button
+                      Tap the <strong>Share</strong> button at the top-right of the screen
                     </p>
                     <div className="mt-2 inline-flex items-center gap-1.5 bg-gray-100 rounded-lg px-3 py-2">
-                      <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                        <circle cx="12" cy="5" r="2" />
-                        <circle cx="12" cy="12" r="2" />
-                        <circle cx="12" cy="19" r="2" />
+                      <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 8.25H7.5a2.25 2.25 0 00-2.25 2.25v9a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H15M12 3v9m0-9l-3 3m3-3l3 3" />
                       </svg>
-                      <span className="text-xs text-gray-500 font-medium">More</span>
+                      <span className="text-xs text-gray-500 font-medium">Share</span>
                     </div>
-                    <p className="text-xs text-coqui-800/40 mt-1.5">
-                      Three dots at the top-right (Android) or bottom-right (iPhone)
-                    </p>
                   </div>
                 </div>
 
@@ -242,14 +266,24 @@ export default function GettingStartedPage() {
                   <span className="flex-none w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center mt-0.5">2</span>
                   <div>
                     <p className="text-sm text-coqui-800/80 leading-relaxed">
-                      Tap <strong>&quot;Add to Home Screen&quot;</strong>
+                      Scroll down or tap <strong>&quot;More&quot;</strong> to find <strong>&quot;Add to Home Screen&quot;</strong>
                     </p>
-                    <div className="mt-2 inline-flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
-                      <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 0v2m0-2h2m-2 0h-2" />
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                      <div className="inline-flex items-center gap-1.5 bg-gray-100 rounded-lg px-3 py-2">
+                        <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                        </svg>
+                        <span className="text-xs text-gray-500 font-medium">More</span>
+                      </div>
+                      <svg className="w-4 h-4 text-coqui-800/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                       </svg>
-                      <span className="text-xs text-gray-600 font-medium">Add to Home Screen</span>
+                      <div className="inline-flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
+                        <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        <span className="text-xs text-gray-600 font-medium">Add to Home Screen</span>
+                      </div>
                     </div>
                     <p className="text-xs text-coqui-800/40 mt-1.5">
                       On Android, this may say <strong>&quot;Install App&quot;</strong> instead
