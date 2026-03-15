@@ -30,8 +30,7 @@ You are a backend and serverless functions specialist for a Next.js + Firebase P
 - All secrets in environment variables
 
 ## Key Files You Own
-- `lib/notifications.js` — Unified push + SMS logic
-- `lib/twilio.js` — Twilio SMS and OTP helpers
+- `lib/notifications.js` — Unified push notification logic
 - `functions/parseReceipt.js` — Inbound email → receipt storage
 - `functions/reorderCheck.js` — Scheduled supply check
 - `functions/monthlyReport.js` — End-of-month report PDF

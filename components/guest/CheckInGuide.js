@@ -154,10 +154,10 @@ export default function CheckInGuide({ settings }) {
       <p className="text-xs text-center text-gray-400 mt-2">
         Something wrong?{' '}
         <a
-          href="sms:+1?body=Hi%2C%20I%27m%20having%20trouble%20checking%20in."
+          href="maintenance"
           className="text-green-600 font-medium underline underline-offset-2"
         >
-          Text the host
+          Submit a maintenance request
         </a>
       </p>
     </div>

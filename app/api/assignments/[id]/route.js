@@ -158,6 +158,7 @@ export async function PATCH(request, { params }) {
           bookingCode: existing.bookingCode,
           title: 'Maintenance Update',
           body: parts.join(' — '),
+          category: 'maintenance',
         }).catch((err) => console.error('[PATCH /api/assignments] Guest notification error:', err));
       }
     }

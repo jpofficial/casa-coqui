@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { doc, setDoc } from 'firebase/firestore';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { doc, setDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import app from '@/lib/firebase';
 
-// Lazily resolve the messaging instance so this module is safe to import on
-// the server and in browsers that don't support the Notifications API.
+// ─── Singleton messaging instance ─────────────────────────────────────────────
 let messagingInstance = null;
 
 async function getMessagingInstance() {
@@ -18,56 +17,114 @@ async function getMessagingInstance() {
     messagingInstance = getMessaging(app);
     return messagingInstance;
   } catch (err) {
-    console.warn('Firebase Messaging is not supported in this browser:', err);
+    console.warn('[FCM] Firebase Messaging not supported:', err);
     return null;
   }
 }
 
+// ─── Platform detection helpers ───────────────────────────────────────────────
+export function detectPlatform() {
+  if (typeof window === 'undefined') return 'unknown';
+  const ua = navigator.userAgent || '';
+  if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) return 'ios';
+  if (/Android/.test(ua)) return 'android';
+  return 'desktop';
+}
+
+export function isStandalone() {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    navigator.standalone === true
+  );
+}
+
+// iOS Safari does not support the Push API at all outside of standalone mode.
+// Even in standalone mode it requires iOS 16.4+.
+export function isPushCapable() {
+  if (typeof window === 'undefined') return false;
+  const platform = detectPlatform();
+  if (platform === 'ios') {
+    // Must be in standalone mode AND iOS 16.4+
+    if (!isStandalone()) return false;
+    const match = navigator.userAgent.match(/OS (\d+)_(\d+)/);
+    if (!match) return false;
+    const major = parseInt(match[1], 10);
+    const minor = parseInt(match[2], 10);
+    return major > 16 || (major === 16 && minor >= 4);
+  }
+  return 'Notification' in window && 'serviceWorker' in navigator;
+}
+
 // ─── Hook ──────────────────────────────────────────────────────────────────────
+/**
+ * usePush — FCM token lifecycle, permission state, multi-device token
+ * management, foreground message handler, and preference-aware registration.
+ *
+ * @returns {object}
+ *   token          — current FCM token for this device, or null
+ *   permission     — 'default' | 'granted' | 'denied'
+ *   supported      — whether this device/browser can receive push at all
+ *   pushCapable    — whether push is wirable right now (e.g. iOS needs install)
+ *   platform       — 'ios' | 'android' | 'desktop' | 'unknown'
+ *   standalone     — whether running as installed PWA
+ *   foregroundMsg  — most recent foreground FCM payload, or null
+ *   requestPermission(opts) — triggers browser prompt + saves token to Firestore
+ *   revokeToken()  — deletes this device's token from Firestore
+ */
 export default function usePush() {
   const [token, setToken] = useState(null);
   const [permission, setPermission] = useState('default');
   const [supported, setSupported] = useState(false);
+  const [pushCapable, setPushCapable] = useState(false);
+  const [platform, setPlatform] = useState('unknown');
+  const [standalone, setStandalone] = useState(false);
+  const [foregroundMsg, setForegroundMsg] = useState(null);
+
+  // Stable ref so foreground unsub can be cleaned up
+  const unsubForegroundRef = useRef(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      setSupported(false);
-      return;
+    const cap = isPushCapable();
+    const plat = detectPlatform();
+    const sa = isStandalone();
+    const notifSupported = typeof window !== 'undefined' && 'Notification' in window;
+
+    setSupported(notifSupported);
+    setPushCapable(cap);
+    setPlatform(plat);
+    setStandalone(sa);
+
+    if (notifSupported) {
+      setPermission(Notification.permission);
     }
 
-    setSupported(true);
-    setPermission(Notification.permission);
+    if (!cap) return;
 
-    // Listen for foreground messages without blocking the effect
-    let unsubscribeForeground = null;
-
+    // Attach foreground message listener
     (async () => {
       const messaging = await getMessagingInstance();
       if (!messaging) return;
 
       try {
         const { onMessage } = await import('firebase/messaging');
-        unsubscribeForeground = onMessage(messaging, (payload) => {
-          // Show a simple browser notification if the tab is focused.
-          // A production app would use a toast library here.
-          console.info('[FCM] Foreground message received:', payload);
-          const { title, body } = payload.notification ?? {};
-          if (title && Notification.permission === 'granted') {
-            new Notification(title, { body: body ?? '', icon: '/icons/icon-192.png' });
-          }
+        unsubForegroundRef.current = onMessage(messaging, (payload) => {
+          console.info('[FCM] Foreground message:', payload);
+          setForegroundMsg(payload);
+
+          // Do NOT fire a raw new Notification() here — the app is open.
+          // Callers should watch `foregroundMsg` and render an in-app toast.
         });
       } catch (err) {
-        console.warn('[FCM] Could not subscribe to foreground messages:', err);
+        console.warn('[FCM] Could not attach foreground listener:', err);
       }
     })();
 
-    // Auto-refresh token when permission is already granted.
-    // This keeps `updatedAt` current and ensures rotated tokens are stored.
+    // Auto-refresh token when permission is already granted
     if (Notification.permission === 'granted') {
       (async () => {
         const msg = await getMessagingInstance();
         if (!msg) return;
-
         try {
           const { getToken: getFCMToken } = await import('firebase/messaging');
           const fcmToken = await getFCMToken(msg, {
@@ -88,37 +145,35 @@ export default function usePush() {
     }
 
     return () => {
-      if (typeof unsubscribeForeground === 'function') {
-        unsubscribeForeground();
+      if (typeof unsubForegroundRef.current === 'function') {
+        unsubForegroundRef.current();
       }
     };
   }, []);
 
   /**
-   * Asks the user for notification permission, retrieves the FCM registration
-   * token, and saves it to Firestore under `fcm_tokens/{token}`.
+   * Request push permission from the browser, obtain an FCM token, and write
+   * it to Firestore under `fcm_tokens/{token}`.
    *
-   * @param {object} opts
-   * @param {string} [opts.bookingCode] - The guest's booking code (for targeted push)
-   * @param {string} [opts.staffId]     - Staff UID (for staff push notifications)
+   * Stores either `bookingCode` (for guests) or `staffId` (for admin/staff)
+   * so the server can target specific users.
    *
-   * Safe to call multiple times — re-requests only when permission is not yet
-   * granted.
+   * @param {object} [opts]
+   * @param {string} [opts.bookingCode]
+   * @param {string} [opts.staffId]
    */
-  async function requestPermission({ bookingCode, staffId } = {}) {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
+  const requestPermission = useCallback(async ({ bookingCode, staffId } = {}) => {
+    if (!isPushCapable()) return;
 
     try {
       const result = await Notification.requestPermission();
       setPermission(result);
-
       if (result !== 'granted') return;
 
       const messaging = await getMessagingInstance();
       if (!messaging) return;
 
       const { getToken } = await import('firebase/messaging');
-
       const fcmToken = await getToken(messaging, {
         vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
       });
@@ -128,24 +183,72 @@ export default function usePush() {
         return;
       }
 
-      // Persist the token so the server can send targeted pushes
       const now = new Date().toISOString();
       const tokenData = {
         token: fcmToken,
         createdAt: now,
         updatedAt: now,
         userAgent: navigator.userAgent,
+        platform: detectPlatform(),
       };
       if (bookingCode) tokenData.bookingCode = bookingCode;
       if (staffId) tokenData.staffId = staffId;
 
       await setDoc(doc(db, 'fcm_tokens', fcmToken), tokenData);
-
       setToken(fcmToken);
     } catch (err) {
       console.error('[FCM] requestPermission error:', err);
     }
-  }
+  }, []);
 
-  return { token, permission, requestPermission, supported };
+  /**
+   * Remove this device's FCM token from Firestore. Call on booking expiry
+   * or explicit opt-out. Token becomes invalid on next FCM delivery attempt
+   * anyway, but this keeps Firestore clean.
+   *
+   * @param {string} [targetToken] — defaults to the current token in state
+   */
+  const revokeToken = useCallback(async (targetToken) => {
+    const t = targetToken || token;
+    if (!t) return;
+    try {
+      await deleteDoc(doc(db, 'fcm_tokens', t));
+      if (t === token) setToken(null);
+    } catch (err) {
+      console.warn('[FCM] revokeToken error:', err);
+    }
+  }, [token]);
+
+  /**
+   * Delete all Firestore FCM tokens associated with a booking code.
+   * Intended for use when a booking expires or is cancelled.
+   *
+   * @param {string} bookingCode
+   */
+  const revokeAllTokensForBooking = useCallback(async (bookingCode) => {
+    if (!bookingCode) return;
+    try {
+      const q = query(
+        collection(db, 'fcm_tokens'),
+        where('bookingCode', '==', bookingCode)
+      );
+      const snap = await getDocs(q);
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+    } catch (err) {
+      console.warn('[FCM] revokeAllTokensForBooking error:', err);
+    }
+  }, []);
+
+  return {
+    token,
+    permission,
+    supported,
+    pushCapable,
+    platform,
+    standalone,
+    foregroundMsg,
+    requestPermission,
+    revokeToken,
+    revokeAllTokensForBooking,
+  };
 }

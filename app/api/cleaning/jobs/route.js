@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
+import { notifyStaff } from '@/lib/staff-notifications';
 
 // ---------------------------------------------------------------------------
 // GET /api/cleaning/jobs
@@ -101,6 +102,15 @@ export async function POST(request) {
     };
 
     const docRef = await adminDb.collection('cleaning_jobs').add(job);
+
+    // Notify the assigned cleaner (fire-and-forget).
+    notifyStaff({
+      staffIds: [assigneeId],
+      title: 'New Cleaning Assignment',
+      body: `${unit} on ${scheduledDate} (checkout ${job.checkoutTime})`,
+      type: 'cleaning_assignment',
+      data: { jobId: docRef.id, unit, scheduledDate },
+    }).catch((err) => console.error('[POST /api/cleaning/jobs] Notify error:', err));
 
     return NextResponse.json(
       { success: true, data: { id: docRef.id, ...job } },

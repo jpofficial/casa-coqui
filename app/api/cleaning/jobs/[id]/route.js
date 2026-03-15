@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
+import { notifyStaff, notifyAdminAndCohost } from '@/lib/staff-notifications';
 
 // Valid state machine transitions
 const VALID_TRANSITIONS = {
@@ -104,6 +105,17 @@ export async function PATCH(request, { params }) {
 
     updates.updatedAt = now;
     await docRef.update(updates);
+
+    // Notify admin/cohost on meaningful status changes (fire-and-forget).
+    if (updates.status === 'arrived' || updates.status === 'completed') {
+      const statusLabel = updates.status === 'arrived' ? 'arrived at' : 'completed';
+      notifyAdminAndCohost({
+        title: `Cleaning ${statusLabel}`,
+        body: `${existing.assigneeName || 'Cleaner'} ${statusLabel} ${existing.unit}`,
+        type: 'cleaning_update',
+        data: { jobId: id, status: updates.status },
+      }).catch((err) => console.error('[PATCH /api/cleaning/jobs/[id]] Notify error:', err));
+    }
 
     return NextResponse.json({ success: true, data: { id, ...updates } });
   } catch (error) {

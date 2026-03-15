@@ -17,8 +17,7 @@
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^3.8.0",
-    "resend": "^6.9.3",
-    "twilio": "^5.12.2"
+    "resend": "^6.9.3"
   },
   "devDependencies": {
     "eslint": "^8",

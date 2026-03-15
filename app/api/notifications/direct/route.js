@@ -28,7 +28,7 @@ export async function POST(request) {
       );
     }
 
-    const result = await sendDirectMessage({ bookingCode, title, body: message });
+    const result = await sendDirectMessage({ bookingCode, title, body: message, category: 'announcement' });
 
     if (!result.success) {
       return NextResponse.json(

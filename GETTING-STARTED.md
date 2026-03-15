@@ -10,7 +10,7 @@ npx create-next-app@latest casa-coqui --app --js --tailwind --eslint --src-dir=f
 cd casa-coqui
 
 # Install dependencies
-npm install firebase firebase-admin twilio nanoid next-pwa recharts
+npm install firebase firebase-admin nanoid next-pwa recharts
 
 # Create the folder structure
 mkdir -p app/g/\[code\]/checkin
@@ -63,19 +63,7 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
 ```
 
-## Step 4: Set Up Twilio
-
-1. Sign up at https://www.twilio.com (free trial gives you $15 credit)
-2. Get a phone number that can send SMS
-3. Add to `.env.local`:
-
-```
-TWILIO_ACCOUNT_SID=your_sid
-TWILIO_AUTH_TOKEN=your_token
-TWILIO_PHONE_NUMBER=+1234567890
-```
-
-## Step 5: Open Claude Code and Start Building
+## Step 4: Open Claude Code and Start Building
 
 ```bash
 cd casa-coqui
@@ -93,11 +81,9 @@ Read CLAUDE.md to understand the full project. Then execute Phase 1 (Foundation)
 **Use the firebase-auth agent to:**
 1. Create lib/firebase.js with client-side Firebase initialization (Firestore, Auth, Storage)
 2. Create lib/firebase-admin.js with server-side Admin SDK initialization
-3. Create lib/twilio.js with SMS send and OTP helper functions
-4. Create hooks/useAuth.js that handles both guest phone auth and admin email auth
-5. Create app/api/guests/verify/route.js and app/api/guests/confirm/route.js for phone OTP
-6. Create app/admin/login/page.js with email/password login form
-7. Create firestore.rules with proper security rules
+3. Create hooks/useAuth.js that handles both guest phone auth and admin email auth
+4. Create app/admin/login/page.js with email/password login form
+5. Create firestore.rules with proper security rules
 
 **Use the guest-portal agent to:**
 1. Create app/g/[code]/layout.js with guest layout and bottom navigation

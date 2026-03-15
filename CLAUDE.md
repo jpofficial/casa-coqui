@@ -14,7 +14,6 @@ A Progressive Web App (PWA) for a multi-family Airbnb property (2 units). Two au
 - **Storage**: Firebase Cloud Storage (photos, receipts, PDFs)
 - **Cloud Functions**: Firebase Cloud Functions (email parsing, scheduled tasks)
 - **Push Notifications**: Firebase Cloud Messaging (FCM)
-- **SMS**: Twilio (backup notifications + OTP)
 - **Hosting**: Vercel
 - **PWA**: next-pwa (service worker, offline, add-to-homescreen)
 
@@ -62,8 +61,7 @@ A Progressive Web App (PWA) for a multi-family Airbnb property (2 units). Two au
   /ui/               — Shared UI primitives (Button, Card, Badge, etc.)
 /lib
   firebase.js        — Firebase app init + Firestore/Auth/Storage helpers
-  twilio.js          — Twilio SMS send + OTP helpers
-  notifications.js   — Unified push + SMS notification logic
+  notifications.js   — Unified push notification logic
 /hooks
   useAuth.js         — Auth hook (guest phone + admin email)
   useFirestore.js    — Real-time Firestore subscription hook
@@ -90,7 +88,7 @@ See Casa-Coqui-Project-Spec.docx Section 5 for full schema. Key collections:
 ## Key Flows to Understand
 1. **Guest Access**: Host creates booking → unique link generated → guest taps link → phone OTP verification → check-in form → portal access → link expires at checkout
 2. **Parking Report**: Guest reports → photo uploaded to Storage → generic broadcast auto-sent to all guests via push + SMS → host gets full details separately
-3. **Notifications**: Host triggers broadcast → fetch active guests → send FCM push to those with tokens → send Twilio SMS to rest → log delivery status
+3. **Notifications**: Host triggers broadcast → fetch active guests → send FCM push to those with tokens → log delivery status in Firestore
 4. **Auto-Reorder**: Cloud Function runs on schedule → checks supplies against minimums → generates Amazon cart link → pushes notification to admin for approval
 5. **Receipt Storage**: Email forwarded to dedicated address → Cloud Function parses → stores in Storage → files by month in Firestore
 

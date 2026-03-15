@@ -100,6 +100,7 @@ export async function PATCH(request, { params }) {
           bookingCode,
           title: 'Maintenance Update',
           body: messageBody,
+          category: 'maintenance',
         }).catch((err) => console.error('[PATCH /api/maintenance/[id]] Guest notification error:', err));
       }
     }

@@ -30,9 +30,6 @@ You are a Firebase and authentication specialist for a Next.js PWA project.
 
 ## Key Files You Own
 - `lib/firebase.js` — Firebase initialization and helpers
-- `lib/twilio.js` — Twilio SMS helpers
-- `app/api/guests/verify/route.js` — Send OTP
-- `app/api/guests/confirm/route.js` — Verify OTP
 - `app/admin/login/page.js` — Admin login page
 - `hooks/useAuth.js` — Auth hook for both guest and admin
 - `firestore.rules` — Security rules
