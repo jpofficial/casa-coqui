@@ -122,7 +122,7 @@ export async function PATCH(request, { params }) {
           title: 'Maintenance Acknowledged',
           body: `${callerName} acknowledged the ${category} request`,
           type: 'maintenance_update',
-          data: { requestId: id, category, action: 'acknowledged' },
+          data: { requestId: id, category, action: 'acknowledged', sourceAction: 'maintenance_acknowledged', sourceId: id },
         }).catch((err) => console.error('[PATCH /api/maintenance] Ack staff notification error:', err))
       );
 
@@ -138,6 +138,8 @@ export async function PATCH(request, { params }) {
             title: 'Maintenance Update',
             body: guestBody,
             category: 'maintenance',
+            sourceAction: 'maintenance_acknowledged',
+            sourceId: id,
           }).catch((err) => console.error('[PATCH /api/maintenance] Ack guest notification error:', err))
         );
       }
@@ -150,7 +152,7 @@ export async function PATCH(request, { params }) {
           title: 'Maintenance ETA Set',
           body: `${callerName} set ETA: ${estimatedTime} for ${category} request`,
           type: 'maintenance_update',
-          data: { requestId: id, category, action: 'eta_set', estimatedTime },
+          data: { requestId: id, category, action: 'eta_set', estimatedTime, sourceAction: 'maintenance_eta_set', sourceId: id },
         }).catch((err) => console.error('[PATCH /api/maintenance] ETA staff notification error:', err))
       );
     }
@@ -171,6 +173,8 @@ export async function PATCH(request, { params }) {
               title: 'Maintenance Update',
               body: messageBody,
               category: 'maintenance',
+              sourceAction: 'maintenance_response',
+              sourceId: id,
             }).catch((err) => console.error('[PATCH /api/maintenance] Guest notification error:', err))
           );
         }

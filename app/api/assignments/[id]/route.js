@@ -154,11 +154,13 @@ export async function PATCH(request, { params }) {
         if (body.guestResponse) parts.push(body.guestResponse);
         if (body.estimatedTime) parts.push(`ETA: ${body.estimatedTime}`);
 
-        sendDirectMessage({
+        await sendDirectMessage({
           bookingCode: existing.bookingCode,
           title: 'Maintenance Update',
           body: parts.join(' — '),
           category: 'maintenance',
+          sourceAction: 'assignment_response',
+          sourceId: existing.maintenanceId,
         }).catch((err) => console.error('[PATCH /api/assignments] Guest notification error:', err));
       }
     }

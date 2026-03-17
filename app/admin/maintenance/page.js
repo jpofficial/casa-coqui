@@ -113,6 +113,7 @@ function MaintenanceCard({ request }) {
   const [ackNote, setAckNote] = useState('');
   const [customEta, setCustomEta] = useState('');
   const [acknowledging, setAcknowledging] = useState(false);
+  const [changingStatus, setChangingStatus] = useState(false);
 
   const urgency = request.urgency || 'Low';
   const category = request.category || 'Other';
@@ -122,10 +123,14 @@ function MaintenanceCard({ request }) {
   const transitions = STATUS_TRANSITIONS[status] || [];
 
   async function handleStatusChange(newStatus) {
+    if (changingStatus) return;
+    setChangingStatus(true);
     try {
       await patchMaintenance(request.id, { status: newStatus });
     } catch (err) {
       console.error('Failed to update status:', err);
+    } finally {
+      setChangingStatus(false);
     }
   }
 
@@ -428,9 +433,10 @@ function MaintenanceCard({ request }) {
           <button
             key={t.key}
             onClick={() => handleStatusChange(t.key)}
-            className="flex-1 min-w-[100px] bg-gray-100 text-gray-700 rounded-xl py-2.5 text-xs font-semibold active:bg-gray-200 transition-colors"
+            disabled={changingStatus}
+            className="flex-1 min-w-[100px] bg-gray-100 text-gray-700 rounded-xl py-2.5 text-xs font-semibold active:bg-gray-200 transition-colors disabled:opacity-50"
           >
-            {t.label}
+            {changingStatus ? 'Updating...' : t.label}
           </button>
         ))}
         <button
