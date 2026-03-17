@@ -112,12 +112,14 @@ export async function PATCH(request, { params }) {
     updates.updatedAt = now;
     await docRef.update(updates);
 
-    // Notify admin/cohost on meaningful status changes (fire-and-forget).
+    // Notify admin/cohost on meaningful status changes.
+    // Must be awaited — Vercel freezes serverless functions after response.
     const cleanerName = existing.assigneeName || 'Cleaner';
     const unit = existing.unit;
+    let notification = null;
 
     if (updates.status === 'acknowledged') {
-      notifyAdminAndCohost({
+      notification = notifyAdminAndCohost({
         title: 'Cleaning Accepted',
         body: `${cleanerName} accepted cleaning for ${unit}`,
         type: 'cleaning_update',
@@ -127,7 +129,7 @@ export async function PATCH(request, { params }) {
 
     if (updates.status === 'declined') {
       const reason = updates.declineReason ? `: ${updates.declineReason}` : '';
-      notifyAdminAndCohost({
+      notification = notifyAdminAndCohost({
         title: 'Cleaning Declined',
         body: `${cleanerName} cannot accept cleaning for ${unit}${reason}`,
         type: 'cleaning_update',
@@ -137,13 +139,15 @@ export async function PATCH(request, { params }) {
 
     if (updates.status === 'arrived' || updates.status === 'completed') {
       const statusLabel = updates.status === 'arrived' ? 'arrived at' : 'completed';
-      notifyAdminAndCohost({
+      notification = notifyAdminAndCohost({
         title: `Cleaning ${statusLabel}`,
         body: `${cleanerName} ${statusLabel} ${unit}`,
         type: 'cleaning_update',
         data: { jobId: id, status: updates.status },
       }).catch((err) => console.error('[PATCH /api/cleaning/jobs/[id]] Notify error:', err));
     }
+
+    if (notification) await notification;
 
     return NextResponse.json({ success: true, data: { id, ...updates } });
   } catch (error) {

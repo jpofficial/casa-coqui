@@ -103,8 +103,8 @@ export async function POST(request) {
 
     const docRef = await adminDb.collection('cleaning_jobs').add(job);
 
-    // Notify the assigned cleaner (fire-and-forget).
-    notifyStaff({
+    // Notify the assigned cleaner — must await on Vercel serverless.
+    await notifyStaff({
       staffIds: [assigneeId],
       title: 'New Cleaning Assignment',
       body: `${unit} on ${scheduledDate} (checkout ${job.checkoutTime})`,

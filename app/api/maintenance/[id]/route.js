@@ -100,7 +100,9 @@ export async function PATCH(request, { params }) {
     const bookingCode = maintenanceData.bookingCode;
     const category = maintenanceData.category;
 
-    // --- Staff follow-up notifications (fire-and-forget) ---
+    // --- Staff + guest follow-up notifications ---
+    // All notifications must be awaited — Vercel freezes serverless functions
+    // after the response is sent, killing pending async work.
 
     // Look up the caller's display name for notification copy
     let callerName = 'Staff';
@@ -111,14 +113,18 @@ export async function PATCH(request, { params }) {
       }
     } catch (_) { /* fallback to 'Staff' */ }
 
+    const pendingNotifications = [];
+
     // When co-host/maintenance acknowledges — notify admin/cohost team
     if (updates.status === 'acknowledged') {
-      notifyAdminAndCohost({
-        title: 'Maintenance Acknowledged',
-        body: `${callerName} acknowledged the ${category} request`,
-        type: 'maintenance_update',
-        data: { requestId: id, category, action: 'acknowledged' },
-      }).catch((err) => console.error('[PATCH /api/maintenance] Ack staff notification error:', err));
+      pendingNotifications.push(
+        notifyAdminAndCohost({
+          title: 'Maintenance Acknowledged',
+          body: `${callerName} acknowledged the ${category} request`,
+          type: 'maintenance_update',
+          data: { requestId: id, category, action: 'acknowledged' },
+        }).catch((err) => console.error('[PATCH /api/maintenance] Ack staff notification error:', err))
+      );
 
       // Notify guest that their request has been received
       if (bookingCode) {
@@ -126,23 +132,27 @@ export async function PATCH(request, { params }) {
           ? `Your ${category} request has been received. ETA: ${estimatedTime}`
           : `Your ${category} request has been received and a team member is looking into it.`;
 
-        sendDirectMessage({
-          bookingCode,
-          title: 'Maintenance Update',
-          body: guestBody,
-          category: 'maintenance',
-        }).catch((err) => console.error('[PATCH /api/maintenance] Ack guest notification error:', err));
+        pendingNotifications.push(
+          sendDirectMessage({
+            bookingCode,
+            title: 'Maintenance Update',
+            body: guestBody,
+            category: 'maintenance',
+          }).catch((err) => console.error('[PATCH /api/maintenance] Ack guest notification error:', err))
+        );
       }
     }
 
     // When ETA is provided (without ack — e.g. updating ETA on an already-acknowledged request)
     if (estimatedTime !== undefined && updates.status !== 'acknowledged') {
-      notifyAdminAndCohost({
-        title: 'Maintenance ETA Set',
-        body: `${callerName} set ETA: ${estimatedTime} for ${category} request`,
-        type: 'maintenance_update',
-        data: { requestId: id, category, action: 'eta_set', estimatedTime },
-      }).catch((err) => console.error('[PATCH /api/maintenance] ETA staff notification error:', err));
+      pendingNotifications.push(
+        notifyAdminAndCohost({
+          title: 'Maintenance ETA Set',
+          body: `${callerName} set ETA: ${estimatedTime} for ${category} request`,
+          type: 'maintenance_update',
+          data: { requestId: id, category, action: 'eta_set', estimatedTime },
+        }).catch((err) => console.error('[PATCH /api/maintenance] ETA staff notification error:', err))
+      );
     }
 
     // Notify the guest if a response or ETA was provided (non-ack cases — ack
@@ -155,15 +165,19 @@ export async function PATCH(request, { params }) {
           if (estimatedTime) parts.push(`ETA: ${estimatedTime}`);
           const messageBody = parts.join(' — ');
 
-          sendDirectMessage({
-            bookingCode,
-            title: 'Maintenance Update',
-            body: messageBody,
-            category: 'maintenance',
-          }).catch((err) => console.error('[PATCH /api/maintenance] Guest notification error:', err));
+          pendingNotifications.push(
+            sendDirectMessage({
+              bookingCode,
+              title: 'Maintenance Update',
+              body: messageBody,
+              category: 'maintenance',
+            }).catch((err) => console.error('[PATCH /api/maintenance] Guest notification error:', err))
+          );
         }
       }
     }
+
+    await Promise.all(pendingNotifications);
 
     return NextResponse.json({ success: true, data: { id, ...updates } });
   } catch (error) {

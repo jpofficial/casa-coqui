@@ -128,18 +128,13 @@ export async function POST(request) {
 
     const docRef = await adminDb.collection('maintenance').add(doc);
 
-    // Fire-and-forget notification to admin + co-host
+    // Notify admin + co-host and create assignment in parallel.
+    // These MUST be awaited — Vercel freezes the serverless function after
+    // the response is sent, killing any pending fire-and-forget async work.
     const snippet = doc.description.length > 80
       ? doc.description.slice(0, 80) + '...'
       : doc.description;
-    notifyAdminAndCohost({
-      title: `Maintenance: ${doc.category} (${doc.urgency})`,
-      body: snippet,
-      type: 'maintenance',
-      data: { requestId: docRef.id, category: doc.category, urgency: doc.urgency, targetPath: '/admin/maintenance' },
-    }).catch((err) => console.error('[POST /api/maintenance] Notification error:', err));
 
-    // Auto-create an assignment/task so admin sees it in the tasks view
     const now = new Date().toISOString();
     const assignment = {
       title: `Maintenance: ${doc.category}`,
@@ -163,8 +158,18 @@ export async function POST(request) {
       bookingCode: doc.bookingCode,
       guestId: doc.guestId,
     };
-    adminDb.collection('assignments').add(assignment)
-      .catch((err) => console.error('[POST /api/maintenance] Assignment creation error:', err));
+
+    await Promise.all([
+      notifyAdminAndCohost({
+        title: `Maintenance: ${doc.category} (${doc.urgency})`,
+        body: snippet,
+        type: 'maintenance',
+        data: { requestId: docRef.id, category: doc.category, urgency: doc.urgency, targetPath: '/admin/maintenance' },
+      }).catch((err) => console.error('[POST /api/maintenance] Notification error:', err)),
+
+      adminDb.collection('assignments').add(assignment)
+        .catch((err) => console.error('[POST /api/maintenance] Assignment creation error:', err)),
+    ]);
 
     return NextResponse.json(
       { success: true, data: { id: docRef.id, ...doc } },

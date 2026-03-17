@@ -70,11 +70,11 @@ export async function POST(request, { params }) {
       updatedAt: new Date().toISOString(),
     });
 
-    // Notify admin/cohost about the issue
+    // Notify admin/cohost about the issue — must await on Vercel serverless.
     if (caller.role === 'cleaner') {
       const categoryLabels = { damage: 'Damage', missing: 'Missing item', repair: 'Repair needed', other: 'Issue' };
       const label = categoryLabels[category] || 'Issue';
-      notifyAdminAndCohost({
+      await notifyAdminAndCohost({
         title: `Cleaning Issue: ${label}`,
         body: `${existing.unit} — ${description || label} (reported by ${existing.assigneeName || 'cleaner'})`,
         type: 'cleaning_update',
