@@ -6,6 +6,12 @@ const LocaleContext = createContext({ locale: 'es', setLocale: () => {} });
 
 const STORAGE_KEY = 'casa-coqui-locale';
 
+function detectBrowserLocale() {
+  if (typeof navigator === 'undefined') return null;
+  const lang = navigator.language || navigator.languages?.[0] || '';
+  return lang.startsWith('es') ? 'es' : 'en';
+}
+
 export function LocaleProvider({ defaultLocale = 'es', children }) {
   const [locale, setLocaleState] = useState(defaultLocale);
 
@@ -13,6 +19,10 @@ export function LocaleProvider({ defaultLocale = 'es', children }) {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === 'en' || saved === 'es') {
       setLocaleState(saved);
+    } else {
+      // No saved preference — detect from browser
+      const detected = detectBrowserLocale();
+      if (detected) setLocaleState(detected);
     }
   }, []);
 

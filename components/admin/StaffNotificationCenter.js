@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import useStaffNotifications from '@/hooks/useStaffNotifications';
 import usePush from '@/hooks/usePush';
 import { detectPlatform, isStandalone } from '@/lib/platform';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 // ─── Staff notification type → admin deep-link ──────────────────────────────
 const TYPE_PATHS = {
@@ -21,9 +23,10 @@ function resolveStaffLink(notification) {
 }
 
 // ─── Category config for staff notification types ────────────────────────────
+// labelKey is resolved at render time via t(locale, labelKey)
 const STAFF_CATEGORY_CONFIG = {
   maintenance: {
-    label: 'Maintenance',
+    labelKey: 'admin_staffNotif_catMaintenance',
     iconColor: 'text-red-600',
     bgColor: 'bg-red-50',
     icon: (
@@ -33,7 +36,7 @@ const STAFF_CATEGORY_CONFIG = {
     ),
   },
   cleaning_assignment: {
-    label: 'Cleaning',
+    labelKey: 'admin_staffNotif_catCleaning',
     iconColor: 'text-atardecer-600',
     bgColor: 'bg-atardecer-50',
     icon: (
@@ -43,7 +46,7 @@ const STAFF_CATEGORY_CONFIG = {
     ),
   },
   cleaning_update: {
-    label: 'Cleaning',
+    labelKey: 'admin_staffNotif_catCleaning',
     iconColor: 'text-atardecer-600',
     bgColor: 'bg-atardecer-50',
     icon: (
@@ -53,7 +56,7 @@ const STAFF_CATEGORY_CONFIG = {
     ),
   },
   assignment: {
-    label: 'Task',
+    labelKey: 'admin_staffNotif_catTask',
     iconColor: 'text-coqui-600',
     bgColor: 'bg-coqui-50',
     icon: (
@@ -63,7 +66,7 @@ const STAFF_CATEGORY_CONFIG = {
     ),
   },
   staff: {
-    label: 'Staff',
+    labelKey: 'admin_staffNotif_catStaff',
     iconColor: 'text-indigo-600',
     bgColor: 'bg-indigo-50',
     icon: (
@@ -79,16 +82,16 @@ function getCategoryConfig(type) {
 }
 
 // ─── Relative timestamp ──────────────────────────────────────────────────────
-function relativeTime(iso) {
+function relativeTime(iso, locale) {
   if (!iso) return '';
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t(locale, 'admin_justNow');
+  if (mins < 60) return t(locale, 'admin_mAgo').replace('{n}', mins);
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return t(locale, 'admin_hAgo').replace('{n}', hrs);
   const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return t(locale, 'admin_dAgo').replace('{n}', days);
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
@@ -108,6 +111,7 @@ function SkeletonRow() {
 
 // ─── Notification item ───────────────────────────────────────────────────────
 function StaffNotificationItem({ notification, onPress }) {
+  const { locale } = useLocale();
   const cat = getCategoryConfig(notification.type);
   const isRead = notification.read;
 
@@ -130,7 +134,7 @@ function StaffNotificationItem({ notification, onPress }) {
             {notification.title}
           </p>
           <span className="text-[11px] text-gray-400 whitespace-nowrap flex-shrink-0 mt-0.5">
-            {relativeTime(notification.createdAt)}
+            {relativeTime(notification.createdAt, locale)}
           </span>
         </div>
         {notification.body && (
@@ -139,7 +143,7 @@ function StaffNotificationItem({ notification, onPress }) {
           </p>
         )}
         <span className={`inline-block mt-1 text-[10px] font-semibold uppercase tracking-wide ${cat.iconColor}`}>
-          {cat.label}
+          {t(locale, cat.labelKey)}
         </span>
       </div>
 
@@ -152,6 +156,7 @@ function StaffNotificationItem({ notification, onPress }) {
 
 // ─── Empty state ─────────────────────────────────────────────────────────────
 function EmptyState() {
+  const { locale } = useLocale();
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
       <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
@@ -159,9 +164,9 @@ function EmptyState() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
         </svg>
       </div>
-      <h3 className="text-base font-semibold text-gray-700 mb-1">All clear</h3>
+      <h3 className="text-base font-semibold text-gray-700 mb-1">{t(locale, 'admin_staffNotif_emptyTitle')}</h3>
       <p className="text-sm text-gray-400 max-w-xs">
-        No staff notifications yet. You&apos;ll see maintenance requests, cleaning updates, and task alerts here.
+        {t(locale, 'admin_staffNotif_emptyDesc')}
       </p>
     </div>
   );
@@ -169,6 +174,7 @@ function EmptyState() {
 
 // ─── Push status card for staff ──────────────────────────────────────────────
 function StaffPushStatusCard({ permission, supported, onEnable, enabling }) {
+  const { locale } = useLocale();
   const platform = detectPlatform();
   const sa = isStandalone();
   const iosNotInstalled = platform === 'ios' && !sa;
@@ -182,8 +188,8 @@ function StaffPushStatusCard({ permission, supported, onEnable, enabling }) {
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-amber-900">Install the app for push notifications</p>
-          <p className="text-xs text-amber-700 mt-0.5">Tap the Share button in Safari, then &ldquo;Add to Home Screen.&rdquo;</p>
+          <p className="text-sm font-semibold text-amber-900">{t(locale, 'admin_staffNotif_iosInstall')}</p>
+          <p className="text-xs text-amber-700 mt-0.5">{t(locale, 'admin_staffNotif_iosInstallDesc')}</p>
         </div>
       </div>
     );
@@ -200,9 +206,9 @@ function StaffPushStatusCard({ permission, supported, onEnable, enabling }) {
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-700">Notifications blocked</p>
+          <p className="text-sm font-semibold text-gray-700">{t(locale, 'admin_staffNotif_blocked')}</p>
           <p className="text-xs text-gray-500 mt-0.5">
-            Re-enable in Settings &rarr; {platform === 'ios' ? 'Safari' : 'Chrome'} &rarr; Notifications.
+            {t(locale, 'admin_staffNotif_blockedDesc').replace('{browser}', platform === 'ios' ? 'Safari' : 'Chrome')}
           </p>
         </div>
       </div>
@@ -217,7 +223,7 @@ function StaffPushStatusCard({ permission, supported, onEnable, enabling }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
         </div>
-        <p className="text-sm font-medium text-green-800 flex-1">Push notifications enabled</p>
+        <p className="text-sm font-medium text-green-800 flex-1">{t(locale, 'admin_staffNotif_enabled')}</p>
       </div>
     );
   }
@@ -231,8 +237,8 @@ function StaffPushStatusCard({ permission, supported, onEnable, enabling }) {
         </svg>
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-900">Enable push notifications</p>
-        <p className="text-xs text-gray-500 mt-0.5">Get instant alerts for maintenance requests and task updates.</p>
+        <p className="text-sm font-semibold text-gray-900">{t(locale, 'admin_staffNotif_enableTitle')}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{t(locale, 'admin_staffNotif_enableDesc')}</p>
       </div>
       <button
         onClick={onEnable}
@@ -240,7 +246,7 @@ function StaffPushStatusCard({ permission, supported, onEnable, enabling }) {
         className="text-xs font-semibold bg-coqui-600 text-white px-3 py-1.5 rounded-lg
           hover:bg-coqui-700 active:bg-coqui-800 transition disabled:opacity-60 whitespace-nowrap flex-shrink-0"
       >
-        {enabling ? 'Enabling...' : 'Enable'}
+        {enabling ? t(locale, 'admin_staffNotif_enabling') : t(locale, 'admin_staffNotif_enableBtn')}
       </button>
     </div>
   );
@@ -257,6 +263,7 @@ function StaffPushStatusCard({ permission, supported, onEnable, enabling }) {
  */
 export default function StaffNotificationCenter({ staffId }) {
   const router = useRouter();
+  const { locale } = useLocale();
   const { notifications, unreadCount, loading, markRead, markAllRead } =
     useStaffNotifications({ staffId });
   const { permission, requestPermission, supported } = usePush({ staffId });
@@ -288,10 +295,10 @@ export default function StaffNotificationCenter({ staffId }) {
       {/* Header */}
       <div className="px-4 pt-5 pb-3 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Notifications</h1>
+          <h1 className="text-xl font-bold text-gray-900">{t(locale, 'admin_staffNotif_title')}</h1>
           {!loading && unreadCount > 0 && (
             <p className="text-xs text-coqui-600 font-medium mt-0.5">
-              {unreadCount} unread
+              {t(locale, 'admin_staffNotif_unread').replace('{n}', unreadCount)}
             </p>
           )}
         </div>
@@ -301,7 +308,7 @@ export default function StaffNotificationCenter({ staffId }) {
             className="text-xs font-semibold text-coqui-600 hover:text-coqui-700
               active:text-coqui-800 transition px-2 py-1 rounded-lg hover:bg-coqui-50"
           >
-            Mark all read
+            {t(locale, 'admin_staffNotif_markAllRead')}
           </button>
         )}
       </div>
@@ -340,7 +347,7 @@ export default function StaffNotificationCenter({ staffId }) {
       {/* Footer */}
       {!loading && notifications.length > 0 && (
         <p className="text-xs text-gray-400 text-center mt-4 pb-2">
-          Showing the last {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
+          {t(locale, 'admin_staffNotif_footer').replace('{n}', notifications.length)}
         </p>
       )}
     </div>

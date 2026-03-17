@@ -10,6 +10,8 @@ import { useCollection } from '@/hooks/useFirestore';
 import InviteForm from '@/components/guest/InviteForm';
 import PushPermissionExplainer from '@/components/guest/PushPermissionExplainer';
 import { detectPlatform, isStandalone as checkStandalone, isPushCapable } from '@/lib/platform';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
@@ -80,7 +82,7 @@ function StepHeader({ icon, heading, subtext }) {
 
 // ─── Step actions ─────────────────────────────────────────────────────────────
 
-function StepActions({ onNext, onSkip, nextLabel = 'Next', skipLabel = 'Skip', nextDisabled = false, nextLoading = false }) {
+function StepActions({ onNext, onSkip, nextLabel, skipLabel, nextDisabled = false, nextLoading = false, savingLabel = 'Saving...' }) {
   return (
     <div className="flex flex-col gap-2 pt-2">
       <button
@@ -92,7 +94,7 @@ function StepActions({ onNext, onSkip, nextLabel = 'Next', skipLabel = 'Skip', n
         {nextLoading ? (
           <span className="flex items-center justify-center gap-2">
             <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-            Saving...
+            {savingLabel}
           </span>
         ) : nextLabel}
       </button>
@@ -124,29 +126,29 @@ function InstallStep({ number, title, description }) {
   );
 }
 
-function IOSInstallGuide({ code }) {
+function IOSInstallGuide({ code, locale }) {
   return (
     <div className="flex flex-col gap-3">
       <InstallStep
         number={1}
-        title="Tap the Share button"
-        description="At the bottom of Safari (the square with the arrow)"
+        title={t(locale, 'iosStep1Title')}
+        description={t(locale, 'iosStep1Desc')}
       />
       <InstallStep
         number={2}
-        title='Tap "Add to Home Screen"'
-        description="Scroll down in the share menu to find it"
+        title={t(locale, 'iosStep2Title')}
+        description={t(locale, 'iosStep2Desc')}
       />
       <InstallStep
         number={3}
-        title='Tap "Add"'
-        description="Casa Coqui will appear on your home screen"
+        title={t(locale, 'iosStep3Title')}
+        description={t(locale, 'iosStep3Desc')}
       />
       <a
         href={`/g/${code}/install-guide`}
         className="text-xs text-green-600 font-medium mt-1 inline-flex items-center gap-1"
       >
-        Need help? See the step-by-step guide
+        {t(locale, 'needHelpGuide')}
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">
           <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
         </svg>
@@ -155,7 +157,7 @@ function IOSInstallGuide({ code }) {
   );
 }
 
-function AndroidInstallGuide({ onInstallClick, canInstall, code }) {
+function AndroidInstallGuide({ onInstallClick, canInstall, code, locale }) {
   if (canInstall) {
     return (
       <div className="flex flex-col gap-3">
@@ -164,10 +166,10 @@ function AndroidInstallGuide({ onInstallClick, canInstall, code }) {
           className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold text-sm
             hover:bg-green-700 active:bg-green-800 transition"
         >
-          Install App
+          {t(locale, 'installApp')}
         </button>
         <p className="text-xs text-gray-400 text-center">
-          No app store needed — installs instantly
+          {t(locale, 'noAppStore')}
         </p>
       </div>
     );
@@ -177,24 +179,24 @@ function AndroidInstallGuide({ onInstallClick, canInstall, code }) {
     <div className="flex flex-col gap-3">
       <InstallStep
         number={1}
-        title="Tap the menu button"
-        description="The three dots in the top-right of Chrome"
+        title={t(locale, 'androidMenuTitle')}
+        description={t(locale, 'androidMenuDesc')}
       />
       <InstallStep
         number={2}
-        title='"Install app" or "Add to Home Screen"'
-        description="Select it from the dropdown menu"
+        title={t(locale, 'androidAddTitle')}
+        description={t(locale, 'androidAddDesc')}
       />
       <InstallStep
         number={3}
-        title='Tap "Install"'
-        description="Casa Coqui will appear on your home screen"
+        title={t(locale, 'androidTapTitle')}
+        description={t(locale, 'androidTapDesc')}
       />
       <a
         href={`/g/${code}/install-guide`}
         className="text-xs text-green-600 font-medium mt-1 inline-flex items-center gap-1"
       >
-        Need help? See the step-by-step guide
+        {t(locale, 'needHelpGuide')}
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">
           <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
         </svg>
@@ -205,16 +207,16 @@ function AndroidInstallGuide({ onInstallClick, canInstall, code }) {
 
 // ─── Step 1: Parking / Vehicle ─────────────────────────────────────────────────
 
-function ParkingStep({ onNext, onSkip }) {
+function ParkingStep({ locale, onNext, onSkip }) {
   const [hasVehicle, setHasVehicle] = useState('');
   const [vehicle, setVehicle] = useState({ make: '', model: '', color: '', plate: '' });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
   const vehicleOptions = [
-    { value: 'yes', label: 'Yes' },
-    { value: 'no', label: 'No' },
-    { value: 'unsure', label: 'Not sure yet' },
+    { value: 'yes', label: t(locale, 'yes') },
+    { value: 'no', label: t(locale, 'no') },
+    { value: 'unsure', label: t(locale, 'notSureYet') },
   ];
 
   function setVehicleField(field, value) {
@@ -274,8 +276,8 @@ function ParkingStep({ onNext, onSkip }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
           </svg>
         }
-        heading="Will your group have a car?"
-        subtext="This helps us coordinate parking at the property."
+        heading={t(locale, 'carQuestion')}
+        subtext={t(locale, 'carSubtext')}
       />
 
       {/* Radio cards */}
@@ -319,8 +321,8 @@ function ParkingStep({ onNext, onSkip }) {
         aria-hidden={!needsVehicleDetails}
       >
         <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3 border border-gray-100">
-          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Vehicle details</p>
-          <Field label="Make">
+          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{t(locale, 'vehicleDetails')}</p>
+          <Field label={t(locale, 'make')}>
             <Input
               type="text"
               placeholder="e.g., Toyota"
@@ -329,7 +331,7 @@ function ParkingStep({ onNext, onSkip }) {
               autoComplete="off"
             />
           </Field>
-          <Field label="Model">
+          <Field label={t(locale, 'model')}>
             <Input
               type="text"
               placeholder="e.g., Camry"
@@ -338,7 +340,7 @@ function ParkingStep({ onNext, onSkip }) {
               autoComplete="off"
             />
           </Field>
-          <Field label="Color">
+          <Field label={t(locale, 'color')}>
             <Input
               type="text"
               placeholder="e.g., Silver"
@@ -347,10 +349,10 @@ function ParkingStep({ onNext, onSkip }) {
               autoComplete="off"
             />
           </Field>
-          <Field label="License plate">
+          <Field label={t(locale, 'licensePlate')}>
             <Input
               type="text"
-              placeholder="Optional — add later if it's a rental"
+              placeholder={t(locale, 'plateHint')}
               value={vehicle.plate}
               onChange={(e) => setVehicleField('plate', e.target.value)}
               autoComplete="off"
@@ -366,14 +368,15 @@ function ParkingStep({ onNext, onSkip }) {
       )}
 
       <p className="text-xs text-gray-400 text-center -mt-1">
-        You can update this anytime from the Parking page.
+        {t(locale, 'updateFromParking')}
       </p>
 
       <StepActions
         onNext={handleNext}
         onSkip={onSkip}
-        nextLabel="Next"
-        skipLabel="Skip"
+        nextLabel={t(locale, 'next')}
+        skipLabel={t(locale, 'skip')}
+        savingLabel={t(locale, 'saving')}
         nextDisabled={!canAdvance || (needsVehicleDetails && !vehicleDetailsComplete)}
         nextLoading={saving}
       />
@@ -383,7 +386,7 @@ function ParkingStep({ onNext, onSkip }) {
 
 // ─── Step 2: Invite Group ─────────────────────────────────────────────────────
 
-function InviteStep({ code, onNext, onSkip }) {
+function InviteStep({ locale, code, onNext, onSkip }) {
   const [inviteSent, setInviteSent] = useState(false);
 
   return (
@@ -394,52 +397,52 @@ function InviteStep({ code, onNext, onSkip }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
           </svg>
         }
-        heading="Traveling with others?"
-        subtext="Invite your group so everyone can access the portal during your stay."
+        heading={t(locale, 'travelingWithOthers')}
+        subtext={t(locale, 'inviteSubtext')}
       />
 
       {/* Benefits list */}
       <div className="bg-green-50 border border-green-100 rounded-xl p-4 space-y-2">
-        <p className="text-sm font-medium text-green-900">Each person gets their own access to:</p>
+        <p className="text-sm font-medium text-green-900">{t(locale, 'eachPersonGets')}</p>
         <ul className="text-xs text-green-800 space-y-1.5">
           <li className="flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 flex-shrink-0">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
-            Check if the washer &amp; dryer are available
+            {t(locale, 'benefitLaundry')}
           </li>
           <li className="flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 flex-shrink-0">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
-            Get parking alerts and house messages
+            {t(locale, 'benefitAlerts')}
           </li>
           <li className="flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 flex-shrink-0">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
-            Access check-in info, WiFi, and house rules
+            {t(locale, 'benefitAccess')}
           </li>
         </ul>
       </div>
 
       {inviteSent && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-800">
-          Invite sent! They will receive an email with their access link.
+          {t(locale, 'inviteSentMsg')}
         </div>
       )}
 
       <InviteForm code={code} onSent={() => setInviteSent(true)} />
 
       <p className="text-xs text-gray-400 text-center -mt-1">
-        You can always do this later from the portal home.
+        {t(locale, 'inviteLater')}
       </p>
 
       <StepActions
         onNext={onNext}
         onSkip={onSkip}
-        nextLabel="Next"
-        skipLabel="Skip for now"
+        nextLabel={t(locale, 'next')}
+        skipLabel={t(locale, 'skipForNow')}
       />
     </div>
   );
@@ -447,7 +450,7 @@ function InviteStep({ code, onNext, onSkip }) {
 
 // ─── Step 3: Save to Phone (PWA install) ──────────────────────────────────────
 
-function InstallStep_({ code, platform, onNext, onSkip }) {
+function InstallStep_({ locale, code, platform, onNext, onSkip }) {
   const [installPrompt, setInstallPrompt] = useState(null);
 
   useEffect(() => {
@@ -476,29 +479,30 @@ function InstallStep_({ code, platform, onNext, onSkip }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
           </svg>
         }
-        heading="Save Casa Coqui to your phone"
-        subtext="Get instant parking alerts, laundry updates, and messages from your host."
+        heading={t(locale, 'saveToPhone')}
+        subtext={t(locale, 'saveToPhoneDesc')}
       />
 
       {/* Platform-specific install instructions */}
       {isDesktop ? (
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-center">
           <p className="text-sm font-medium text-amber-900">
-            For the best experience, open this page on your phone and add it to your home screen.
+            {t(locale, 'bestOnPhone')}
           </p>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
           <p className="text-sm font-semibold text-gray-900 mb-4">
-            {platform === 'ios' ? 'Follow these steps in Safari:' : 'Follow these steps in Chrome:'}
+            {platform === 'ios' ? t(locale, 'followSafari') : t(locale, 'followChrome')}
           </p>
           {platform === 'ios' ? (
-            <IOSInstallGuide code={code} />
+            <IOSInstallGuide code={code} locale={locale} />
           ) : (
             <AndroidInstallGuide
               onInstallClick={handleAndroidInstall}
               canInstall={!!installPrompt}
               code={code}
+              locale={locale}
             />
           )}
         </div>
@@ -507,20 +511,20 @@ function InstallStep_({ code, platform, onNext, onSkip }) {
       {/* Why it matters */}
       <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
         <p className="text-sm font-medium text-amber-900">
-          Why save the app?
+          {t(locale, 'whySaveApp')}
         </p>
         <ul className="text-xs text-amber-800 mt-2 space-y-1">
-          <li>&bull; Check if the washer &amp; dryer are available</li>
-          <li>&bull; Get instant parking alerts and host messages</li>
-          <li>&bull; Access check-in info, WiFi, and house rules offline</li>
+          <li>&bull; {t(locale, 'whyLaundry')}</li>
+          <li>&bull; {t(locale, 'whyAlerts')}</li>
+          <li>&bull; {t(locale, 'whyOffline')}</li>
         </ul>
       </div>
 
       <StepActions
         onNext={onNext}
         onSkip={onSkip}
-        nextLabel="Next"
-        skipLabel="I'll do this later"
+        nextLabel={t(locale, 'next')}
+        skipLabel={t(locale, 'illDoLater')}
       />
     </div>
   );
@@ -528,7 +532,7 @@ function InstallStep_({ code, platform, onNext, onSkip }) {
 
 // ─── Step 4: Enable Notifications ─────────────────────────────────────────────
 
-function NotificationsStep({ code, onNext, onSkip }) {
+function NotificationsStep({ locale, code, onNext, onSkip }) {
   const { requestPermission, permission } = usePush({ bookingCode: code });
 
   // Auto-advance when permission becomes granted
@@ -552,8 +556,8 @@ function NotificationsStep({ code, onNext, onSkip }) {
           </svg>
         </div>
         <div>
-          <p className="text-base font-semibold text-gray-900">Notifications enabled!</p>
-          <p className="text-sm text-gray-500 mt-1">Taking you to the final step...</p>
+          <p className="text-base font-semibold text-gray-900">{t(locale, 'notifsEnabled')}</p>
+          <p className="text-sm text-gray-500 mt-1">{t(locale, 'takingToFinal')}</p>
         </div>
       </div>
     );
@@ -571,7 +575,7 @@ function NotificationsStep({ code, onNext, onSkip }) {
 
 // ─── Completion screen ────────────────────────────────────────────────────────
 
-function CompletionScreen({ code, firstName }) {
+function CompletionScreen({ locale, code, firstName }) {
   const router = useRouter();
 
   useEffect(() => {
@@ -591,10 +595,10 @@ function CompletionScreen({ code, firstName }) {
             </svg>
           </div>
           <h1 className="text-2xl font-bold tracking-tight">
-            You&apos;re all set{firstName ? `, ${firstName}` : ''}!
+            {t(locale, 'allSet')}{firstName ? `, ${firstName}` : ''}!
           </h1>
           <p className="text-sm italic text-green-100 mt-2">
-            Bienvenidos a Casa Coqui
+            {t(locale, 'bienvenidos')}
           </p>
         </div>
       </div>
@@ -602,10 +606,10 @@ function CompletionScreen({ code, firstName }) {
       {/* Quick portal preview */}
       <div className="flex flex-col gap-3 mb-8">
         {[
-          { label: 'Check-in guide', desc: 'Door codes, Wi-Fi, arrival steps', color: 'bg-green-50 text-green-700' },
-          { label: 'Parking', desc: 'Property map and your spot', color: 'bg-amber-50 text-amber-700' },
-          { label: 'Laundry', desc: 'Real-time washer and dryer status', color: 'bg-teal-50 text-teal-700' },
-          { label: 'House rules', desc: 'Quiet hours, trash, and more', color: 'bg-indigo-50 text-indigo-700' },
+          { label: t(locale, 'portalCheckin'), desc: t(locale, 'portalCheckinDesc'), color: 'bg-green-50 text-green-700' },
+          { label: t(locale, 'portalParking'), desc: t(locale, 'portalParkingDesc'), color: 'bg-amber-50 text-amber-700' },
+          { label: t(locale, 'portalLaundry'), desc: t(locale, 'portalLaundryDesc'), color: 'bg-teal-50 text-teal-700' },
+          { label: t(locale, 'portalRules'), desc: t(locale, 'portalRulesDesc'), color: 'bg-indigo-50 text-indigo-700' },
         ].map((item) => (
           <div key={item.label} className="flex items-center gap-3 bg-white rounded-xl border border-gray-100 px-4 py-3">
             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${item.color.split(' ')[0]}`} />
@@ -622,7 +626,7 @@ function CompletionScreen({ code, firstName }) {
         className="w-full py-4 rounded-xl bg-green-600 text-white font-semibold text-base
           hover:bg-green-700 active:bg-green-800 transition shadow-sm"
       >
-        Go to Your Portal
+        {t(locale, 'goToPortal')}
       </button>
     </div>
   );
@@ -641,6 +645,7 @@ const STEP_COMPLETE = 'complete';
 export default function SetupPage({ params }) {
   const code = params.code;
   const { user, loading: authLoading } = useAuth();
+  const { locale } = useLocale();
 
   // Platform detection — safe SSR defaults, resolved on mount
   const [platform, setPlatform] = useState('unknown');
@@ -707,7 +712,7 @@ export default function SetupPage({ params }) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-gray-400">Setting up your stay...</p>
+          <p className="text-sm text-gray-400">{t(locale, 'settingUp')}</p>
         </div>
       </div>
     );
@@ -735,23 +740,23 @@ export default function SetupPage({ params }) {
           style={{ animation: 'fadeSlideIn 0.25s ease-out both' }}
         >
           {currentStepId === STEP_PARKING && (
-            <ParkingStep onNext={goNext} onSkip={goSkip} />
+            <ParkingStep locale={locale} onNext={goNext} onSkip={goSkip} />
           )}
 
           {currentStepId === STEP_INVITE && (
-            <InviteStep code={code} onNext={goNext} onSkip={goSkip} />
+            <InviteStep locale={locale} code={code} onNext={goNext} onSkip={goSkip} />
           )}
 
           {currentStepId === STEP_INSTALL && (
-            <InstallStep_ code={code} platform={platform} onNext={goNext} onSkip={goSkip} />
+            <InstallStep_ locale={locale} code={code} platform={platform} onNext={goNext} onSkip={goSkip} />
           )}
 
           {currentStepId === STEP_NOTIFICATIONS && (
-            <NotificationsStep code={code} onNext={goNext} onSkip={goSkip} />
+            <NotificationsStep locale={locale} code={code} onNext={goNext} onSkip={goSkip} />
           )}
 
           {currentStepId === STEP_COMPLETE && (
-            <CompletionScreen code={code} firstName={firstName} />
+            <CompletionScreen locale={locale} code={code} firstName={firstName} />
           )}
         </div>
       </div>

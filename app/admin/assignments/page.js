@@ -163,7 +163,7 @@ function SkeletonCard() {
 // ---------------------------------------------------------------------------
 // Assignment Card — redesigned for clarity
 // ---------------------------------------------------------------------------
-function AssignmentCard({ assignment, canManage, isAdmin, staffMembers, bookingInfo, onUpdateStatus, onPatch }) {
+function AssignmentCard({ assignment, canManage, isAdmin, currentUid, staffMembers, bookingInfo, onUpdateStatus, onPatch }) {
   const [completing, setCompleting] = useState(false);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -173,8 +173,11 @@ function AssignmentCard({ assignment, canManage, isAdmin, staffMembers, bookingI
   const [sendingResponse, setSendingResponse] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [viewPhoto, setViewPhoto] = useState(false);
+  const [acking, setAcking] = useState(false);
 
   const a = assignment;
+  const isAssignee = currentUid && a.assigneeId === currentUid;
+  const canAck = isAssignee && !a.assigneeAckedAt && a.status === 'pending';
   const isMaintenance = a.source === 'maintenance';
   const isUnassigned = !a.assigneeId;
   const overdue = isOverdue(a.dueDate, a.status);
@@ -227,6 +230,17 @@ function AssignmentCard({ assignment, canManage, isAdmin, staffMembers, bookingI
     setShowAssign(false);
   }
 
+  async function handleAcknowledge() {
+    setAcking(true);
+    try {
+      await onPatch(a.id, { acknowledge: true });
+    } catch (err) {
+      console.error('Acknowledge failed:', err);
+    } finally {
+      setAcking(false);
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden flex">
       {/* Priority accent bar */}
@@ -262,6 +276,11 @@ function AssignmentCard({ assignment, canManage, isAdmin, staffMembers, bookingI
             {isUnassigned && a.status !== 'completed' && a.status !== 'cancelled' && (
               <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-600">
                 Unassigned
+              </span>
+            )}
+            {a.assigneeAckedAt && (
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-caribe-100 text-caribe-700">
+                Recibido
               </span>
             )}
           </div>
@@ -335,6 +354,12 @@ function AssignmentCard({ assignment, canManage, isAdmin, staffMembers, bookingI
               <span className="inline-flex items-center gap-1 text-green-600">
                 <CalendarIcon className="w-3.5 h-3.5" />
                 Done {formatDate(a.completedAt)}
+              </span>
+            )}
+            {a.assigneeAckedAt && (
+              <span className="inline-flex items-center gap-1 text-caribe-600">
+                <ClockIcon className="w-3.5 h-3.5" />
+                Ack {timeAgo(a.assigneeAckedAt)}
               </span>
             )}
           </div>
@@ -418,6 +443,19 @@ function AssignmentCard({ assignment, canManage, isAdmin, staffMembers, bookingI
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {/* Acknowledge button — assignee confirms they saw the task */}
+          {canAck && (
+            <div className="pt-1">
+              <button
+                disabled={acking}
+                onClick={handleAcknowledge}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-caribe-600 text-white text-xs font-semibold active:bg-caribe-700 disabled:opacity-50 min-h-[36px] transition-colors"
+              >
+                {acking ? 'Sending...' : 'Recibido'}
+              </button>
             </div>
           )}
 
@@ -923,6 +961,7 @@ export default function AssignmentsPage() {
               assignment={a}
               canManage={canManage}
               isAdmin={isAdmin}
+              currentUid={user?.uid}
               staffMembers={staffMembers}
               bookingInfo={a.bookingCode ? bookingMap[a.bookingCode] : null}
               onUpdateStatus={updateStatus}

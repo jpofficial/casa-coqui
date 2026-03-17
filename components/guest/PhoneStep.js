@@ -3,6 +3,8 @@
 import React, { useState, useRef } from 'react';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 function Field({ label, error, children }) {
   return (
@@ -26,6 +28,7 @@ function Input({ className = '', ...props }) {
 }
 
 export default function PhoneStep({ code, onVerified }) {
+  const { locale } = useLocale();
   const [phone, setPhone] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState('');
@@ -61,7 +64,7 @@ export default function PhoneStep({ code, onVerified }) {
     e.preventDefault();
     setError('');
     if (!validatePhone(phone)) {
-      setError('Please enter a valid 10-digit phone number.');
+      setError(t(locale, 'phone_errorInvalidPhone'));
       return;
     }
     setLoading(true);
@@ -72,7 +75,7 @@ export default function PhoneStep({ code, onVerified }) {
       setOtpSent(true);
     } catch (err) {
       console.error('Send OTP error:', err);
-      setError('Could not send code. Please check the number and try again.');
+      setError(t(locale, 'phone_errorSendFailed'));
       recaptchaVerifierRef.current = null;
     } finally {
       setLoading(false);
@@ -83,7 +86,7 @@ export default function PhoneStep({ code, onVerified }) {
     e.preventDefault();
     setError('');
     if (otp.length !== 6) {
-      setError('Please enter the 6-digit code.');
+      setError(t(locale, 'phone_errorInvalidOtp'));
       return;
     }
     setLoading(true);
@@ -110,7 +113,7 @@ export default function PhoneStep({ code, onVerified }) {
       onVerified(result.user, formatPhone(phone));
     } catch (err) {
       console.error('Verify OTP error:', err);
-      setError('Incorrect code. Please try again.');
+      setError(t(locale, 'phone_errorWrongCode'));
     } finally {
       setLoading(false);
     }
@@ -124,11 +127,11 @@ export default function PhoneStep({ code, onVerified }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 8.25h3m-3 3h3m-6 3h.008v.008H6V15.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
           </svg>
         </div>
-        <h2 className="text-lg font-bold text-gray-900">Verify your phone</h2>
+        <h2 className="text-lg font-bold text-gray-900">{t(locale, 'phone_verifyTitle')}</h2>
         <p className="text-sm text-gray-500 mt-1">
           {otpSent
-            ? `We sent a 6-digit code to ${phone}`
-            : "We'll send a one-time code to confirm your identity."}
+            ? t(locale, 'phone_codeSentTo').replace('{phone}', phone)
+            : t(locale, 'phone_sendCodeDesc')}
         </p>
       </div>
 
@@ -137,10 +140,10 @@ export default function PhoneStep({ code, onVerified }) {
 
       {!otpSent ? (
         <form onSubmit={handleSendOtp} className="flex flex-col gap-4" noValidate>
-          <Field label="Mobile phone number" error={error}>
+          <Field label={t(locale, 'phone_mobileLabel')} error={error}>
             <Input
               type="tel"
-              placeholder="(555) 000-0000"
+              placeholder={t(locale, 'phone_placeholder')}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               autoComplete="tel"
@@ -153,18 +156,18 @@ export default function PhoneStep({ code, onVerified }) {
             className="w-full py-3.5 rounded-xl bg-green-600 text-white font-semibold text-sm
               hover:bg-green-700 active:bg-green-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {loading ? 'Sending...' : 'Send Code'}
+            {loading ? t(locale, 'phone_sending') : t(locale, 'phone_sendCode')}
           </button>
         </form>
       ) : (
         <form onSubmit={handleVerifyOtp} className="flex flex-col gap-4" noValidate>
-          <Field label="6-digit verification code" error={error}>
+          <Field label={t(locale, 'phone_otpLabel')} error={error}>
             <Input
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
               maxLength={6}
-              placeholder="000000"
+              placeholder={t(locale, 'phone_otpPlaceholder')}
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
               autoComplete="one-time-code"
@@ -178,14 +181,14 @@ export default function PhoneStep({ code, onVerified }) {
             className="w-full py-3.5 rounded-xl bg-green-600 text-white font-semibold text-sm
               hover:bg-green-700 active:bg-green-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {loading ? 'Verifying...' : 'Verify Code'}
+            {loading ? t(locale, 'phone_verifying') : t(locale, 'phone_verifyCode')}
           </button>
           <button
             type="button"
             onClick={() => { setOtpSent(false); setOtp(''); setError(''); }}
             className="w-full py-2.5 text-sm text-gray-500 hover:text-gray-700 transition"
           >
-            Change number
+            {t(locale, 'phone_changeNumber')}
           </button>
         </form>
       )}

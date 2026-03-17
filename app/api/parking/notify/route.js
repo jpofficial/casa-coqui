@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { broadcastToActiveGuests } from '@/lib/notifications';
 import { requireAuth } from '@/lib/api-auth';
+import { nt } from '@/lib/notification-strings';
 
 // ---------------------------------------------------------------------------
 // POST /api/parking/notify
@@ -15,9 +16,13 @@ export async function POST(request) {
     if (authError) return authError;
 
     const result = await broadcastToActiveGuests({
-      title: 'Parking Alert',
-      body: 'An unfamiliar vehicle has been reported in the parking area. If this is your vehicle, please move it to your designated spot.',
+      title: nt('en', 'parkingAlert_title'),
+      body: nt('en', 'parkingAlert_body'),
       type: 'parking',
+      localizer: (locale) => ({
+        title: nt(locale, 'parkingAlert_title'),
+        body: nt(locale, 'parkingAlert_body'),
+      }),
     });
 
     if (!result.success) {

@@ -1,15 +1,19 @@
 'use client';
 
 import { useState } from 'react';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 // Fallback steps used when no settings are loaded
-const FALLBACK_STEPS = [
-  { title: 'Find the property', description: 'Head to the property address.' },
-  { title: 'Enter through the gate', description: 'Enter the gate code on the keypad.' },
-  { title: 'Find your unit', description: 'Units are labeled on the doors.' },
-  { title: 'Open the lockbox', description: 'Your key is in the lockbox next to your unit door.' },
-  { title: 'Enter and enjoy!', description: 'Make yourself at home.' },
-];
+function getFallbackSteps(locale) {
+  return [
+    { title: t(locale, 'guide_step1'), description: t(locale, 'guide_step1Desc') },
+    { title: t(locale, 'guide_step2'), description: t(locale, 'guide_step2Desc') },
+    { title: t(locale, 'guide_step3'), description: t(locale, 'guide_step3Desc') },
+    { title: t(locale, 'guide_step4'), description: t(locale, 'guide_step4Desc') },
+    { title: t(locale, 'guide_step5'), description: t(locale, 'guide_step5Desc') },
+  ];
+}
 
 const STEP_ICONS = [
   // Map pin
@@ -94,7 +98,8 @@ function GuideStep({ step, index, isOpen, onToggle }) {
 }
 
 export default function CheckInGuide({ settings }) {
-  const steps = settings?.checkInSteps?.length ? settings.checkInSteps : FALLBACK_STEPS;
+  const { locale } = useLocale();
+  const steps = settings?.checkInSteps?.length ? settings.checkInSteps : getFallbackSteps(locale);
   const [openStep, setOpenStep] = useState(0);
 
   function toggle(index) {
@@ -105,12 +110,12 @@ export default function CheckInGuide({ settings }) {
     <div className="flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
-        <h2 className="text-base font-bold text-gray-900">Check-In Guide</h2>
+        <h2 className="text-base font-bold text-gray-900">{t(locale, 'guide_title')}</h2>
         <button
           onClick={() => setOpenStep(openStep === null ? 0 : null)}
           className="text-xs text-green-600 font-medium hover:underline"
         >
-          {openStep === null ? 'Expand all' : 'Collapse'}
+          {openStep === null ? t(locale, 'guide_expandAll') : t(locale, 'guide_collapse')}
         </button>
       </div>
 
@@ -152,12 +157,12 @@ export default function CheckInGuide({ settings }) {
 
       {/* Help note */}
       <p className="text-xs text-center text-gray-400 mt-2">
-        Something wrong?{' '}
+        {t(locale, 'guide_somethingWrong')}{' '}
         <a
           href="maintenance"
           className="text-green-600 font-medium underline underline-offset-2"
         >
-          Submit a maintenance request
+          {t(locale, 'guide_submitMaintenance')}
         </a>
       </p>
     </div>

@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { CATEGORY_CONFIG } from '@/components/guest/NotificationItem';
+import { getCategoryConfig } from '@/components/guest/NotificationItem';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 const AUTO_DISMISS_MS = 5000;
 
@@ -20,6 +22,7 @@ const AUTO_DISMISS_MS = 5000;
  */
 export default function ForegroundToast({ foregroundMsg, code, isStaff = false }) {
   const router = useRouter();
+  const { locale } = useLocale();
   const [visible, setVisible] = useState(false);
   const [current, setCurrent] = useState(null);
 
@@ -71,6 +74,7 @@ export default function ForegroundToast({ foregroundMsg, code, isStaff = false }
 
   if (!visible || !current) return null;
 
+  const CATEGORY_CONFIG = getCategoryConfig(locale);
   const cat = CATEGORY_CONFIG[current.data?.type] || CATEGORY_CONFIG.general;
 
   return (
@@ -100,7 +104,7 @@ export default function ForegroundToast({ foregroundMsg, code, isStaff = false }
         <button
           onClick={(e) => { e.stopPropagation(); setVisible(false); }}
           className="text-white/40 hover:text-white/80 transition flex-shrink-0 p-0.5"
-          aria-label="Dismiss"
+          aria-label={t(locale, 'toast_dismiss')}
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

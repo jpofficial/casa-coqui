@@ -11,6 +11,11 @@ import ForegroundToast from '@/components/guest/ForegroundToast';
 import PushPermissionGate from '@/components/guest/PushPermissionGate';
 import HelpDrawer from '@/components/ui/HelpDrawer';
 import { getHelpContext } from '@/lib/help-articles';
+import { LocaleProvider } from '@/hooks/useLocale';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 // ─── Nav icons ────────────────────────────────────────────────────────────────
 function HomeIcon({ active }) {
@@ -66,18 +71,18 @@ function BellIcon({ active }) {
 }
 
 // ─── Bottom nav ───────────────────────────────────────────────────────────────
-function BottomNav({ code, onOpenGuide, unreadCount }) {
+function BottomNav({ code, onOpenGuide, unreadCount, locale }) {
   const pathname = usePathname();
 
   const tabs = [
     {
-      label: 'Home',
+      label: t(locale, 'nav_home'),
       href: `/g/${code}`,
       icon: HomeIcon,
       match: (p) => p === `/g/${code}`,
     },
     {
-      label: 'Info',
+      label: t(locale, 'nav_info'),
       href: `/g/${code}/access`,
       icon: InfoIcon,
       match: (p) =>
@@ -87,7 +92,7 @@ function BottomNav({ code, onOpenGuide, unreadCount }) {
         p.startsWith(`/g/${code}/laundry`),
     },
     {
-      label: 'Alerts',
+      label: t(locale, 'nav_alerts'),
       href: `/g/${code}/notifications`,
       icon: BellIcon,
       match: (p) =>
@@ -96,7 +101,7 @@ function BottomNav({ code, onOpenGuide, unreadCount }) {
       badge: unreadCount,
     },
     {
-      label: 'Guide',
+      label: t(locale, 'nav_guide'),
       href: null,
       icon: GuideIcon,
       match: () => false,
@@ -164,6 +169,7 @@ function GuestLayoutInner({ children, code }) {
   const { user } = useAuth();
   const { foregroundMsg, requestPermission, permission, pushCapable } = usePush({ bookingCode: code });
   const { unreadCount } = useNotifications({ bookingCode: code });
+  const { locale, setLocale } = useLocale();
   const [helpOpen, setHelpOpen] = useState(false);
 
   // Persist guest booking code so PWA can restore session from root
@@ -172,6 +178,16 @@ function GuestLayoutInner({ children, code }) {
       localStorage.setItem(GUEST_CODE_KEY, code);
     }
   }, [user, code]);
+
+  // Sync locale to Firestore for server-side notification localization.
+  // Writes to notification_prefs/{bookingCode}.locale whenever the guest
+  // toggles the language switch.
+  useEffect(() => {
+    if (!code || !locale) return;
+    setDoc(doc(db, 'notification_prefs', code), { locale }, { merge: true }).catch((err) => {
+      console.error('[GuestLayout] Locale sync error:', err.message);
+    });
+  }, [code, locale]);
 
   // Listen for NOTIFICATION_CLICK from the service worker so tapping a
   // notification while the app is already open navigates to the deep link.
@@ -234,6 +250,14 @@ function GuestLayoutInner({ children, code }) {
                   </span>
                 )}
               </Link>
+              <button
+                onClick={() => setLocale(locale === 'es' ? 'en' : 'es')}
+                className="px-2 py-1 text-xs font-bold rounded-md border transition
+                  text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"
+                aria-label={locale === 'es' ? 'Switch to English' : 'Cambiar a español'}
+              >
+                {locale === 'es' ? 'EN' : 'ES'}
+              </button>
               <div className="text-xs text-gray-400 font-mono bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
                 #{code}
               </div>
@@ -258,6 +282,7 @@ function GuestLayoutInner({ children, code }) {
           code={code}
           onOpenGuide={() => setHelpOpen(true)}
           unreadCount={unreadCount}
+          locale={locale}
         />
       )}
 
@@ -274,9 +299,11 @@ function GuestLayoutInner({ children, code }) {
 export default function GuestLayoutClient({ children, code }) {
   return (
     <AuthProvider>
-      <GuestLayoutInner code={code}>
-        {children}
-      </GuestLayoutInner>
+      <LocaleProvider defaultLocale="en">
+        <GuestLayoutInner code={code}>
+          {children}
+        </GuestLayoutInner>
+      </LocaleProvider>
     </AuthProvider>
   );
 }

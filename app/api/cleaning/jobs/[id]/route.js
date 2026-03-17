@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
 import { notifyStaff, notifyAdminAndCohost } from '@/lib/staff-notifications';
+import { nt } from '@/lib/notification-strings';
 
 // Valid state machine transitions
 const VALID_TRANSITIONS = {
@@ -70,8 +71,33 @@ export async function PATCH(request, { params }) {
     const updates = {};
     const now = new Date().toISOString();
 
-    // Handle status transition
-    if (body.status) {
+    // Admin-only archive/delete — bypass state machine
+    const NON_DELETABLE = ['en_route', 'arrived', 'before_photos', 'cleaning', 'after_photos', 'laundry_check'];
+
+    if (body.status === 'deleted' || body.status === 'archived') {
+      if (!isAdmin) {
+        return NextResponse.json(
+          { success: false, error: 'Only admin can archive or delete cleaning jobs.' },
+          { status: 403 }
+        );
+      }
+      if (body.status === 'deleted' && NON_DELETABLE.includes(existing.status)) {
+        return NextResponse.json(
+          { success: false, error: 'Cannot delete a cleaning job that is in progress.' },
+          { status: 400 }
+        );
+      }
+      updates.status = body.status;
+      if (body.status === 'archived') {
+        updates.archivedAt = now;
+        updates.archivedBy = caller.uid;
+      }
+      if (body.status === 'deleted') {
+        updates.deletedAt = now;
+        updates.deletedBy = caller.uid;
+      }
+    } else if (body.status) {
+      // Handle status transition via state machine
       if (!isAdmin) {
         // Cleaner must follow state machine
         const allowed = VALID_TRANSITIONS[existing.status] || [];
@@ -118,6 +144,11 @@ export async function PATCH(request, { params }) {
     updates.updatedAt = now;
     await docRef.update(updates);
 
+    // Skip notifications for archive/delete — silent admin housekeeping.
+    if (updates.status === 'deleted' || updates.status === 'archived') {
+      return NextResponse.json({ success: true, data: { id, ...updates } });
+    }
+
     // Notify admin/cohost on meaningful status changes.
     // Must be awaited — Vercel freezes serverless functions after response.
     const cleanerName = existing.assigneeName || 'Cleaner';
@@ -126,30 +157,43 @@ export async function PATCH(request, { params }) {
 
     if (updates.status === 'acknowledged') {
       notification = notifyAdminAndCohost({
-        title: 'Cleaning Accepted',
-        body: `${cleanerName} accepted cleaning for ${unit}`,
+        title: nt('en', 'cleaningAccepted_title'),
+        body: nt('en', 'cleaningAccepted_body', { name: cleanerName, unit }),
         type: 'cleaning_update',
         data: { jobId: id, status: 'acknowledged' },
+        localizer: (locale) => ({
+          title: nt(locale, 'cleaningAccepted_title'),
+          body: nt(locale, 'cleaningAccepted_body', { name: cleanerName, unit }),
+        }),
       }).catch((err) => console.error('[PATCH /api/cleaning/jobs/[id]] Notify error:', err));
     }
 
     if (updates.status === 'declined') {
       const reason = updates.declineReason ? `: ${updates.declineReason}` : '';
       notification = notifyAdminAndCohost({
-        title: 'Cleaning Declined',
-        body: `${cleanerName} cannot accept cleaning for ${unit}${reason}`,
+        title: nt('en', 'cleaningDeclined_title'),
+        body: nt('en', 'cleaningDeclined_body', { name: cleanerName, unit }) + reason,
         type: 'cleaning_update',
         data: { jobId: id, status: 'declined' },
+        localizer: (locale) => ({
+          title: nt(locale, 'cleaningDeclined_title'),
+          body: nt(locale, 'cleaningDeclined_body', { name: cleanerName, unit }) + reason,
+        }),
       }).catch((err) => console.error('[PATCH /api/cleaning/jobs/[id]] Notify error:', err));
     }
 
     if (updates.status === 'arrived' || updates.status === 'completed') {
-      const statusLabel = updates.status === 'arrived' ? 'arrived at' : 'completed';
+      const titleKey = updates.status === 'arrived' ? 'cleaningArrived_title' : 'cleaningCompleted_title';
+      const statusLabelKey = updates.status === 'arrived' ? 'cleaningStatusLabel_arrived' : 'cleaningStatusLabel_completed';
       notification = notifyAdminAndCohost({
-        title: `Cleaning ${statusLabel}`,
-        body: `${cleanerName} ${statusLabel} ${unit}`,
+        title: nt('en', titleKey),
+        body: nt('en', 'cleaningStatus_body', { name: cleanerName, status: nt('en', statusLabelKey), unit }),
         type: 'cleaning_update',
         data: { jobId: id, status: updates.status },
+        localizer: (locale) => ({
+          title: nt(locale, titleKey),
+          body: nt(locale, 'cleaningStatus_body', { name: cleanerName, status: nt(locale, statusLabelKey), unit }),
+        }),
       }).catch((err) => console.error('[PATCH /api/cleaning/jobs/[id]] Notify error:', err));
     }
 

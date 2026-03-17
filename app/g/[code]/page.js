@@ -7,6 +7,8 @@ import { useCollection, useDocument } from '@/hooks/useFirestore';
 import { where } from 'firebase/firestore';
 import { auth as firebaseAuth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 import WifiQuickView from '@/components/guest/WifiQuickView';
 import LaundryQuickStatus from '@/components/guest/LaundryQuickStatus';
 import CommunityPreview from '@/components/guest/CommunityPreview';
@@ -71,12 +73,12 @@ function FullPageLoader() {
 
 // ─── Card definitions ────────────────────────────────────────────────────────
 // "Your Stay" cards — daily-use tools shown prominently after check-in
-function getStayCards(code) {
+function getStayCards(code, locale) {
   return [
     {
       id: 'parking',
-      title: 'Parking',
-      description: 'Your designated spot and map',
+      title: t(locale, 'parking'),
+      description: t(locale, 'parkingDesc'),
       href: `/g/${code}/parking`,
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-6 h-6">
@@ -88,8 +90,8 @@ function getStayCards(code) {
     },
     {
       id: 'laundry',
-      title: 'Laundry',
-      description: 'Update washer and dryer status',
+      title: t(locale, 'laundry'),
+      description: t(locale, 'laundryDesc'),
       href: `/g/${code}/laundry`,
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-6 h-6">
@@ -101,8 +103,8 @@ function getStayCards(code) {
     },
     {
       id: 'community',
-      title: 'Community Board',
-      description: 'Posts and updates from the property',
+      title: t(locale, 'communityBoard'),
+      description: t(locale, 'communityBoardDesc'),
       href: `/g/${code}/community`,
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-6 h-6">
@@ -114,8 +116,8 @@ function getStayCards(code) {
     },
     {
       id: 'maintenance',
-      title: 'Maintenance',
-      description: 'Submit a repair request',
+      title: t(locale, 'maintenance'),
+      description: t(locale, 'maintenanceDesc'),
       href: `/g/${code}/maintenance`,
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-6 h-6">
@@ -127,8 +129,8 @@ function getStayCards(code) {
     },
     {
       id: 'invite',
-      title: 'Invite Group',
-      description: 'Invite your travel companions',
+      title: t(locale, 'inviteGroup'),
+      description: t(locale, 'inviteGroupDesc'),
       href: `/g/${code}/invite`,
       primaryOnly: true,
       icon: (
@@ -143,14 +145,14 @@ function getStayCards(code) {
 }
 
 // "Arrival Info" cards — reference items for arrival/logistics
-function getArrivalCards(code, hasCheckedIn) {
+function getArrivalCards(code, hasCheckedIn, locale) {
   return [
     {
       id: 'checkin-guide',
-      title: hasCheckedIn ? 'Check-In Guide' : 'Check-In Guide',
+      title: t(locale, 'checkInGuide'),
       description: hasCheckedIn
-        ? 'Completed — tap to review'
-        : 'Step-by-step arrival instructions',
+        ? t(locale, 'checkInGuideCompletedDesc')
+        : t(locale, 'checkInGuideDesc'),
       href: `/g/${code}/checkin`,
       icon: hasCheckedIn ? (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
@@ -167,8 +169,8 @@ function getArrivalCards(code, hasCheckedIn) {
     },
     {
       id: 'access',
-      title: 'Access Codes',
-      description: 'WiFi, gate code, and lockbox',
+      title: t(locale, 'accessCodes'),
+      description: t(locale, 'accessCodesDesc'),
       href: `/g/${code}/access`,
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-6 h-6">
@@ -180,8 +182,8 @@ function getArrivalCards(code, hasCheckedIn) {
     },
     {
       id: 'rules',
-      title: 'House Rules',
-      description: 'Guidelines for a great stay',
+      title: t(locale, 'houseRules'),
+      description: t(locale, 'houseRulesDesc'),
       href: `/g/${code}/rules`,
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-6 h-6">
@@ -195,7 +197,7 @@ function getArrivalCards(code, hasCheckedIn) {
 }
 
 // ─── Individual quick-access card ─────────────────────────────────────────────
-function NavCard({ card }) {
+function NavCard({ card, locale }) {
   const inner = (
     <div
       className={`relative bg-white rounded-xl shadow-sm p-4 flex flex-col gap-2 h-full border border-gray-50
@@ -203,7 +205,7 @@ function NavCard({ card }) {
     >
       {card.completed && (
         <span className="absolute top-2.5 right-2.5 text-[10px] font-semibold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-          Done
+          {t(locale, 'done')}
         </span>
       )}
       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${card.bg} ${card.color}`}>
@@ -255,6 +257,7 @@ export default function GuestHome({ params }) {
   const code = params.code;
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { locale } = useLocale();
 
   const { data: bookings, loading } = useCollection('bookings', [
     where('code', '==', code),
@@ -334,9 +337,9 @@ export default function GuestHome({ params }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
           </svg>
         </div>
-        <h1 className="text-xl font-bold text-gray-900 mb-2">Booking no longer active</h1>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">{t(locale, 'bookingInactive')}</h1>
         <p className="text-sm text-gray-500">
-          This guest portal is no longer available. If you think this is a mistake, please contact your host.
+          {t(locale, 'bookingInactiveDesc')}
         </p>
       </div>
     );
@@ -347,10 +350,10 @@ export default function GuestHome({ params }) {
   const propertyPhotos = settings?.propertyPhotos ?? [];
   const propertyName = settings?.propertyName || 'Casa Coqui';
 
-  const stayCards = getStayCards(code).filter(
+  const stayCards = getStayCards(code, locale).filter(
     (card) => !card.primaryOnly || isPrimary
   );
-  const arrivalCards = getArrivalCards(code, hasCheckedIn);
+  const arrivalCards = getArrivalCards(code, hasCheckedIn, locale);
 
   return (
     <>
@@ -378,18 +381,18 @@ export default function GuestHome({ params }) {
       ) : (
         <section className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-            {guestName ? `Welcome, ${guestName.split(' ')[0]}` : 'Welcome to Casa Coqui'}
+            {guestName ? `${t(locale, 'welcomeName')} ${guestName.split(' ')[0]}` : t(locale, 'welcomeGeneric')}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             {unitLabel
-              ? `Your home for this trip — ${unitLabel}`
-              : 'Your home for this trip'}
+              ? `${t(locale, 'homeSubtitle')} — ${unitLabel}`
+              : t(locale, 'homeSubtitle')}
           </p>
 
           {/* Booking-not-found notice */}
           {!loading && !booking && (
             <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
-              We could not find a booking for this link. Please contact your host.
+              {t(locale, 'bookingNotFound')}
             </div>
           )}
         </section>
@@ -410,8 +413,8 @@ export default function GuestHome({ params }) {
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-indigo-900">Add Casa Coqui to Home Screen</p>
-                  <p className="text-xs text-indigo-600">Quick access — works like a native app</p>
+                  <p className="text-sm font-semibold text-indigo-900">{t(locale, 'installBanner')}</p>
+                  <p className="text-xs text-indigo-600">{t(locale, 'installBannerDesc')}</p>
                 </div>
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-indigo-400 flex-shrink-0">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -435,8 +438,8 @@ export default function GuestHome({ params }) {
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-amber-900">Report Parking Issue</p>
-                <p className="text-xs text-amber-700">Photo required — alerts all guests</p>
+                <p className="text-sm font-semibold text-amber-900">{t(locale, 'reportParking')}</p>
+                <p className="text-xs text-amber-700">{t(locale, 'reportParkingDesc')}</p>
               </div>
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-amber-400 flex-shrink-0">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -455,8 +458,8 @@ export default function GuestHome({ params }) {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-bold text-green-900">Complete Your Check-In</p>
-                <p className="text-xs text-green-700 mt-0.5">Tap here to share your arrival details</p>
+                <p className="text-sm font-bold text-green-900">{t(locale, 'completeCheckIn')}</p>
+                <p className="text-xs text-green-700 mt-0.5">{t(locale, 'completeCheckInDesc')}</p>
               </div>
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-green-400 ml-auto flex-shrink-0">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -469,7 +472,7 @@ export default function GuestHome({ params }) {
       {/* ── Your Stay — daily-use tools ──────────────────────────────────── */}
       <section className="mb-6">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
-          Your Stay
+          {t(locale, 'yourStay')}
         </h2>
 
         {loading || membersLoading ? (
@@ -481,7 +484,7 @@ export default function GuestHome({ params }) {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {stayCards.map((card) => (
-              <NavCard key={card.id} card={card} />
+              <NavCard key={card.id} card={card} locale={locale} />
             ))}
           </div>
         )}
@@ -490,7 +493,7 @@ export default function GuestHome({ params }) {
       {/* ── Arrival Info — reference cards ────────────────────────────────── */}
       <section className="mb-6">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
-          Arrival Info
+          {t(locale, 'arrivalInfo')}
         </h2>
 
         {loading ? (
@@ -502,7 +505,7 @@ export default function GuestHome({ params }) {
         ) : (
           <div className="grid grid-cols-3 gap-3">
             {arrivalCards.map((card) => (
-              <NavCard key={card.id} card={card} />
+              <NavCard key={card.id} card={card} locale={locale} />
             ))}
           </div>
         )}
@@ -511,7 +514,7 @@ export default function GuestHome({ params }) {
       {/* ── More — utility links ─────────────────────────────────────────── */}
       <section className="mb-4">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
-          More
+          {t(locale, 'more')}
         </h2>
         <div className="flex flex-col gap-3">
           {/* WiFi credentials — inline with copy buttons */}
@@ -520,7 +523,7 @@ export default function GuestHome({ params }) {
           <div className="bg-white rounded-xl shadow-sm border border-gray-50 divide-y divide-gray-50">
           <UtilityLink
             href="https://www.airbnb.com/guest/messages"
-            label="Contact Host on Airbnb"
+            label={t(locale, 'contactHost')}
             external
             icon={
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-5 h-5 text-gray-400">
@@ -535,12 +538,12 @@ export default function GuestHome({ params }) {
       {/* Help footer */}
       <footer className="mt-8 text-center">
         <p className="text-xs text-gray-400">
-          Need help?{' '}
+          {t(locale, 'needHelp')}{' '}
           <a
             href="sms:+1?body=Hi%2C%20I%20need%20help%20with%20my%20stay%20at%20Casa%20Coqui."
             className="text-green-600 font-medium underline underline-offset-2"
           >
-            Text your host
+            {t(locale, 'textHost')}
           </a>
         </p>
       </footer>

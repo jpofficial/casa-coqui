@@ -4,11 +4,13 @@ import { useState, useEffect, useRef } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 const STATUS = {
-  available: { label: 'Available', dot: 'bg-green-500', text: 'text-green-700', bg: 'bg-green-50' },
-  in_use: { label: 'In Use', dot: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50' },
-  needs_attention: { label: 'Attention', dot: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50' },
+  available: { labelKey: 'laundry_available', dot: 'bg-green-500', text: 'text-green-700', bg: 'bg-green-50' },
+  in_use: { labelKey: 'laundry_inUse', dot: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50' },
+  needs_attention: { labelKey: 'laundry_attention', dot: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50' },
 };
 
 function getRemainingMinutes(sessionExpiresAt) {
@@ -20,6 +22,7 @@ function getRemainingMinutes(sessionExpiresAt) {
 }
 
 function MachineStatusPill({ machineId, icon, label }) {
+  const { locale } = useLocale();
   const [status, setStatus] = useState('available');
   const [sessionExpiresAt, setSessionExpiresAt] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,9 +77,11 @@ function MachineStatusPill({ machineId, icon, label }) {
   const info = STATUS[status] ?? STATUS.available;
 
   // Compute display label
-  let displayLabel = info.label;
+  let displayLabel = t(locale, info.labelKey);
   if (status === 'in_use' && remainingMinutes !== null) {
-    displayLabel = remainingMinutes > 0 ? `In Use - ${remainingMinutes}m` : 'Finishing up';
+    displayLabel = remainingMinutes > 0
+      ? t(locale, 'laundry_inUseMinutes').replace('{min}', remainingMinutes)
+      : t(locale, 'laundry_finishingUp');
   }
 
   if (loading) {
@@ -114,12 +119,14 @@ function MachineStatusPill({ machineId, icon, label }) {
  * remaining time when in use. Tapping navigates to the full laundry page.
  */
 export default function LaundryQuickStatus({ code }) {
+  const { locale } = useLocale();
+
   return (
     <Link href={`/g/${code}/laundry`} className="block">
       <div className="bg-white rounded-xl shadow-sm border border-gray-50 p-3 hover:shadow-md active:scale-[0.99] transition-all duration-150 cursor-pointer">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Laundry Status
+            {t(locale, 'laundry_quickTitle')}
           </span>
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -133,8 +140,8 @@ export default function LaundryQuickStatus({ code }) {
           </svg>
         </div>
         <div className="flex gap-2">
-          <MachineStatusPill machineId="washer" icon="🧺" label="Washer" />
-          <MachineStatusPill machineId="dryer" icon="💨" label="Dryer" />
+          <MachineStatusPill machineId="washer" icon="🧺" label={t(locale, 'laundry_washer')} />
+          <MachineStatusPill machineId="dryer" icon="💨" label={t(locale, 'laundry_dryer')} />
         </div>
       </div>
     </Link>

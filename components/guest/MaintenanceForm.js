@@ -5,48 +5,55 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { storage, auth, db } from '@/lib/firebase';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
-const CATEGORIES = [
-  { value: 'lighting', label: 'Lighting', icon: '💡' },
-  { value: 'water', label: 'Water / Plumbing', icon: '🚿' },
-  { value: 'ac_heating', label: 'AC / Heating', icon: '❄️' },
-  { value: 'appliance', label: 'Appliance', icon: '🍳' },
-  { value: 'lock_door', label: 'Lock / Door', icon: '🔑' },
-  { value: 'wifi_tv', label: 'WiFi / TV', icon: '📶' },
-  { value: 'pest', label: 'Pest / Bug', icon: '🐛' },
-  { value: 'cleaning', label: 'Cleaning', icon: '🧹' },
-  { value: 'noise', label: 'Noise Issue', icon: '🔊' },
-  { value: 'other', label: 'Other', icon: '📋' },
-];
-const URGENCIES = [
-  {
-    value: 'low',
-    label: 'Low',
-    description: 'Not urgent, fix when convenient',
-    color: 'text-green-700',
-    bg: 'bg-green-50',
-    border: 'border-green-300',
-    ring: 'ring-green-500',
-  },
-  {
-    value: 'medium',
-    label: 'Medium',
-    description: 'Affecting comfort or use',
-    color: 'text-amber-700',
-    bg: 'bg-amber-50',
-    border: 'border-amber-300',
-    ring: 'ring-amber-500',
-  },
-  {
-    value: 'high',
-    label: 'High',
-    description: 'Safety concern or unusable',
-    color: 'text-red-700',
-    bg: 'bg-red-50',
-    border: 'border-red-300',
-    ring: 'ring-red-500',
-  },
-];
+function getCategories(locale) {
+  return [
+    { value: 'lighting', label: t(locale, 'maint_lighting'), icon: '💡' },
+    { value: 'water', label: t(locale, 'maint_water'), icon: '🚿' },
+    { value: 'ac_heating', label: t(locale, 'maint_acHeating'), icon: '❄️' },
+    { value: 'appliance', label: t(locale, 'maint_appliance'), icon: '🍳' },
+    { value: 'lock_door', label: t(locale, 'maint_lockDoor'), icon: '🔑' },
+    { value: 'wifi_tv', label: t(locale, 'maint_wifiTv'), icon: '📶' },
+    { value: 'pest', label: t(locale, 'maint_pest'), icon: '🐛' },
+    { value: 'cleaning', label: t(locale, 'maint_cleaning'), icon: '🧹' },
+    { value: 'noise', label: t(locale, 'maint_noise'), icon: '🔊' },
+    { value: 'other', label: t(locale, 'maint_other'), icon: '📋' },
+  ];
+}
+
+function getUrgencies(locale) {
+  return [
+    {
+      value: 'low',
+      label: t(locale, 'maint_urgencyLow'),
+      description: t(locale, 'maint_urgencyLowDesc'),
+      color: 'text-green-700',
+      bg: 'bg-green-50',
+      border: 'border-green-300',
+      ring: 'ring-green-500',
+    },
+    {
+      value: 'medium',
+      label: t(locale, 'maint_urgencyMedium'),
+      description: t(locale, 'maint_urgencyMediumDesc'),
+      color: 'text-amber-700',
+      bg: 'bg-amber-50',
+      border: 'border-amber-300',
+      ring: 'ring-amber-500',
+    },
+    {
+      value: 'high',
+      label: t(locale, 'maint_urgencyHigh'),
+      description: t(locale, 'maint_urgencyHighDesc'),
+      color: 'text-red-700',
+      bg: 'bg-red-50',
+      border: 'border-red-300',
+      ring: 'ring-red-500',
+    },
+  ];
+}
 
 // ─── Upload progress bar ───────────────────────────────────────────────────────
 function ProgressBar({ progress }) {
@@ -65,9 +72,10 @@ function ProgressBar({ progress }) {
 }
 
 // ─── Category picker (button → dropdown list) ──────────────────────────────
-function CategoryPicker({ value, onChange, disabled }) {
+function CategoryPicker({ value, onChange, disabled, locale }) {
   const [open, setOpen] = useState(false);
-  const selected = CATEGORIES.find((c) => c.value === value);
+  const categories = getCategories(locale);
+  const selected = categories.find((c) => c.value === value);
 
   return (
     <div className="relative">
@@ -89,7 +97,7 @@ function CategoryPicker({ value, onChange, disabled }) {
             <span className="text-gray-900">{selected.label}</span>
           </span>
         ) : (
-          <span>Select an issue type</span>
+          <span>{t(locale, 'maint_selectType')}</span>
         )}
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -106,7 +114,7 @@ function CategoryPicker({ value, onChange, disabled }) {
 
       {open && (
         <div className="mt-1.5 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
-          {CATEGORIES.map((cat) => {
+          {categories.map((cat) => {
             const isSelected = value === cat.value;
             return (
               <button
@@ -139,7 +147,7 @@ function CategoryPicker({ value, onChange, disabled }) {
 }
 
 // ─── Success state ─────────────────────────────────────────────────────────────
-function SuccessView({ onReset }) {
+function SuccessView({ onReset, locale }) {
   return (
     <div className="flex flex-col items-center gap-4 py-8 text-center">
       <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
@@ -158,16 +166,16 @@ function SuccessView({ onReset }) {
         </svg>
       </div>
       <div>
-        <p className="text-base font-bold text-gray-900">Got it, thanks!</p>
+        <p className="text-base font-bold text-gray-900">{t(locale, 'maint_successTitle')}</p>
         <p className="text-sm text-gray-500 mt-1 leading-snug">
-          Your host or co-host will review this and reach out with next steps or to coordinate a fix.
+          {t(locale, 'maint_successDesc')}
         </p>
       </div>
       <button
         onClick={onReset}
         className="mt-2 bg-green-600 text-white font-semibold text-sm px-6 py-3 rounded-xl hover:bg-green-700 active:bg-green-800 transition-colors"
       >
-        Submit another
+        {t(locale, 'maint_submitAnother')}
       </button>
     </div>
   );
@@ -180,19 +188,17 @@ const STATUS_STYLES = {
   done: 'bg-green-100 text-green-700',
 };
 
-const STATUS_LABELS = {
-  open: 'Open',
-  'in-progress': 'In Progress',
-  done: 'Done',
-};
-
-// Map category values → display labels (supports both new and legacy values)
-const CATEGORY_LABELS = Object.fromEntries(
-  CATEGORIES.map((c) => [c.value, c.label])
-);
+function getStatusLabels(locale) {
+  return {
+    open: t(locale, 'maint_statusOpen'),
+    'in-progress': t(locale, 'maint_statusInProgress'),
+    done: t(locale, 'maint_statusDone'),
+  };
+}
 
 // ─── Request history ──────────────────────────────────────────────────────────
 function RequestHistory() {
+  const { locale } = useLocale();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -254,9 +260,14 @@ function RequestHistory() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
+  const categoryLabels = Object.fromEntries(
+    getCategories(locale).map((c) => [c.value, c.label])
+  );
+  const statusLabels = getStatusLabels(locale);
+
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-sm font-bold text-gray-900">Your Requests</h3>
+      <h3 className="text-sm font-bold text-gray-900">{t(locale, 'maint_yourRequests')}</h3>
       {requests.map((req) => {
         const status = req.status || 'open';
         return (
@@ -266,11 +277,11 @@ function RequestHistory() {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500">{CATEGORY_LABELS[req.category] || req.category}</span>
+                <span className="text-xs font-medium text-gray-500">{categoryLabels[req.category] || req.category}</span>
                 <span className="text-xs text-gray-300">{formatDate(req.createdAt)}</span>
               </div>
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[status] || 'bg-gray-100 text-gray-500'}`}>
-                {STATUS_LABELS[status] || status}
+                {statusLabels[status] || status}
               </span>
             </div>
             <p className="text-sm text-gray-700 line-clamp-2">{req.description}</p>
@@ -279,13 +290,13 @@ function RequestHistory() {
               <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs space-y-1">
                 {req.guestResponse && (
                   <p className="text-green-800">
-                    <span className="font-medium">Staff: </span>
+                    <span className="font-medium">{t(locale, 'maint_staffLabel')} </span>
                     {req.guestResponse}
                   </p>
                 )}
                 {req.estimatedTime && (
                   <p className="text-green-700">
-                    <span className="font-medium">ETA: </span>
+                    <span className="font-medium">{t(locale, 'maint_etaLabel')} </span>
                     {req.estimatedTime}
                   </p>
                 )}
@@ -300,6 +311,7 @@ function RequestHistory() {
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function MaintenanceForm({ code }) {
+  const { locale } = useLocale();
   const [category, setCategory] = useState('');
   const [urgency, setUrgency] = useState('medium');
   const [description, setDescription] = useState('');
@@ -368,11 +380,11 @@ export default function MaintenanceForm({ code }) {
     setError(null);
 
     if (!category) {
-      setError('Please select a category.');
+      setError(t(locale, 'maint_errorCategory'));
       return;
     }
     if (!description.trim()) {
-      setError('Please describe the issue.');
+      setError(t(locale, 'maint_errorDescription'));
       return;
     }
 
@@ -412,7 +424,7 @@ export default function MaintenanceForm({ code }) {
       setSubmitted(true);
     } catch (err) {
       console.error('Maintenance form error:', err);
-      setError('Something went wrong. Please try again.');
+      setError(t(locale, 'maint_errorGeneric'));
     } finally {
       setUploading(false);
       setSubmitting(false);
@@ -426,14 +438,14 @@ export default function MaintenanceForm({ code }) {
       <div className="flex flex-col gap-4">
         <div>
           <h2 className="text-base font-bold text-gray-900">
-            Maintenance Request
+            {t(locale, 'maint_title')}
           </h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Something not working? Let us know and we&apos;ll take care of it.
+            {t(locale, 'maint_subtitle')}
           </p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <SuccessView onReset={handleReset} />
+          <SuccessView onReset={handleReset} locale={locale} />
         </div>
         <RequestHistory />
       </div>
@@ -445,10 +457,10 @@ export default function MaintenanceForm({ code }) {
       {/* Header */}
       <div>
         <h2 className="text-base font-bold text-gray-900">
-          Maintenance Request
+          {t(locale, 'maint_title')}
         </h2>
         <p className="text-sm text-gray-500 mt-0.5">
-          Something not working? Let us know and we&apos;ll take care of it.
+          {t(locale, 'maint_subtitle')}
         </p>
       </div>
 
@@ -459,24 +471,25 @@ export default function MaintenanceForm({ code }) {
         {/* Category selector */}
         <div className="flex flex-col gap-1.5">
           <p className="text-sm font-semibold text-gray-700">
-            What is the issue?{' '}
+            {t(locale, 'maint_whatIsIssue')}{' '}
             <span className="text-red-500" aria-hidden="true">*</span>
           </p>
           <CategoryPicker
             value={category}
             onChange={(v) => { setCategory(v); setError(null); }}
             disabled={isLoading}
+            locale={locale}
           />
         </div>
 
         {/* Urgency radio buttons */}
         <fieldset className="flex flex-col gap-1.5">
           <legend className="text-sm font-semibold text-gray-700 mb-1">
-            Urgency{' '}
+            {t(locale, 'maint_urgency')}{' '}
             <span className="text-red-500" aria-hidden="true">*</span>
           </legend>
           <div className="grid grid-cols-3 gap-2">
-            {URGENCIES.map((u) => {
+            {getUrgencies(locale).map((u) => {
               const isSelected = urgency === u.value;
               return (
                 <label
@@ -519,7 +532,7 @@ export default function MaintenanceForm({ code }) {
             htmlFor="description"
             className="text-sm font-semibold text-gray-700"
           >
-            Description{' '}
+            {t(locale, 'maint_description')}{' '}
             <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <textarea
@@ -528,7 +541,7 @@ export default function MaintenanceForm({ code }) {
             onChange={(e) => setDescription(e.target.value)}
             disabled={isLoading}
             rows={4}
-            placeholder="Describe the issue in detail — what happened, where it is, when it started"
+            placeholder={t(locale, 'maint_descriptionPlaceholder')}
             required
             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition resize-none disabled:opacity-50 disabled:bg-gray-50"
           />
@@ -537,8 +550,8 @@ export default function MaintenanceForm({ code }) {
         {/* Photo upload (optional) */}
         <div className="flex flex-col gap-2">
           <label className="text-sm font-semibold text-gray-700">
-            Photo{' '}
-            <span className="text-gray-400 font-normal">(optional)</span>
+            {t(locale, 'maint_photo')}{' '}
+            <span className="text-gray-400 font-normal">{t(locale, 'maint_photoOptional')}</span>
           </label>
 
           {photoPreview ? (
@@ -570,7 +583,7 @@ export default function MaintenanceForm({ code }) {
                 <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-3 py-2">
                   <ProgressBar progress={uploadProgress} />
                   <p className="text-xs text-white mt-1 text-center">
-                    Uploading... {uploadProgress}%
+                    {t(locale, 'maint_uploading')} {uploadProgress}%
                   </p>
                 </div>
               )}
@@ -602,7 +615,7 @@ export default function MaintenanceForm({ code }) {
                   d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"
                 />
               </svg>
-              <span className="text-sm font-medium">Add a photo</span>
+              <span className="text-sm font-medium">{t(locale, 'maint_addPhoto')}</span>
             </button>
           )}
 
@@ -630,7 +643,7 @@ export default function MaintenanceForm({ code }) {
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
           </svg>
           <p className="text-xs text-coqui-800 leading-snug">
-            Your request goes to your host and co-host. They&apos;ll reach out with next steps or coordinate a fix directly.
+            {t(locale, 'maint_infoWhoReceives')}
           </p>
         </div>
 
@@ -663,10 +676,10 @@ export default function MaintenanceForm({ code }) {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                 />
               </svg>
-              {uploading ? 'Uploading photo...' : 'Submitting...'}
+              {uploading ? t(locale, 'maint_uploading') : t(locale, 'maint_submitting')}
             </>
           ) : (
-            'Submit Request'
+            t(locale, 'maint_submitRequest')
           )}
         </button>
       </form>

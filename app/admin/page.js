@@ -6,11 +6,13 @@ import { where, orderBy } from 'firebase/firestore';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
 import { auth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 const LAUNDRY_STATUSES = [
-  { key: 'available', label: 'Available', color: 'bg-coqui-100 text-coqui-700', active: 'bg-coqui-600 text-white' },
-  { key: 'in_use', label: 'In Use', color: 'bg-atardecer-100 text-atardecer-700', active: 'bg-atardecer-500 text-white' },
-  { key: 'needs_attention', label: 'Needs Attention', color: 'bg-flamboyan-100 text-flamboyan-600', active: 'bg-flamboyan-500 text-white' },
+  { key: 'available', labelKey: 'admin_dash_laundryAvailable', color: 'bg-coqui-100 text-coqui-700', active: 'bg-coqui-600 text-white' },
+  { key: 'in_use', labelKey: 'admin_dash_laundryInUse', color: 'bg-atardecer-100 text-atardecer-700', active: 'bg-atardecer-500 text-white' },
+  { key: 'needs_attention', labelKey: 'admin_dash_laundryNeedsAttention', color: 'bg-flamboyan-100 text-flamboyan-600', active: 'bg-flamboyan-500 text-white' },
 ];
 
 const UNIT_COLORS = {
@@ -26,6 +28,7 @@ function laundryStatusColor(status) {
 }
 
 function LaundryMachineCard({ machineId, label }) {
+  const { locale } = useLocale();
   const { data, loading } = useDocument('laundry', machineId);
   const [actionLoading, setActionLoading] = useState(false);
   const [countdown, setCountdown] = useState(null);
@@ -44,19 +47,23 @@ function LaundryMachineCard({ machineId, label }) {
     function tick() {
       const msLeft = new Date(sessionExpiresAt).getTime() - Date.now();
       if (msLeft <= 0) {
-        setCountdown('Expired');
+        setCountdown(t(locale, 'admin_dash_expired'));
         return;
       }
       const totalMinutes = Math.floor(msLeft / 60000);
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
-      setCountdown(hours > 0 ? `${hours}h ${minutes}m left` : `${minutes}m left`);
+      setCountdown(
+        hours > 0
+          ? t(locale, 'admin_dash_hLeft').replace('{h}', hours).replace('{m}', minutes)
+          : t(locale, 'admin_dash_mLeft').replace('{m}', minutes)
+      );
     }
 
     tick();
     const interval = setInterval(tick, 30000);
     return () => clearInterval(interval);
-  }, [currentStatus, sessionExpiresAt]);
+  }, [currentStatus, sessionExpiresAt, locale]);
 
   async function callApi(endpoint, body) {
     setActionLoading(true);
@@ -99,6 +106,8 @@ function LaundryMachineCard({ machineId, label }) {
     }
   }
 
+  const currentStatusEntry = LAUNDRY_STATUSES.find((s) => s.key === currentStatus);
+
   return (
     <div className="bg-white rounded-xl shadow-brand p-4 border border-cafe-100">
       <div className="flex items-center justify-between mb-3">
@@ -107,10 +116,10 @@ function LaundryMachineCard({ machineId, label }) {
           <div className="h-5 w-20 animate-admin-shimmer rounded-full" />
         ) : currentStatus ? (
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${laundryStatusColor(currentStatus)}`}>
-            {LAUNDRY_STATUSES.find((s) => s.key === currentStatus)?.label || currentStatus}
+            {currentStatusEntry ? t(locale, currentStatusEntry.labelKey) : currentStatus}
           </span>
         ) : (
-          <span className="text-xs text-coqui-800/50">No status</span>
+          <span className="text-xs text-coqui-800/50">{t(locale, 'admin_noStatus')}</span>
         )}
       </div>
 
@@ -143,7 +152,7 @@ function LaundryMachineCard({ machineId, label }) {
             {actionLoading && currentStatus !== s.key ? (
               <span className="inline-block w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
             ) : (
-              s.label
+              t(locale, s.labelKey)
             )}
           </button>
         ))}
@@ -183,10 +192,10 @@ function StatusBadge({ status }) {
   );
 }
 
-function formatDate(dateStr) {
+function formatDate(dateStr, locale) {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return d.toLocaleDateString(locale === 'es' ? 'es' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function AdminDashboard() {
@@ -201,6 +210,7 @@ export default function AdminDashboard() {
 
 function CohostDashboard() {
   const { user } = useAuth();
+  const { locale } = useLocale();
   const [stays, setStays] = useState([]);
   const [staysLoading, setStaysLoading] = useState(true);
 
@@ -231,23 +241,23 @@ function CohostDashboard() {
   return (
     <div className="px-4 pt-5 pb-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="font-display text-2xl text-coqui-900">Operations</h1>
+        <h1 className="font-display text-2xl text-coqui-900">{t(locale, 'admin_dash_opsTitle')}</h1>
         <p className="text-sm text-coqui-800/60 mt-0.5">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          {new Date().toLocaleDateString(locale === 'es' ? 'es' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
       </div>
 
       {/* Operations stats */}
       <div className="grid grid-cols-2 gap-3">
         <StatsCard
-          label="Active Stays"
+          label={t(locale, 'admin_dash_activeStays')}
           value={stays.length}
           accent="text-coqui-600"
           loading={staysLoading}
           bgTint="bg-coqui-50 border-coqui-100"
         />
         <StatsCard
-          label="Open Tasks"
+          label={t(locale, 'admin_dash_openTasks')}
           value={openTasks.length}
           accent={openTasks.length > 0 ? 'text-atardecer-600' : 'text-coqui-900'}
           loading={tasksLoading}
@@ -258,7 +268,7 @@ function CohostDashboard() {
       {/* Quick actions for co-host */}
       <div>
         <h2 className="text-xs font-bold uppercase tracking-widest text-coqui-700 mb-3">
-          Quick Actions
+          {t(locale, 'admin_dash_quickActions')}
         </h2>
         <div className="grid grid-cols-3 gap-3">
           <Link
@@ -271,7 +281,7 @@ function CohostDashboard() {
               </svg>
             </span>
             <span className="text-xs font-medium text-coqui-900 text-center leading-tight">
-              My Tasks
+              {t(locale, 'admin_dash_myTasks')}
             </span>
           </Link>
           <Link
@@ -284,7 +294,7 @@ function CohostDashboard() {
               </svg>
             </span>
             <span className="text-xs font-medium text-coqui-900 text-center leading-tight">
-              Community
+              {t(locale, 'admin_dash_community')}
             </span>
           </Link>
           <Link
@@ -297,7 +307,7 @@ function CohostDashboard() {
               </svg>
             </span>
             <span className="text-xs font-medium text-coqui-900 text-center leading-tight">
-              Calendar
+              {t(locale, 'admin_dash_calendar')}
             </span>
           </Link>
         </div>
@@ -307,10 +317,10 @@ function CohostDashboard() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs font-bold uppercase tracking-widest text-coqui-700">
-            Active Stays
+            {t(locale, 'admin_dash_activeStays')}
           </h2>
           <Link href="/admin/stays" className="text-xs text-coqui-600 font-medium min-h-[44px] flex items-center">
-            View all
+            {t(locale, 'admin_viewAll')}
           </Link>
         </div>
 
@@ -328,7 +338,7 @@ function CohostDashboard() {
           </div>
         ) : stays.length === 0 ? (
           <div className="bg-white rounded-xl shadow-brand p-8 text-center border border-cafe-100">
-            <p className="text-coqui-800/50 text-sm">No active stays</p>
+            <p className="text-coqui-800/50 text-sm">{t(locale, 'admin_dash_noActiveStays')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -355,7 +365,7 @@ function CohostDashboard() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         <span>
-                          {formatDate(stay.checkInDate)} — {formatDate(stay.checkOutDate)}
+                          {formatDate(stay.checkInDate, locale)} — {formatDate(stay.checkOutDate, locale)}
                         </span>
                       </div>
                     </div>
@@ -370,11 +380,11 @@ function CohostDashboard() {
       {/* Laundry Status */}
       <div>
         <h2 className="text-xs font-bold uppercase tracking-widest text-coqui-700 mb-3">
-          Laundry Status
+          {t(locale, 'admin_dash_laundryStatus')}
         </h2>
         <div className="space-y-3">
-          <LaundryMachineCard machineId="washer" label="Washer" />
-          <LaundryMachineCard machineId="dryer" label="Dryer" />
+          <LaundryMachineCard machineId="washer" label={t(locale, 'admin_dash_washer')} />
+          <LaundryMachineCard machineId="dryer" label={t(locale, 'admin_dash_dryer')} />
         </div>
       </div>
     </div>
@@ -382,6 +392,8 @@ function CohostDashboard() {
 }
 
 function FullAdminDashboard() {
+  const { locale } = useLocale();
+
   const {
     data: activeBookings,
     loading: bookingsLoading,
@@ -428,37 +440,37 @@ function FullAdminDashboard() {
     <div className="px-4 pt-5 pb-6 max-w-2xl mx-auto space-y-6">
       {/* Page title */}
       <div>
-        <h1 className="font-display text-2xl text-coqui-900">Dashboard</h1>
+        <h1 className="font-display text-2xl text-coqui-900">{t(locale, 'admin_dash_title')}</h1>
         <p className="text-sm text-coqui-800/60 mt-0.5">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          {new Date().toLocaleDateString(locale === 'es' ? 'es' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
       </div>
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 gap-3">
         <StatsCard
-          label="Active Bookings"
+          label={t(locale, 'admin_dash_activeBookings')}
           value={activeBookings.length}
           accent="text-coqui-600"
           loading={bookingsLoading}
           bgTint="bg-coqui-50 border-coqui-100"
         />
         <StatsCard
-          label="Pending Check-ins"
+          label={t(locale, 'admin_dash_pendingCheckins')}
           value={pendingCheckIns.length}
           accent={pendingCheckIns.length > 0 ? 'text-atardecer-600' : 'text-coqui-900'}
           loading={bookingsLoading}
           bgTint="bg-atardecer-50 border-atardecer-100"
         />
         <StatsCard
-          label="Open Tasks"
+          label={t(locale, 'admin_dash_openTasks')}
           value={openTasks.length}
           accent={openTasks.length > 0 ? 'text-flamboyan-600' : 'text-coqui-900'}
           loading={tasksLoading}
           bgTint="bg-flamboyan-50 border-flamboyan-100"
         />
         <StatsCard
-          label="Monthly Revenue"
+          label={t(locale, 'admin_dash_monthlyRevenue')}
           value={
             revenueLoading
               ? '...'
@@ -473,7 +485,7 @@ function FullAdminDashboard() {
       {/* Quick Actions — Send Alert first (most frequent), then Calendar, then Create Booking */}
       <div>
         <h2 className="text-xs font-bold uppercase tracking-widest text-coqui-700 mb-3">
-          Quick Actions
+          {t(locale, 'admin_dash_quickActions')}
         </h2>
         <div className="grid grid-cols-3 gap-3">
           <Link
@@ -486,7 +498,7 @@ function FullAdminDashboard() {
               </svg>
             </span>
             <span className="text-xs font-medium text-coqui-900 text-center leading-tight">
-              Send Alert
+              {t(locale, 'admin_dash_sendAlert')}
             </span>
           </Link>
           <Link
@@ -499,7 +511,7 @@ function FullAdminDashboard() {
               </svg>
             </span>
             <span className="text-xs font-medium text-coqui-900 text-center leading-tight">
-              Calendar
+              {t(locale, 'admin_dash_calendar')}
             </span>
           </Link>
           <Link
@@ -512,7 +524,7 @@ function FullAdminDashboard() {
               </svg>
             </span>
             <span className="text-xs font-medium text-coqui-900 text-center leading-tight">
-              Create Booking
+              {t(locale, 'admin_dash_createBooking')}
             </span>
           </Link>
         </div>
@@ -522,10 +534,10 @@ function FullAdminDashboard() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs font-bold uppercase tracking-widest text-coqui-700">
-            Current Guests
+            {t(locale, 'admin_dash_currentGuests')}
           </h2>
           <Link href="/admin/bookings" className="text-xs text-coqui-600 font-medium min-h-[44px] flex items-center">
-            View all
+            {t(locale, 'admin_viewAll')}
           </Link>
         </div>
 
@@ -543,9 +555,9 @@ function FullAdminDashboard() {
           </div>
         ) : currentGuests.length === 0 ? (
           <div className="bg-white rounded-xl shadow-brand p-8 text-center border border-cafe-100">
-            <p className="text-coqui-800/50 text-sm">No active bookings</p>
+            <p className="text-coqui-800/50 text-sm">{t(locale, 'admin_dash_noActiveBookings')}</p>
             <Link href="/admin/bookings" className="text-coqui-600 text-sm font-medium mt-1 inline-block">
-              Create one
+              {t(locale, 'admin_dash_createOne')}
             </Link>
           </div>
         ) : (
@@ -560,7 +572,7 @@ function FullAdminDashboard() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="font-semibold text-coqui-900 text-sm truncate">
-                            {booking.guestName || 'Awaiting check-in'}
+                            {booking.guestName || t(locale, 'admin_dash_awaitingCheckin')}
                           </p>
                           <p className={`text-xs mt-0.5 font-medium ${unitColor.text}`}>
                             {booking.unit}
@@ -573,7 +585,7 @@ function FullAdminDashboard() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         <span>
-                          {formatDate(booking.checkInDate)} — {formatDate(booking.checkOutDate)}
+                          {formatDate(booking.checkInDate, locale)} — {formatDate(booking.checkOutDate, locale)}
                         </span>
                       </div>
                     </div>
@@ -588,11 +600,11 @@ function FullAdminDashboard() {
       {/* Laundry Status */}
       <div>
         <h2 className="text-xs font-bold uppercase tracking-widest text-coqui-700 mb-3">
-          Laundry Status
+          {t(locale, 'admin_dash_laundryStatus')}
         </h2>
         <div className="space-y-3">
-          <LaundryMachineCard machineId="washer" label="Washer" />
-          <LaundryMachineCard machineId="dryer" label="Dryer" />
+          <LaundryMachineCard machineId="washer" label={t(locale, 'admin_dash_washer')} />
+          <LaundryMachineCard machineId="dryer" label={t(locale, 'admin_dash_dryer')} />
         </div>
       </div>
     </div>

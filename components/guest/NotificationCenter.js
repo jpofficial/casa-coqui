@@ -7,6 +7,8 @@ import useNotifications from '@/hooks/useNotifications';
 import usePush from '@/hooks/usePush';
 import { detectPlatform, isStandalone } from '@/lib/platform';
 import NotificationItem from '@/components/guest/NotificationItem';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 // ─── Skeleton row ─────────────────────────────────────────────────────────────
 function SkeletonRow() {
@@ -50,6 +52,7 @@ export default function NotificationCenter({ code, bookingCode }) {
     useNotifications({ bookingCode: bc });
   const { permission, requestPermission, supported, pushCapable } = usePush({ bookingCode: bc });
   const [enabling, setEnabling] = useState(false);
+  const { locale } = useLocale();
 
   const platform = detectPlatform();
   const sa = isStandalone();
@@ -84,10 +87,10 @@ export default function NotificationCenter({ code, bookingCode }) {
       {/* Page header */}
       <div className="px-4 pt-5 pb-3 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Notifications</h1>
+          <h1 className="text-xl font-bold text-gray-900">{t(locale, 'notif_title')}</h1>
           {!loading && unreadCount > 0 && (
             <p className="text-xs text-green-600 font-medium mt-0.5">
-              {unreadCount} unread
+              {t(locale, 'notif_unread').replace('{count}', unreadCount)}
             </p>
           )}
         </div>
@@ -98,7 +101,7 @@ export default function NotificationCenter({ code, bookingCode }) {
               className="text-xs font-semibold text-green-600 hover:text-green-700
                 active:text-green-800 transition px-2 py-1 rounded-lg hover:bg-green-50"
             >
-              Mark all read
+              {t(locale, 'notif_markAllRead')}
             </button>
           )}
           <Link
@@ -122,6 +125,7 @@ export default function NotificationCenter({ code, bookingCode }) {
         iosNotInstalled={iosNotInstalled}
         platform={platform}
         enabling={enabling}
+        locale={locale}
         settingsHref={`/g/${code}/notification-settings`}
         onEnable={async () => {
           setEnabling(true);
@@ -137,7 +141,7 @@ export default function NotificationCenter({ code, bookingCode }) {
             {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
           </>
         ) : notifications.length === 0 ? (
-          <EmptyState />
+          <EmptyState locale={locale} />
         ) : (
           notifications.map((n) => (
             <NotificationItem
@@ -145,6 +149,7 @@ export default function NotificationCenter({ code, bookingCode }) {
               notification={n}
               isRead={isRead(n)}
               onPress={() => handlePress(n)}
+              locale={locale}
             />
           ))
         )}
@@ -153,7 +158,9 @@ export default function NotificationCenter({ code, bookingCode }) {
       {/* Footer note */}
       {!loading && notifications.length > 0 && (
         <p className="text-xs text-gray-400 text-center mt-4 pb-2">
-          Showing the last {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
+          {notifications.length === 1
+            ? t(locale, 'notif_showingLastSingular')
+            : t(locale, 'notif_showingLast').replace('{count}', notifications.length)}
         </p>
       )}
     </div>
@@ -163,7 +170,7 @@ export default function NotificationCenter({ code, bookingCode }) {
 // ─── Push permission status card ─────────────────────────────────────────────
 function PushStatusCard({
   permission, supported, pushCapable,
-  iosNotInstalled, platform, enabling, settingsHref, onEnable,
+  iosNotInstalled, platform, enabling, settingsHref, onEnable, locale,
 }) {
   if (iosNotInstalled) {
     return (
@@ -174,8 +181,8 @@ function PushStatusCard({
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-amber-900">Install the app for push notifications</p>
-          <p className="text-xs text-amber-700 mt-0.5">Tap the Share button in Safari, then &ldquo;Add to Home Screen.&rdquo;</p>
+          <p className="text-sm font-semibold text-amber-900">{t(locale, 'push_iosInstallTitle')}</p>
+          <p className="text-xs text-amber-700 mt-0.5">{t(locale, 'push_iosInstallDesc')}</p>
         </div>
       </div>
     );
@@ -192,9 +199,9 @@ function PushStatusCard({
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-700">Notifications blocked</p>
+          <p className="text-sm font-semibold text-gray-700">{t(locale, 'push_blocked')}</p>
           <p className="text-xs text-gray-500 mt-0.5">
-            Re-enable in Settings &rarr; {platform === 'ios' ? 'Safari' : 'Chrome'} &rarr; Notifications.
+            {t(locale, 'push_blockedDesc').replace('{browser}', platform === 'ios' ? 'Safari' : 'Chrome')}
           </p>
         </div>
       </div>
@@ -209,12 +216,12 @@ function PushStatusCard({
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
         </div>
-        <p className="text-sm font-medium text-green-800 flex-1">Push enabled</p>
+        <p className="text-sm font-medium text-green-800 flex-1">{t(locale, 'push_enabled')}</p>
         <Link
           href={settingsHref}
           className="text-xs font-semibold text-green-600 hover:text-green-700 transition whitespace-nowrap"
         >
-          Settings
+          {t(locale, 'notif_settings')}
         </Link>
       </div>
     );
@@ -229,8 +236,8 @@ function PushStatusCard({
         </svg>
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-900">Enable push notifications</p>
-        <p className="text-xs text-gray-500 mt-0.5">Get instant alerts for parking, laundry, and host messages.</p>
+        <p className="text-sm font-semibold text-gray-900">{t(locale, 'push_enableNotifications')}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{t(locale, 'push_enableDesc')}</p>
       </div>
       <button
         onClick={onEnable}
@@ -238,14 +245,14 @@ function PushStatusCard({
         className="text-xs font-semibold bg-green-600 text-white px-3 py-1.5 rounded-lg
           hover:bg-green-700 active:bg-green-800 transition disabled:opacity-60 whitespace-nowrap flex-shrink-0"
       >
-        {enabling ? 'Enabling...' : 'Enable'}
+        {enabling ? t(locale, 'push_enabling') : t(locale, 'push_enable')}
       </button>
     </div>
   );
 }
 
 // ─── Empty state ─────────────────────────────────────────────────────────────
-function EmptyState() {
+function EmptyState({ locale }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
       <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
@@ -253,9 +260,9 @@ function EmptyState() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
         </svg>
       </div>
-      <h3 className="text-base font-semibold text-gray-700 mb-1">All clear</h3>
+      <h3 className="text-base font-semibold text-gray-700 mb-1">{t(locale, 'notif_emptyTitle')}</h3>
       <p className="text-sm text-gray-400 max-w-xs">
-        No notifications yet. We&apos;ll alert you about parking, laundry availability, and host announcements here.
+        {t(locale, 'notif_emptyDesc')}
       </p>
     </div>
   );

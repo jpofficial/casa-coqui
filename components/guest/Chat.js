@@ -14,12 +14,14 @@ import {
 } from 'firebase/firestore';
 import { db, auth as firebaseAuth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 // ─── Format time from Firestore Timestamp ─────────────────────────────────────
-function formatTime(timestamp) {
+function formatTime(timestamp, locale) {
   if (!timestamp) return '';
   const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
-  return date.toLocaleTimeString('en-US', {
+  return date.toLocaleTimeString(locale === 'es' ? 'es-PR' : 'en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
@@ -27,7 +29,7 @@ function formatTime(timestamp) {
 }
 
 // ─── Date divider ──────────────────────────────────────────────────────────────
-function DateDivider({ timestamp }) {
+function DateDivider({ timestamp, locale }) {
   if (!timestamp) return null;
   const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
   const today = new Date();
@@ -36,11 +38,11 @@ function DateDivider({ timestamp }) {
 
   let label;
   if (date.toDateString() === today.toDateString()) {
-    label = 'Today';
+    label = t(locale, 'chat_today');
   } else if (date.toDateString() === yesterday.toDateString()) {
-    label = 'Yesterday';
+    label = t(locale, 'chat_yesterday');
   } else {
-    label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    label = date.toLocaleDateString(locale === 'es' ? 'es-PR' : 'en-US', { month: 'short', day: 'numeric' });
   }
 
   return (
@@ -53,9 +55,9 @@ function DateDivider({ timestamp }) {
 }
 
 // ─── Message bubble ────────────────────────────────────────────────────────────
-function MessageBubble({ message }) {
+function MessageBubble({ message, locale }) {
   const isGuest = message.sender === 'guest';
-  const timeStr = formatTime(message.createdAt);
+  const timeStr = formatTime(message.createdAt, locale);
 
   return (
     <div className={`flex ${isGuest ? 'justify-end' : 'justify-start'}`}>
@@ -64,7 +66,7 @@ function MessageBubble({ message }) {
       >
         {!isGuest && (
           <span className="text-xs text-gray-500 font-medium px-1 mb-0.5">
-            Host
+            {t(locale, 'chat_host')}
           </span>
         )}
         <div
@@ -102,6 +104,7 @@ function TypingDots() {
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function Chat({ code }) {
   const { user } = useAuth();
+  const { locale } = useLocale();
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
@@ -157,7 +160,7 @@ export default function Chat({ code }) {
       },
       (err) => {
         console.error('Chat listener error:', err);
-        setError('Could not load messages. Please try again.');
+        setError(t(locale, 'chat_errorLoad'));
         setLoading(false);
       }
     );
@@ -220,7 +223,7 @@ export default function Chat({ code }) {
       // Remove the optimistic message and restore input on failure
       setMessages((prev) => prev.filter((m) => m.optimisticKey !== optimisticKey));
       setInputText(text);
-      setError('Message could not be sent. Please try again.');
+      setError(t(locale, 'chat_errorSend'));
     } finally {
       setSending(false);
       inputRef.current?.focus();
@@ -250,9 +253,9 @@ export default function Chat({ code }) {
     return (
       <div className="flex flex-col h-full min-h-0">
         <div className="flex-shrink-0 mb-3">
-          <h2 className="text-base font-bold text-gray-900">Messages</h2>
+          <h2 className="text-base font-bold text-gray-900">{t(locale, 'chat_title')}</h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Direct message your host
+            {t(locale, 'chat_subtitle')}
           </p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 flex flex-col items-center gap-3 text-center">
@@ -262,16 +265,16 @@ export default function Chat({ code }) {
             </svg>
           </div>
           <div>
-            <p className="text-sm font-semibold text-gray-700">Complete check-in to message</p>
+            <p className="text-sm font-semibold text-gray-700">{t(locale, 'chat_requiresCheckin')}</p>
             <p className="text-xs text-gray-400 mt-1">
-              Verify your phone number during check-in to start messaging your host.
+              {t(locale, 'chat_requiresCheckinDesc')}
             </p>
           </div>
           <a
             href={`/g/${code}/checkin`}
             className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-green-600 hover:text-green-700"
           >
-            Go to check-in
+            {t(locale, 'chat_goToCheckin')}
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
               <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
             </svg>
@@ -285,9 +288,9 @@ export default function Chat({ code }) {
     <div className="flex flex-col h-full min-h-0">
       {/* Header */}
       <div className="flex-shrink-0 mb-3">
-        <h2 className="text-base font-bold text-gray-900">Messages</h2>
+        <h2 className="text-base font-bold text-gray-900">{t(locale, 'chat_title')}</h2>
         <p className="text-sm text-gray-500 mt-0.5">
-          Direct message your host
+          {t(locale, 'chat_subtitle')}
         </p>
       </div>
 
@@ -342,10 +345,10 @@ export default function Chat({ code }) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-700">
-                  Start a conversation with your host
+                  {t(locale, 'chat_emptyTitle')}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  Questions, requests, or anything else — we are here to help.
+                  {t(locale, 'chat_emptyDesc')}
                 </p>
               </div>
             </div>
@@ -355,9 +358,9 @@ export default function Chat({ code }) {
             messages.map((message, index) => (
               <div key={message.id}>
                 {shouldShowDateDivider(index) && (
-                  <DateDivider timestamp={message.createdAt} />
+                  <DateDivider timestamp={message.createdAt} locale={locale} />
                 )}
-                <MessageBubble message={message} />
+                <MessageBubble message={message} locale={locale} />
               </div>
             ))}
 
@@ -384,7 +387,7 @@ export default function Chat({ code }) {
               onKeyDown={handleKeyDown}
               disabled={sending}
               rows={1}
-              placeholder="Type a message..."
+              placeholder={t(locale, 'chat_placeholder')}
               aria-label="Message input"
               className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition resize-none disabled:opacity-50 max-h-32 overflow-y-auto"
               style={{ minHeight: '42px' }}
@@ -436,7 +439,7 @@ export default function Chat({ code }) {
             </button>
           </div>
           <p className="text-xs text-gray-400 mt-1.5 px-1">
-            Press Enter to send
+            {t(locale, 'chat_pressEnter')}
           </p>
         </div>
       </div>

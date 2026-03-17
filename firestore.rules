@@ -39,10 +39,10 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      // Staff can update their own status (e.g. pending → active on first login)
-      // and mark onboarding complete
+      // Staff can update their own status (e.g. pending → active on first login),
+      // mark onboarding complete, and sync locale preference
       allow update: if isAuthenticated() && request.auth.uid == userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'onboardingComplete']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'onboardingComplete', 'locale']);
       allow write: if isAdmin();
     }
 
@@ -162,7 +162,9 @@ service cloud.firestore {
         isStaff() &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'notes', 'estimatedTime', 'guestResponse',
-                    'respondedAt', 'respondedBy', 'acknowledgedAt', 'acknowledgedBy', 'updatedAt'])
+                    'respondedAt', 'respondedBy', 'acknowledgedAt', 'acknowledgedBy',
+                    'completedAt', 'completedBy', 'archivedAt', 'archivedBy',
+                    'deletedAt', 'deletedBy', 'updatedAt'])
       );
       allow delete: if isAdmin();
     }
@@ -296,7 +298,8 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'completionNote', 'completedAt', 'updatedAt',
                     'guestResponse', 'estimatedTime', 'respondedAt', 'respondedBy',
-                    'assigneeId', 'assigneeName', 'assigneeRole'])
+                    'assigneeId', 'assigneeName', 'assigneeRole',
+                    'assigneeAckedAt', 'assigneeAckedBy'])
       );
       allow delete: if isAdmin();
     }

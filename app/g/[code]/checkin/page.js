@@ -7,6 +7,8 @@ import { signInAnonymously } from 'firebase/auth';
 import { auth as firebaseAuth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 // ─── Field component ───────────────────────────────────────────────────────────
 function Field({ label, error, children }) {
@@ -47,6 +49,7 @@ export default function CheckInPage({ params }) {
   const code = params.code;
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { locale } = useLocale();
 
   const [form, setForm] = useState({
     fullName: '',
@@ -101,13 +104,13 @@ export default function CheckInPage({ params }) {
 
   function validate() {
     const e = {};
-    if (!form.fullName.trim()) e.fullName = 'Full name is required.';
+    if (!form.fullName.trim()) e.fullName = t(locale, 'errorFullName');
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      e.email = 'A valid email address is required.';
+      e.email = t(locale, 'errorEmail');
     }
-    if (!form.arrivalTime) e.arrivalTime = 'Please select an expected arrival time.';
+    if (!form.arrivalTime) e.arrivalTime = t(locale, 'errorArrival');
     const count = parseInt(form.guestCount, 10);
-    if (!count || count < 1 || count > 20) e.guestCount = 'Enter a number between 1 and 20.';
+    if (!count || count < 1 || count > 20) e.guestCount = t(locale, 'errorGuestCount');
     return e;
   }
 
@@ -143,7 +146,7 @@ export default function CheckInPage({ params }) {
       });
       const json = await res.json();
       if (!json.success) {
-        setErrors({ submit: json.error || 'Something went wrong. Please try again.' });
+        setErrors({ submit: json.error || t(locale, 'errorGeneric') });
         return;
       }
 
@@ -169,7 +172,7 @@ export default function CheckInPage({ params }) {
       router.push(`/g/${code}/setup`);
     } catch (err) {
       console.error('Submit error:', err);
-      setErrors({ submit: 'Something went wrong. Please try again.' });
+      setErrors({ submit: t(locale, 'errorGeneric') });
     } finally {
       setLoading(false);
     }
@@ -177,10 +180,10 @@ export default function CheckInPage({ params }) {
 
   // Arrival window options
   const arrivalWindows = [
-    { value: 'afternoon_early', label: '3:00 \u2013 5:00 PM' },
-    { value: 'afternoon_late',  label: '5:00 \u2013 8:00 PM' },
-    { value: 'evening',         label: 'After 8:00 PM' },
-    { value: 'undecided',       label: 'Not sure yet' },
+    { value: 'afternoon_early', label: t(locale, 'arrivalEarly') },
+    { value: 'afternoon_late',  label: t(locale, 'arrivalLate') },
+    { value: 'evening',         label: t(locale, 'arrivalEvening') },
+    { value: 'undecided',       label: t(locale, 'arrivalUndecided') },
   ];
 
   // Wait for anonymous auth to complete
@@ -189,7 +192,7 @@ export default function CheckInPage({ params }) {
       <div className="px-4 py-12 flex flex-col items-center gap-4">
         {authError ? (
           <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 max-w-sm text-center">
-            <p className="text-sm font-medium text-red-800 mb-1">Unable to load check-in</p>
+            <p className="text-sm font-medium text-red-800 mb-1">{t(locale, 'unableToLoad')}</p>
             <p className="text-xs text-red-600">{authError}</p>
           </div>
         ) : (
@@ -204,13 +207,13 @@ export default function CheckInPage({ params }) {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-50 p-5">
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           <div className="text-center mb-1">
-            <h2 className="text-lg font-bold text-gray-900">Welcome to Casa Coqui</h2>
+            <h2 className="text-lg font-bold text-gray-900">{t(locale, 'checkinWelcome')}</h2>
             <p className="text-sm text-gray-500 mt-1">
-              Fill in a few quick details to get started.
+              {t(locale, 'checkinSubtitle')}
             </p>
           </div>
 
-          <Field label="Full name" error={errors.fullName}>
+          <Field label={t(locale, 'fullName')} error={errors.fullName}>
             <Input
               type="text"
               placeholder="Jane Smith"
@@ -221,7 +224,7 @@ export default function CheckInPage({ params }) {
             />
           </Field>
 
-          <Field label="Email address" error={errors.email}>
+          <Field label={t(locale, 'emailAddress')} error={errors.email}>
             <Input
               type="email"
               placeholder="jane@example.com"
@@ -232,7 +235,7 @@ export default function CheckInPage({ params }) {
             />
           </Field>
 
-          <Field label="When do you plan to arrive?" error={errors.arrivalTime}>
+          <Field label={t(locale, 'arrivalQuestion')} error={errors.arrivalTime}>
             <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Arrival time window">
               {arrivalWindows.map(({ value, label }) => {
                 const selected = form.arrivalTime === value;
@@ -273,7 +276,7 @@ export default function CheckInPage({ params }) {
             </div>
           </Field>
 
-          <Field label="Number of guests (including yourself)" error={errors.guestCount}>
+          <Field label={t(locale, 'guestCount')} error={errors.guestCount}>
             <Input
               type="number"
               min={1}
@@ -286,9 +289,9 @@ export default function CheckInPage({ params }) {
             />
           </Field>
 
-          <Field label="Special requests (optional)">
+          <Field label={t(locale, 'specialRequests')}>
             <Textarea
-              placeholder="Early check-in, accessibility needs, or anything else we should know..."
+              placeholder={t(locale, 'specialRequestsPlaceholder')}
               value={form.specialRequests}
               onChange={(e) => set('specialRequests', e.target.value)}
             />
@@ -304,7 +307,7 @@ export default function CheckInPage({ params }) {
             className="w-full py-3.5 rounded-xl bg-green-600 text-white font-semibold text-sm mt-1
               hover:bg-green-700 active:bg-green-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {loading ? 'Saving...' : 'Complete Check-In'}
+            {loading ? t(locale, 'saving') : t(locale, 'completeCheckInBtn')}
           </button>
         </form>
       </div>

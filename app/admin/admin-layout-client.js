@@ -10,6 +10,11 @@ import usePush from '@/hooks/usePush';
 import useStaffNotifications from '@/hooks/useStaffNotifications';
 import ForegroundToast from '@/components/guest/ForegroundToast';
 import StaffNotificationBell from '@/components/admin/StaffNotificationBell';
+import { LocaleProvider } from '@/hooks/useLocale';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 function AdminLayoutInner({ children }) {
   const { user, loading, role, isStaff, needsOnboarding, signOut } = useAuth();
@@ -17,6 +22,7 @@ function AdminLayoutInner({ children }) {
   const pathname = usePathname();
   const { permission: pushPermission, requestPermission, supported: pushSupported, foregroundMsg } = usePush({ staffId: user?.uid });
   const { unreadCount } = useStaffNotifications({ staffId: user?.uid });
+  const { locale, setLocale } = useLocale();
 
   const isLoginPage = pathname === '/admin/login';
   const isGettingStartedPage = pathname === '/admin/getting-started';
@@ -72,6 +78,14 @@ function AdminLayoutInner({ children }) {
     }
   }, [loading, isStaff, role, router, isLoginPage, pathname, needsOnboarding, isGettingStartedPage]);
 
+  // Sync locale to Firestore for server-side notification localization.
+  useEffect(() => {
+    if (!user?.uid || !locale) return;
+    setDoc(doc(db, 'users', user.uid), { locale }, { merge: true }).catch((err) => {
+      console.error('[AdminLayout] Locale sync error:', err.message);
+    });
+  }, [locale, user?.uid]);
+
   // Close More menu when clicking outside
   useEffect(() => {
     if (!moreOpen) return;
@@ -103,7 +117,7 @@ function AdminLayoutInner({ children }) {
       <div className="min-h-screen bg-cafe-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-coqui-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-coqui-800/60">Loading...</p>
+          <p className="text-sm text-coqui-800/60">{t(locale, 'admin_loading')}</p>
         </div>
       </div>
     );
@@ -121,8 +135,8 @@ function AdminLayoutInner({ children }) {
   // Cleaner and Maintenance get a simplified shell
   if (role === 'cleaner' || role === 'maintenance') {
     const badgeConfig = {
-      cleaner: { label: 'Cleaning', bg: 'bg-atardecer-100', text: 'text-atardecer-800' },
-      maintenance: { label: 'Maintenance', bg: 'bg-flamboyan-100', text: 'text-flamboyan-800' },
+      cleaner: { label: t(locale, 'admin_badge_cleaning'), bg: 'bg-atardecer-100', text: 'text-atardecer-800' },
+      maintenance: { label: t(locale, 'admin_badge_maintenance'), bg: 'bg-flamboyan-100', text: 'text-flamboyan-800' },
     };
     const badge = badgeConfig[role];
     return (
@@ -138,6 +152,14 @@ function AdminLayoutInner({ children }) {
             </span>
           </div>
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setLocale(locale === 'en' ? 'es' : 'en')}
+              className="text-xs font-bold text-coqui-700 bg-coqui-50 border border-coqui-200 px-2.5 py-1 rounded-full
+                hover:bg-coqui-100 active:bg-coqui-200 transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="Toggle language"
+            >
+              {t(locale, 'admin_language')}
+            </button>
             <StaffNotificationBell unreadCount={unreadCount} />
             <button
               onClick={handleSignOut}
@@ -146,7 +168,7 @@ function AdminLayoutInner({ children }) {
               <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
               </svg>
-              Sign out
+              {t(locale, 'admin_signOut')}
             </button>
           </div>
         </header>
@@ -160,8 +182,8 @@ function AdminLayoutInner({ children }) {
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-coqui-900">Enable notifications</p>
-              <p className="text-xs text-coqui-700/70 mt-0.5">Get alerts for new cleaning assignments and updates.</p>
+              <p className="text-sm font-semibold text-coqui-900">{t(locale, 'admin_push_title')}</p>
+              <p className="text-xs text-coqui-700/70 mt-0.5">{t(locale, 'admin_push_descCleaner')}</p>
             </div>
             <button
               onClick={async () => {
@@ -173,12 +195,12 @@ function AdminLayoutInner({ children }) {
               className="text-xs font-semibold bg-coqui-600 text-white px-3 py-1.5 rounded-lg
                 hover:bg-coqui-700 active:bg-coqui-800 transition disabled:opacity-60 whitespace-nowrap flex-shrink-0"
             >
-              {pushEnabling ? 'Enabling...' : 'Enable'}
+              {pushEnabling ? t(locale, 'admin_push_enabling') : t(locale, 'admin_push_enable')}
             </button>
             <button
               onClick={() => setPushBannerDismissed(true)}
               className="text-coqui-400 hover:text-coqui-600 transition flex-shrink-0 p-0.5"
-              aria-label="Dismiss"
+              aria-label={t(locale, 'admin_push_dismiss')}
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -196,7 +218,7 @@ function AdminLayoutInner({ children }) {
   const navTabs = [
     {
       href: '/admin',
-      label: 'Dashboard',
+      label: t(locale, 'admin_nav_dashboard'),
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l9-9 9 9M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9" />
@@ -205,7 +227,7 @@ function AdminLayoutInner({ children }) {
     },
     {
       href: '/admin/stays',
-      label: 'Active Stays',
+      label: t(locale, 'admin_nav_activeStays'),
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -214,7 +236,7 @@ function AdminLayoutInner({ children }) {
     },
     {
       href: '/admin/assignments',
-      label: 'Tasks',
+      label: t(locale, 'admin_nav_tasks'),
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -223,7 +245,7 @@ function AdminLayoutInner({ children }) {
     },
     {
       href: '/admin/more',
-      label: 'More',
+      label: t(locale, 'admin_nav_more'),
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
@@ -233,16 +255,16 @@ function AdminLayoutInner({ children }) {
   ];
 
   const allMoreLinks = [
-    { href: '/admin/bookings', label: 'Bookings' },
-    { href: '/admin/notify', label: 'Guest Notifications' },
-    { href: '/admin/cleaning', label: 'Cleaning' },
-    { href: '/admin/community', label: 'Community Board' },
-    { href: '/admin/expenses', label: 'Expenses' },
-    { href: '/admin/supplies', label: 'Supplies' },
-    { href: '/admin/receipts', label: 'Receipts' },
-    { href: '/admin/revenue', label: 'Revenue' },
-    { href: '/admin/settings', label: 'Settings' },
-    { href: '/admin/team', label: 'Team' },
+    { href: '/admin/bookings', label: t(locale, 'admin_nav_bookings') },
+    { href: '/admin/notify', label: t(locale, 'admin_nav_notifications') },
+    { href: '/admin/cleaning', label: t(locale, 'admin_nav_cleaning') },
+    { href: '/admin/community', label: t(locale, 'admin_nav_community') },
+    { href: '/admin/expenses', label: t(locale, 'admin_nav_expenses') },
+    { href: '/admin/supplies', label: t(locale, 'admin_nav_supplies') },
+    { href: '/admin/receipts', label: t(locale, 'admin_nav_receipts') },
+    { href: '/admin/revenue', label: t(locale, 'admin_nav_revenue') },
+    { href: '/admin/settings', label: t(locale, 'admin_nav_settings') },
+    { href: '/admin/team', label: t(locale, 'admin_nav_team') },
   ];
 
   // Filter nav items by role
@@ -268,10 +290,18 @@ function AdminLayoutInner({ children }) {
         <div className="flex items-center gap-2.5">
           <span className="font-display text-xl text-coqui-700">Casa Coqui</span>
           <span className="bg-coqui-100 text-coqui-700 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
-            Host
+            {t(locale, 'admin_badge_host')}
           </span>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setLocale(locale === 'en' ? 'es' : 'en')}
+            className="text-xs font-bold text-coqui-700 bg-coqui-50 border border-coqui-200 px-2.5 py-1 rounded-full
+              hover:bg-coqui-100 active:bg-coqui-200 transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Toggle language"
+          >
+            {t(locale, 'admin_language')}
+          </button>
           <StaffNotificationBell unreadCount={unreadCount} />
           <button
             onClick={handleSignOut}
@@ -280,7 +310,7 @@ function AdminLayoutInner({ children }) {
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
             </svg>
-            Sign out
+            {t(locale, 'admin_signOut')}
           </button>
         </div>
       </header>
@@ -294,8 +324,8 @@ function AdminLayoutInner({ children }) {
             </svg>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-coqui-900">Enable notifications</p>
-            <p className="text-xs text-coqui-700/70 mt-0.5">Get alerts for maintenance requests and task updates.</p>
+            <p className="text-sm font-semibold text-coqui-900">{t(locale, 'admin_push_title')}</p>
+            <p className="text-xs text-coqui-700/70 mt-0.5">{t(locale, 'admin_push_descAdmin')}</p>
           </div>
           <button
             onClick={async () => {
@@ -307,12 +337,12 @@ function AdminLayoutInner({ children }) {
             className="text-xs font-semibold bg-coqui-600 text-white px-3 py-1.5 rounded-lg
               hover:bg-coqui-700 active:bg-coqui-800 transition disabled:opacity-60 whitespace-nowrap flex-shrink-0"
           >
-            {pushEnabling ? 'Enabling...' : 'Enable'}
+            {pushEnabling ? t(locale, 'admin_push_enabling') : t(locale, 'admin_push_enable')}
           </button>
           <button
             onClick={() => setPushBannerDismissed(true)}
             className="text-coqui-400 hover:text-coqui-600 transition flex-shrink-0 p-0.5"
-            aria-label="Dismiss"
+            aria-label={t(locale, 'admin_push_dismiss')}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -404,7 +434,9 @@ function AdminLayoutInner({ children }) {
 export default function AdminLayoutClient({ children }) {
   return (
     <AuthProvider>
-      <AdminLayoutInner>{children}</AdminLayoutInner>
+      <LocaleProvider defaultLocale="en">
+        <AdminLayoutInner>{children}</AdminLayoutInner>
+      </LocaleProvider>
     </AuthProvider>
   );
 }

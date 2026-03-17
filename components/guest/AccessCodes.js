@@ -2,10 +2,13 @@
 
 import { useState, useCallback } from 'react';
 import { resolveUnitWifi } from '@/lib/units';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 // ─── Copy button with "Copied!" feedback ──────────────────────────────────────
 function CopyButton({ value, label }) {
   const [copied, setCopied] = useState(false);
+  const { locale } = useLocale();
 
   const handleCopy = useCallback(async () => {
     if (!value) return;
@@ -45,14 +48,14 @@ function CopyButton({ value, label }) {
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
             <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
           </svg>
-          Copied!
+          {t(locale, 'access_copied')}
         </>
       ) : (
         <>
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
           </svg>
-          Copy
+          {t(locale, 'access_copy')}
         </>
       )}
     </button>
@@ -61,6 +64,7 @@ function CopyButton({ value, label }) {
 
 // ─── Individual code card ──────────────────────────────────────────────────────
 function CodeCard({ icon, iconBg, iconColor, title, label, value, copyLabel, note }) {
+  const { locale } = useLocale();
   const displayValue = value || null;
 
   return (
@@ -82,7 +86,7 @@ function CodeCard({ icon, iconBg, iconColor, title, label, value, copyLabel, not
               {displayValue}
             </p>
           ) : (
-            <p className="text-sm text-gray-400 italic">Not set yet — check back soon</p>
+            <p className="text-sm text-gray-400 italic">{t(locale, 'access_notSetCheckBack')}</p>
           )}
         </div>
         <CopyButton value={displayValue} label={copyLabel || label} />
@@ -97,6 +101,7 @@ function CodeCard({ icon, iconBg, iconColor, title, label, value, copyLabel, not
 
 // ─── WiFi card (network + password together) ───────────────────────────────────
 function WifiCard({ ssid, password }) {
+  const { locale } = useLocale();
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-50 p-4 flex flex-col gap-3">
       {/* Card header */}
@@ -106,17 +111,17 @@ function WifiCard({ ssid, password }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
           </svg>
         </div>
-        <h3 className="text-sm font-semibold text-gray-900">WiFi</h3>
+        <h3 className="text-sm font-semibold text-gray-900">{t(locale, 'access_wifi')}</h3>
       </div>
 
       {/* Network name */}
       <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-3 py-2.5">
         <div className="min-w-0">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">Network Name</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">{t(locale, 'access_networkName')}</p>
           {ssid ? (
             <p className="text-base font-mono font-bold text-gray-900 tracking-wider">{ssid}</p>
           ) : (
-            <p className="text-sm text-gray-400 italic">Not set yet</p>
+            <p className="text-sm text-gray-400 italic">{t(locale, 'access_notSetYet')}</p>
           )}
         </div>
         <CopyButton value={ssid} label="network name" />
@@ -125,18 +130,18 @@ function WifiCard({ ssid, password }) {
       {/* Password */}
       <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-3 py-2.5">
         <div className="min-w-0">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">Password</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">{t(locale, 'access_password')}</p>
           {password ? (
             <p className="text-base font-mono font-bold text-gray-900 tracking-wider break-all">{password}</p>
           ) : (
-            <p className="text-sm text-gray-400 italic">Not set yet</p>
+            <p className="text-sm text-gray-400 italic">{t(locale, 'access_notSetYet')}</p>
           )}
         </div>
         <CopyButton value={password} label="WiFi password" />
       </div>
 
       <p className="text-xs text-gray-500 leading-snug">
-        Works throughout the property including the patio and pool area.
+        {t(locale, 'access_wifiCoverage')}
       </p>
     </div>
   );
@@ -144,6 +149,7 @@ function WifiCard({ ssid, password }) {
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function AccessCodes({ bookingData, settings }) {
+  const { locale } = useLocale();
   // Resolve per-unit WiFi (falls back to global settings, then booking fields)
   const { ssid: wifiSsid, password: wifiPassword } = resolveUnitWifi(bookingData, settings);
   const gateCode = settings?.gateCode || bookingData?.gateCode || bookingData?.gate || null;
@@ -153,9 +159,9 @@ export default function AccessCodes({ bookingData, settings }) {
     <div className="flex flex-col gap-4">
       {/* Heading */}
       <div>
-        <h2 className="text-base font-bold text-gray-900">Access Codes</h2>
+        <h2 className="text-base font-bold text-gray-900">{t(locale, 'access_title')}</h2>
         <p className="text-sm text-gray-500 mt-0.5">
-          Everything you need to get in and get connected.
+          {t(locale, 'access_subtitle')}
         </p>
       </div>
 
@@ -165,7 +171,7 @@ export default function AccessCodes({ bookingData, settings }) {
           <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
         </svg>
         <p className="text-xs text-amber-800 leading-snug">
-          These codes are private to your booking. Please do not share them with anyone outside your party.
+          {t(locale, 'access_securityNotice')}
         </p>
       </div>
 
@@ -181,11 +187,11 @@ export default function AccessCodes({ bookingData, settings }) {
         }
         iconBg="bg-green-50"
         iconColor="text-green-600"
-        title="Gate Code"
-        label="4-digit code"
+        title={t(locale, 'access_gateCode')}
+        label={t(locale, 'access_gateCodeLabel')}
         value={gateCode}
-        copyLabel="gate code"
-        note="Enter on the keypad to the right of the front gate. The gate swings open automatically — wait for it to fully open before driving in."
+        copyLabel={t(locale, 'access_gateCode')}
+        note={t(locale, 'access_gateNote')}
       />
 
       {/* Lockbox code */}
@@ -197,21 +203,21 @@ export default function AccessCodes({ bookingData, settings }) {
         }
         iconBg="bg-amber-50"
         iconColor="text-amber-600"
-        title="Lockbox Code"
-        label="4-digit code"
+        title={t(locale, 'access_lockboxCode')}
+        label={t(locale, 'access_lockboxCodeLabel')}
         value={lockboxCode}
-        copyLabel="lockbox code"
-        note="The lockbox is mounted next to your unit door. Push each button in order, then pull the bottom tab down to open. Return the key to the lockbox when you leave."
+        copyLabel={t(locale, 'access_lockboxCode')}
+        note={t(locale, 'access_lockboxNote')}
       />
 
       {/* Help footer */}
       <p className="text-xs text-center text-gray-400 mt-1">
-        Code not working?{' '}
+        {t(locale, 'access_codeNotWorking')}{' '}
         <a
           href="maintenance"
           className="text-green-600 font-medium underline underline-offset-2"
         >
-          Submit a maintenance request
+          {t(locale, 'access_submitMaintenance')}
         </a>
       </p>
     </div>

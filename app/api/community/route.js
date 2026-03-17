@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { requireAuth } from '@/lib/api-auth';
 import { broadcastToActiveGuests } from '@/lib/notifications';
 import { createRateLimiter } from '@/lib/rate-limit';
+import { nt } from '@/lib/notification-strings';
 
 const communityLimiter = createRateLimiter({ maxRequests: 5, windowMs: 15 * 60 * 1000 });
 
@@ -16,12 +17,13 @@ const AUTO_MESSAGES = {
   property_issue: 'A property issue has been reported. Please check the community board for details.',
 };
 
-// Friendly titles for push notifications.
-const PUSH_TITLES = {
-  parking: 'Parking Alert',
-  laundry: 'Laundry Update',
-  property_issue: 'Property Update',
-  general: 'Broadcast Post',
+// Type → capitalized suffix used to build community notification-string keys.
+// e.g. parking → communityParking_title / communityParking_fallback
+const TYPE_KEY_SUFFIX = {
+  parking: 'Parking',
+  laundry: 'Laundry',
+  property_issue: 'Property',
+  general: 'General',
 };
 
 // ---------------------------------------------------------------------------
@@ -107,23 +109,29 @@ export async function POST(request) {
     // community board. sourceType preserves the post origin for filtering.
     // The standalone parking-page alert (/api/parking/notify) keeps
     // type: 'parking' — that is a separate flow.
-    const PUSH_FALLBACKS = {
-      parking: 'An unfamiliar vehicle has been reported in the parking area.',
-      laundry: 'A laundry update has been posted on the community board.',
-      property_issue: 'A property issue has been reported. Check the community board.',
-    };
+    // 'general' posts are informational — no push to avoid noise.
+    // All other types (parking, laundry, property_issue) get a broadcast push.
+    const shouldPush = type !== 'general';
 
-    if (PUSH_FALLBACKS[type]) {
-      // Use the guest's actual message for context; fall back to generic copy.
-      const pushBody = message !== AUTO_MESSAGES[type]
+    if (shouldPush) {
+      // If the guest wrote a custom message, use its first 100 chars as the push
+      // body (user-written content — not auto-translated). Otherwise fall back
+      // to a localized generic copy.
+      const guestBody = message !== AUTO_MESSAGES[type]
         ? message.replace(/\s+/g, ' ').trim().slice(0, 100) + (message.length > 100 ? '...' : '')
-        : PUSH_FALLBACKS[type];
+        : null;
+
+      const capitalizedType = TYPE_KEY_SUFFIX[type];
 
       await broadcastToActiveGuests({
-        title: PUSH_TITLES[type],
-        body: pushBody,
+        title: nt('en', `community${capitalizedType}_title`),
+        body: guestBody || nt('en', `community${type}_fallback`),
         type: 'community',
         data: { postId: docRef.id, sourceType: type },
+        localizer: (locale) => ({
+          title: nt(locale, `community${capitalizedType}_title`),
+          body: guestBody || nt(locale, `community${type}_fallback`),
+        }),
       });
     }
 

@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { requireRole } from '@/lib/api-auth';
 import { getAppUrl } from '@/lib/url';
 import { notifyStaff } from '@/lib/staff-notifications';
+import { nt } from '@/lib/notification-strings';
 
 // ---------------------------------------------------------------------------
 // GET /api/bookings
@@ -167,12 +168,18 @@ export async function POST(request) {
         const jobRef = await adminDb.collection('cleaning_jobs').add(job);
         cleaningJobId = jobRef.id;
 
+        const title = nt('en', 'newCleaningAssignment_title');
+        const body = nt('en', 'cleaningAssignment_body', { unit, date: checkOutDate, time: job.checkoutTime });
         await notifyStaff({
           staffIds: [cleanerUid],
-          title: 'New Cleaning Assignment',
-          body: `${unit} on ${checkOutDate} (checkout ${job.checkoutTime})`,
+          title,
+          body,
           type: 'cleaning_assignment',
           data: { jobId: jobRef.id, unit, scheduledDate: checkOutDate, targetPath: '/admin/cleaning' },
+          localizer: (locale) => ({
+            title: nt(locale, 'newCleaningAssignment_title'),
+            body: nt(locale, 'cleaningAssignment_body', { unit, date: checkOutDate, time: job.checkoutTime }),
+          }),
         }).catch((err) => console.error('[POST /api/bookings] Cleaning notify error:', err));
       }
     } catch (cleaningErr) {

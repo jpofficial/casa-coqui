@@ -13,35 +13,37 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
-function timeAgo(dateValue) {
+function timeAgo(dateValue, locale) {
   if (!dateValue) return '';
   const date = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return 'just now';
+  if (seconds < 60) return t(locale, 'admin_justNow');
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return t(locale, 'admin_mAgo').replace('{n}', minutes);
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t(locale, 'admin_hAgo').replace('{n}', hours);
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return t(locale, 'admin_dAgo').replace('{n}', days);
 }
 
-function formatTime(dateValue) {
+function formatTime(dateValue, locale) {
   if (!dateValue) return '';
   const date = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return date.toLocaleTimeString(locale === 'es' ? 'es' : 'en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
-function formatDateDivider(dateValue) {
+function formatDateDivider(dateValue, locale) {
   if (!dateValue) return '';
   const date = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  if (date.toDateString() === today.toDateString()) return 'Today';
-  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (date.toDateString() === today.toDateString()) return t(locale, 'admin_msg_today');
+  if (date.toDateString() === yesterday.toDateString()) return t(locale, 'admin_msg_yesterday');
+  return date.toLocaleDateString(locale === 'es' ? 'es' : 'en-US', { month: 'short', day: 'numeric' });
 }
 
 // Build a thread list from a flat array of messages
@@ -82,11 +84,11 @@ function compareFirestoreDates(a, b) {
 }
 
 // Group thread messages by calendar day
-function groupByDay(messages) {
+function groupByDay(messages, locale) {
   const groups = [];
   let currentDay = null;
   for (const msg of messages) {
-    const dayLabel = formatDateDivider(msg.createdAt);
+    const dayLabel = formatDateDivider(msg.createdAt, locale);
     if (dayLabel !== currentDay) {
       currentDay = dayLabel;
       groups.push({ type: 'divider', label: dayLabel, key: `divider-${dayLabel}-${msg.id}` });
@@ -98,6 +100,7 @@ function groupByDay(messages) {
 
 // Thread list item
 function ThreadItem({ thread, onSelect }) {
+  const { locale } = useLocale();
   const last = thread.lastMessage;
   return (
     <button
@@ -113,13 +116,13 @@ function ThreadItem({ thread, onSelect }) {
           <span className="text-sm font-semibold text-gray-900 truncate">
             {thread.guestName !== thread.bookingCode
               ? thread.guestName
-              : `Guest · ${thread.bookingCode}`}
+              : `${t(locale, 'admin_msg_guestPrefix')} ${thread.bookingCode}`}
           </span>
-          <span className="text-[11px] text-gray-400 flex-shrink-0">{timeAgo(last?.createdAt)}</span>
+          <span className="text-[11px] text-gray-400 flex-shrink-0">{timeAgo(last?.createdAt, locale)}</span>
         </div>
         <div className="flex items-center gap-2 mt-0.5">
           <p className="text-xs text-gray-500 truncate flex-1">
-            {last?.sender === 'host' ? 'You: ' : ''}
+            {last?.sender === 'host' ? t(locale, 'admin_msg_you') + ' ' : ''}
             {last?.text || ''}
           </p>
           {thread.unreadCount > 0 && (
@@ -135,6 +138,7 @@ function ThreadItem({ thread, onSelect }) {
 
 // Full chat view for a single thread
 function ChatView({ thread, allMessages, onBack }) {
+  const { locale } = useLocale();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const bottomRef = useRef(null);
@@ -144,7 +148,7 @@ function ChatView({ thread, allMessages, onBack }) {
     .filter((m) => m.bookingCode === thread.bookingCode)
     .sort((a, b) => compareFirestoreDates(a.createdAt, b.createdAt));
 
-  const grouped = groupByDay(threadMessages);
+  const grouped = groupByDay(threadMessages, locale);
 
   // Mark all unread guest messages as read when thread opens
   useEffect(() => {
@@ -215,7 +219,7 @@ function ChatView({ thread, allMessages, onBack }) {
         <button
           onClick={onBack}
           className="text-green-600 min-h-[44px] min-w-[44px] flex items-center justify-center -ml-2"
-          aria-label="Back"
+          aria-label={t(locale, 'admin_msg_back')}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -228,16 +232,16 @@ function ChatView({ thread, allMessages, onBack }) {
           <p className="text-sm font-semibold text-gray-900 truncate">
             {thread.guestName !== thread.bookingCode
               ? thread.guestName
-              : `Guest · ${thread.bookingCode}`}
+              : `${t(locale, 'admin_msg_guestPrefix')} ${thread.bookingCode}`}
           </p>
-          <p className="text-xs text-gray-400 truncate">Code: {thread.bookingCode}</p>
+          <p className="text-xs text-gray-400 truncate">{t(locale, 'admin_msg_codePrefix')} {thread.bookingCode}</p>
         </div>
       </div>
 
       {/* Message list */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1 bg-gray-50">
         {grouped.length === 0 && (
-          <p className="text-center text-gray-400 text-sm mt-8">No messages yet</p>
+          <p className="text-center text-gray-400 text-sm mt-8">{t(locale, 'admin_msg_emptyChat')}</p>
         )}
         {grouped.map((item) => {
           if (item.type === 'divider') {
@@ -262,7 +266,7 @@ function ChatView({ thread, allMessages, onBack }) {
               >
                 <p>{msg.text}</p>
                 <p className={`text-[10px] mt-1 ${isHost ? 'text-green-200' : 'text-gray-400'} text-right`}>
-                  {formatTime(msg.createdAt)}
+                  {formatTime(msg.createdAt, locale)}
                 </p>
               </div>
             </div>
@@ -277,7 +281,7 @@ function ChatView({ thread, allMessages, onBack }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type a message..."
+          placeholder={t(locale, 'admin_msg_placeholder')}
           rows={1}
           className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none max-h-32"
           style={{ minHeight: '44px' }}
@@ -286,7 +290,7 @@ function ChatView({ thread, allMessages, onBack }) {
           onClick={handleSend}
           disabled={!text.trim() || sending}
           className="bg-green-600 text-white rounded-xl p-3 flex-shrink-0 disabled:opacity-50 active:bg-green-700 transition-colors"
-          aria-label="Send"
+          aria-label={t(locale, 'admin_msg_send')}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -298,6 +302,7 @@ function ChatView({ thread, allMessages, onBack }) {
 }
 
 export default function MessagesPage() {
+  const { locale } = useLocale();
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [selectedThread, setSelectedThread] = useState(null);
@@ -324,8 +329,8 @@ export default function MessagesPage() {
   // Keep selectedThread in sync when messages update
   useEffect(() => {
     if (!selectedThread) return;
-    const updated = threads.find((t) => t.bookingCode === selectedThread.bookingCode);
-    if (updated) setSelectedThread(updated);
+    const thr = threads.find((th) => th.bookingCode === selectedThread.bookingCode);
+    if (thr) setSelectedThread(thr);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
@@ -343,8 +348,8 @@ export default function MessagesPage() {
     <div className="px-4 pt-5 pb-6 max-w-2xl mx-auto space-y-5">
       {/* Page title */}
       <div>
-        <h1 className="text-xl font-bold text-gray-900">Messages</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Guest conversations</p>
+        <h1 className="text-xl font-bold text-gray-900">{t(locale, 'admin_msg_title')}</h1>
+        <p className="text-sm text-gray-500 mt-0.5">{t(locale, 'admin_msg_subtitle')}</p>
       </div>
 
       {loadingMessages ? (
@@ -366,8 +371,8 @@ export default function MessagesPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 16a2 2 0 01-2 2H7l-4 4V6a2 2 0 012-2h14a2 2 0 012 2v10z" />
             </svg>
           </div>
-          <p className="text-gray-400 text-sm font-medium">No guest conversations yet</p>
-          <p className="text-gray-400 text-xs mt-1">Messages from guests will appear here</p>
+          <p className="text-gray-400 text-sm font-medium">{t(locale, 'admin_msg_emptyTitle')}</p>
+          <p className="text-gray-400 text-xs mt-1">{t(locale, 'admin_msg_emptyDesc')}</p>
         </div>
       ) : (
         <div className="space-y-2">

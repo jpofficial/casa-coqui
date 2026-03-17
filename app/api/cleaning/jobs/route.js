@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
 import { notifyStaff } from '@/lib/staff-notifications';
+import { nt } from '@/lib/notification-strings';
 
 // ---------------------------------------------------------------------------
 // GET /api/cleaning/jobs
@@ -104,12 +105,18 @@ export async function POST(request) {
     const docRef = await adminDb.collection('cleaning_jobs').add(job);
 
     // Notify the assigned cleaner — must await on Vercel serverless.
+    const notifyTitle = nt('en', 'newCleaningAssignment_title');
+    const notifyBody = nt('en', 'cleaningAssignment_body', { unit, date: scheduledDate, time: job.checkoutTime });
     await notifyStaff({
       staffIds: [assigneeId],
-      title: 'New Cleaning Assignment',
-      body: `${unit} on ${scheduledDate} (checkout ${job.checkoutTime})`,
+      title: notifyTitle,
+      body: notifyBody,
       type: 'cleaning_assignment',
       data: { jobId: docRef.id, unit, scheduledDate, targetPath: '/admin/cleaning' },
+      localizer: (locale) => ({
+        title: nt(locale, 'newCleaningAssignment_title'),
+        body: nt(locale, 'cleaningAssignment_body', { unit, date: scheduledDate, time: job.checkoutTime }),
+      }),
     }).catch((err) => console.error('[POST /api/cleaning/jobs] Notify error:', err));
 
     return NextResponse.json(

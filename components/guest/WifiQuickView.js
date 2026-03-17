@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from 'react';
 import { resolveUnitWifi } from '@/lib/units';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 function CopyBtn({ value, label }) {
   const [copied, setCopied] = useState(false);
@@ -51,6 +53,7 @@ function CopyBtn({ value, label }) {
  * Shows network name and password with copy buttons.
  */
 export default function WifiQuickView({ settings, booking }) {
+  const { locale } = useLocale();
   const { ssid, password } = resolveUnitWifi(booking, settings);
 
   if (!ssid && !password) return null;
@@ -63,13 +66,13 @@ export default function WifiQuickView({ settings, booking }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
           </svg>
         </div>
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">WiFi</span>
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t(locale, 'wifi_title')}</span>
       </div>
       <div className="flex flex-col gap-1.5">
         {ssid && (
           <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-3 py-2">
             <div className="min-w-0">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Network</p>
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{t(locale, 'wifi_network')}</p>
               <p className="text-sm font-mono font-semibold text-gray-900 truncate">{ssid}</p>
             </div>
             <CopyBtn value={ssid} label="network name" />
@@ -78,7 +81,7 @@ export default function WifiQuickView({ settings, booking }) {
         {password && (
           <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-3 py-2">
             <div className="min-w-0">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Password</p>
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{t(locale, 'wifi_password')}</p>
               <p className="text-sm font-mono font-semibold text-gray-900 truncate">{password}</p>
             </div>
             <CopyBtn value={password} label="WiFi password" />

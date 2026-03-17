@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { sendNotification } from '@/lib/notifications';
 import { notifyAdminAndCohost } from '@/lib/staff-notifications';
 import { requireAuth } from '@/lib/api-auth';
+import { nt, getGuestLocale } from '@/lib/notification-strings';
 
 // ---------------------------------------------------------------------------
 // POST /api/messages/notify
@@ -45,16 +46,23 @@ export async function POST(request) {
     }
 
     if (sender === 'guest') {
-      // Notify all admin + cohost staff members via push (with SMS fallback).
-      const name = guestName || 'A guest';
-      const title = 'New Message';
-      const notifBody = `${name} sent you a message`;
+      // Notify all admin + cohost staff members via push.
+      const title = nt('en', 'newMessage_title');
+      const notifBody = nt('en', 'newMessage_body', {
+        guestName: guestName || nt('en', 'newMessage_defaultGuest'),
+      });
 
       const result = await notifyAdminAndCohost({
         title,
         body: notifBody,
         type: 'message',
         data: { bookingCode },
+        localizer: (locale) => ({
+          title: nt(locale, 'newMessage_title'),
+          body: nt(locale, 'newMessage_body', {
+            guestName: guestName || nt(locale, 'newMessage_defaultGuest'),
+          }),
+        }),
       });
 
       return NextResponse.json({
@@ -79,8 +87,9 @@ export async function POST(request) {
       }
 
       const guest = guestSnap.docs[0].data();
-      const title = 'New Message from Host';
-      const notifBody = 'Your host sent you a message';
+      const guestLocale = await getGuestLocale(bookingCode);
+      const title = nt(guestLocale, 'newMessageFromHost_title');
+      const notifBody = nt(guestLocale, 'newMessageFromHost_body');
 
       // Try FCM push first
       const tokenSnap = await adminDb

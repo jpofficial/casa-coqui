@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { requireRole, requireAuth } from '@/lib/api-auth';
 import { notifyAdminAndCohost } from '@/lib/staff-notifications';
 import { createRateLimiter } from '@/lib/rate-limit';
+import { nt, maintCategory } from '@/lib/notification-strings';
 
 const maintenanceLimiter = createRateLimiter({ maxRequests: 3, windowMs: 60 * 60 * 1000 });
 
@@ -135,6 +136,9 @@ export async function POST(request) {
       ? doc.description.slice(0, 80) + '...'
       : doc.description;
 
+    const title = nt('en', 'maintenanceNew_title', { category: doc.category, urgency: doc.urgency });
+    const notifBody = snippet;
+
     const now = new Date().toISOString();
     const assignment = {
       title: `Maintenance: ${doc.category}`,
@@ -161,10 +165,17 @@ export async function POST(request) {
 
     await Promise.all([
       notifyAdminAndCohost({
-        title: `Maintenance: ${doc.category} (${doc.urgency})`,
-        body: snippet,
+        title,
+        body: notifBody,
         type: 'maintenance',
         data: { requestId: docRef.id, category: doc.category, urgency: doc.urgency, targetPath: '/admin/maintenance' },
+        localizer: (locale) => ({
+          title: nt(locale, 'maintenanceNew_title', {
+            category: maintCategory(locale, doc.category),
+            urgency: nt(locale, `urgency_${doc.urgency}`),
+          }),
+          body: notifBody,  // description snippet is user-written, keep as-is
+        }),
       }).catch((err) => console.error('[POST /api/maintenance] Notification error:', err)),
 
       adminDb.collection('assignments').add(assignment)

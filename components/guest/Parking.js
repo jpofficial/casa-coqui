@@ -1,9 +1,11 @@
 'use client';
 
 import { getUnitNames, resolveUnitDisplayName } from '@/lib/units';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 // ─── SVG parking map (fallback when no map image uploaded) ───────────────────
-function ParkingMap({ unitIndex, unitNames }) {
+function ParkingMap({ unitIndex, unitNames, locale }) {
   const isFirst = unitIndex === 0;
   const isSecond = unitIndex === 1;
   const firstName = unitNames[0] || 'Unit A';
@@ -24,7 +26,7 @@ function ParkingMap({ unitIndex, unitNames }) {
       xmlns="http://www.w3.org/2000/svg"
       className="w-full rounded-xl"
       role="img"
-      aria-label={`Parking map. ${unitIndex != null ? `Your spot is ${unitNames[unitIndex]}.` : 'Both units shown.'}`}
+      aria-label={`${t(locale, 'parking_mapLabel')}. ${unitIndex != null ? `${t(locale, 'parking_yourSpot')}: ${unitNames[unitIndex]}.` : ''}`}
     >
       <rect width="320" height="220" fill="#f0fdf4" rx="12" />
       <rect x="0" y="175" width="320" height="45" fill={roadFill} rx="0" />
@@ -37,19 +39,19 @@ function ParkingMap({ unitIndex, unitNames }) {
       <rect x="163" y="170" width="52" height="6" rx="2" fill="#15803d" />
       <text x="160" y="167" textAnchor="middle" fontSize="9" fill="#15803d" fontFamily="system-ui, sans-serif" fontWeight="600">GATE</text>
       <rect x="60" y="20" width="200" height="100" rx="6" fill="white" stroke="#d1d5db" strokeWidth="1.5" />
-      <text x="160" y="14" textAnchor="middle" fontSize="9" fill="#9ca3af" fontFamily="system-ui, sans-serif">Main Building</text>
+      <text x="160" y="14" textAnchor="middle" fontSize="9" fill="#9ca3af" fontFamily="system-ui, sans-serif">{t(locale, 'parking_mainBuilding')}</text>
       <rect x="62" y="22" width="95" height="96" rx="4" fill={isFirst ? highlightFill : neutralFill} stroke={isFirst ? highlightStroke : neutralStroke} strokeWidth={isFirst ? 2 : 1} />
       <text x="109" y="68" textAnchor="middle" fontSize="14" fill={isFirst ? '#15803d' : '#6b7280'} fontFamily="system-ui, sans-serif" fontWeight="700">{firstLabel}</text>
       <text x="109" y="84" textAnchor="middle" fontSize="9" fill={isFirst ? '#16a34a' : '#9ca3af'} fontFamily="system-ui, sans-serif">{firstName}</text>
-      {isFirst && <text x="109" y="100" textAnchor="middle" fontSize="8" fill="#16a34a" fontFamily="system-ui, sans-serif" fontWeight="600">Your unit</text>}
+      {isFirst && <text x="109" y="100" textAnchor="middle" fontSize="8" fill="#16a34a" fontFamily="system-ui, sans-serif" fontWeight="600">{t(locale, 'parking_yourUnit')}</text>}
       <rect x="163" y="22" width="95" height="96" rx="4" fill={isSecond ? highlightFill : neutralFill} stroke={isSecond ? highlightStroke : neutralStroke} strokeWidth={isSecond ? 2 : 1} />
       <text x="210" y="68" textAnchor="middle" fontSize="14" fill={isSecond ? '#15803d' : '#6b7280'} fontFamily="system-ui, sans-serif" fontWeight="700">{secondLabel}</text>
       <text x="210" y="84" textAnchor="middle" fontSize="9" fill={isSecond ? '#16a34a' : '#9ca3af'} fontFamily="system-ui, sans-serif">{secondName}</text>
-      {isSecond && <text x="210" y="100" textAnchor="middle" fontSize="8" fill="#16a34a" fontFamily="system-ui, sans-serif" fontWeight="600">Your unit</text>}
+      {isSecond && <text x="210" y="100" textAnchor="middle" fontSize="8" fill="#16a34a" fontFamily="system-ui, sans-serif" fontWeight="600">{t(locale, 'parking_yourUnit')}</text>}
       <rect x="62" y="130" width="88" height="36" rx="3" fill={isFirst ? highlightFill : neutralFill} stroke={isFirst ? highlightStroke : neutralStroke} strokeWidth={isFirst ? 2 : 1} strokeDasharray={isFirst ? '0' : '4 3'} />
-      <text x="106" y="149" textAnchor="middle" fontSize="10" fill={isFirst ? '#15803d' : '#9ca3af'} fontFamily="system-ui, sans-serif" fontWeight={isFirst ? '700' : '400'}>{isFirst ? 'Your Spot' : firstName}</text>
+      <text x="106" y="149" textAnchor="middle" fontSize="10" fill={isFirst ? '#15803d' : '#9ca3af'} fontFamily="system-ui, sans-serif" fontWeight={isFirst ? '700' : '400'}>{isFirst ? t(locale, 'parking_yourSpot') : firstName}</text>
       <rect x="170" y="130" width="88" height="36" rx="3" fill={isSecond ? highlightFill : neutralFill} stroke={isSecond ? highlightStroke : neutralStroke} strokeWidth={isSecond ? 2 : 1} strokeDasharray={isSecond ? '0' : '4 3'} />
-      <text x="214" y="149" textAnchor="middle" fontSize="10" fill={isSecond ? '#15803d' : '#9ca3af'} fontFamily="system-ui, sans-serif" fontWeight={isSecond ? '700' : '400'}>{isSecond ? 'Your Spot' : secondName}</text>
+      <text x="214" y="149" textAnchor="middle" fontSize="10" fill={isSecond ? '#15803d' : '#9ca3af'} fontFamily="system-ui, sans-serif" fontWeight={isSecond ? '700' : '400'}>{isSecond ? t(locale, 'parking_yourSpot') : secondName}</text>
       <g transform="translate(290, 30)">
         <circle cx="0" cy="0" r="12" fill="white" stroke="#e5e7eb" strokeWidth="1" />
         <text x="0" y="4" textAnchor="middle" fontSize="10" fill="#6b7280" fontFamily="system-ui, sans-serif" fontWeight="700">N</text>
@@ -60,6 +62,7 @@ function ParkingMap({ unitIndex, unitNames }) {
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function Parking({ bookingData, settings }) {
+  const { locale } = useLocale();
   const rawUnit = bookingData?.unit ?? null;
   const unitNames = getUnitNames(settings);
   const unitDisplayName = resolveUnitDisplayName(bookingData, settings);
@@ -91,25 +94,25 @@ export default function Parking({ bookingData, settings }) {
     return (
       <div className="flex flex-col gap-4">
         <div>
-          <h2 className="text-base font-bold text-gray-900">Parking</h2>
+          <h2 className="text-base font-bold text-gray-900">{t(locale, 'parking_title')}</h2>
           {unit ? (
             <p className="text-sm text-gray-500 mt-0.5">
-              Your designated spot is <span className="font-semibold text-green-700">{unitDisplayName || rawUnit}</span>.
+              {t(locale, 'parking_designatedSpot')} <span className="font-semibold text-green-700">{unitDisplayName || rawUnit}</span>.
             </p>
           ) : (
-            <p className="text-sm text-gray-500 mt-0.5">Parking information for the property.</p>
+            <p className="text-sm text-gray-500 mt-0.5">{t(locale, 'parking_infoForProperty')}</p>
           )}
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-50 p-3">
           {parkingInfo?.mapImageUrl ? (
-            <img src={parkingInfo.mapImageUrl} alt="Parking map" className="w-full rounded-xl object-cover" />
+            <img src={parkingInfo.mapImageUrl} alt={t(locale, 'parking_mapLabel')} className="w-full rounded-xl object-cover" />
           ) : (
-            <ParkingMap unitIndex={unitIndex} unitNames={unitNames} />
+            <ParkingMap unitIndex={unitIndex} unitNames={unitNames} locale={locale} />
           )}
         </div>
         {ruleLines.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Parking Rules</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">{t(locale, 'parking_parkingRules')}</h3>
             <div className="flex flex-col gap-2">
               {ruleLines.map((rule, i) => (
                 <div key={i} className="flex gap-3 items-start bg-white rounded-xl shadow-sm border border-gray-50 p-3">
@@ -129,34 +132,34 @@ export default function Parking({ bookingData, settings }) {
       {/* Heading */}
       <div>
         <h2 className="text-base font-bold text-gray-900">
-          Parking{unitDisplayName ? ` — ${unitDisplayName}` : ''}
+          {t(locale, 'parking_title')}{unitDisplayName ? ` — ${unitDisplayName}` : ''}
         </h2>
         {apartment?.instructions ? (
           <p className="text-sm text-gray-500 mt-0.5">{apartment.instructions}</p>
         ) : unit ? (
           <p className="text-sm text-gray-500 mt-0.5">
-            Your designated spot is <span className="font-semibold text-green-700">{unitDisplayName || rawUnit}</span>.
+            {t(locale, 'parking_designatedSpot')} <span className="font-semibold text-green-700">{unitDisplayName || rawUnit}</span>.
           </p>
         ) : (
-          <p className="text-sm text-gray-500 mt-0.5">Parking information for the property.</p>
+          <p className="text-sm text-gray-500 mt-0.5">{t(locale, 'parking_infoForProperty')}</p>
         )}
       </div>
 
       {/* Map */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-50 p-3">
         {apartment?.mapImageUrl ? (
-          <img src={apartment.mapImageUrl} alt={`Parking map for ${unitDisplayName || rawUnit}`} className="w-full rounded-xl object-cover" />
+          <img src={apartment.mapImageUrl} alt={`${t(locale, 'parking_mapLabel')} — ${unitDisplayName || rawUnit}`} className="w-full rounded-xl object-cover" />
         ) : (
           <>
-            <ParkingMap unitIndex={unitIndex} unitNames={unitNames} />
+            <ParkingMap unitIndex={unitIndex} unitNames={unitNames} locale={locale} />
             <div className="flex gap-4 mt-2 px-1 justify-center">
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded-sm bg-green-100 border-2 border-green-600" />
-                <span className="text-xs text-gray-500">Your unit &amp; spot</span>
+                <span className="text-xs text-gray-500">{t(locale, 'parking_yourUnitAndSpot')}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded-sm bg-gray-50 border border-dashed border-gray-300" />
-                <span className="text-xs text-gray-500">Other unit</span>
+                <span className="text-xs text-gray-500">{t(locale, 'parking_otherUnit')}</span>
               </div>
             </div>
           </>
@@ -166,7 +169,7 @@ export default function Parking({ bookingData, settings }) {
       {/* Steps */}
       {apartment?.steps?.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Parking Steps</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">{t(locale, 'parking_parkingSteps')}</h3>
           <div className="flex flex-col gap-2">
             {apartment.steps.map((step, i) => (
               <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-50 p-3">
@@ -192,7 +195,7 @@ export default function Parking({ bookingData, settings }) {
       {/* General notes */}
       {generalLines.length > 0 && (
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-          <p className="text-xs font-semibold text-amber-700 mb-1.5">General Notes</p>
+          <p className="text-xs font-semibold text-amber-700 mb-1.5">{t(locale, 'parking_generalNotes')}</p>
           <ul className="flex flex-col gap-1">
             {generalLines.map((note, i) => (
               <li key={i} className="text-sm text-amber-800 leading-snug flex gap-2">

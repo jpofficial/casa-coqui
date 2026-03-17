@@ -5,25 +5,27 @@ import { doc, onSnapshot, collection, query, where, getDocs } from 'firebase/fir
 import { db, auth } from '@/lib/firebase';
 import { useDocument } from '@/hooks/useFirestore';
 import { resolveUnitDisplayName } from '@/lib/units';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 // ─── Status config ──────────────────────────────────────────────────────────────
 const STATUS = {
   available: {
-    label: 'Available',
+    labelKey: 'laundry_available',
     color: 'text-green-700',
     bg: 'bg-green-50',
     border: 'border-green-200',
     dot: 'bg-green-500',
   },
   in_use: {
-    label: 'In Use',
+    labelKey: 'laundry_inUse',
     color: 'text-amber-700',
     bg: 'bg-amber-50',
     border: 'border-amber-200',
     dot: 'bg-amber-500',
   },
   needs_attention: {
-    label: 'Needs Attention',
+    labelKey: 'laundry_needsAttention',
     color: 'text-red-700',
     bg: 'bg-red-50',
     border: 'border-red-200',
@@ -54,6 +56,7 @@ function formatCountdown(secondsRemaining) {
 
 // ─── Machine card ──────────────────────────────────────────────────────────────
 function MachineCard({ machineId, type, displayName, icon, waitlistState, onWaitlistChange, readOnly = false, code }) {
+  const { locale } = useLocale();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -80,7 +83,7 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
       },
       (err) => {
         console.error(`Laundry listener error (${machineId}):`, err);
-        setError('Could not load status.');
+        setError(t(locale, 'laundry_errorLoad'));
         setLoading(false);
       }
     );
@@ -131,13 +134,13 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
         body: JSON.stringify({ machineId }),
       });
       if (!result.success) {
-        setError(result.error ?? 'Could not start session. Please try again.');
+        setError(result.error ?? t(locale, 'laundry_errorStart'));
         setTimeout(() => setError(null), 4000);
       }
       // onSnapshot will update the UI
     } catch (err) {
       console.error('Start session error:', err);
-      setError('Could not start session. Please try again.');
+      setError(t(locale, 'laundry_errorStart'));
       setTimeout(() => setError(null), 4000);
     } finally {
       setActionLoading(false);
@@ -154,12 +157,12 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
         body: JSON.stringify({ machineId }),
       });
       if (!result.success) {
-        setError(result.error ?? 'Could not end session. Please try again.');
+        setError(result.error ?? t(locale, 'laundry_errorEnd'));
         setTimeout(() => setError(null), 4000);
       }
     } catch (err) {
       console.error('End session error:', err);
-      setError('Could not end session. Please try again.');
+      setError(t(locale, 'laundry_errorEnd'));
       setTimeout(() => setError(null), 4000);
     } finally {
       setActionLoading(false);
@@ -216,7 +219,7 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
   const isOtherUser = status === 'in_use' && !isOwner;
   const isSubscribed = !!waitlistState?.[machineId];
 
-  const ownerName = data?.sessionOwnerName ?? 'another guest';
+  const ownerName = data?.sessionOwnerName ?? t(locale, 'laundry_anotherGuest');
   const timerFinished = secondsLeft === 0;
 
   return (
@@ -239,8 +242,8 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
               />
               <span className={`text-xs font-semibold ${statusInfo.color}`}>
                 {status === 'in_use' && secondsLeft !== null && !timerFinished
-                  ? `In Use — ${formatCountdown(secondsLeft)} remaining`
-                  : statusInfo.label}
+                  ? t(locale, 'laundry_inUseRemaining').replace('{time}', formatCountdown(secondsLeft))
+                  : t(locale, statusInfo.labelKey)}
               </span>
             </div>
           </div>
@@ -249,7 +252,7 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
         {/* Duration badge */}
         {status === 'available' && (
           <span className="text-xs text-gray-400 font-medium">
-            {type === 'washer' ? '40 min' : '60 min'}
+            {type === 'washer' ? t(locale, 'laundry_washerDuration') : t(locale, 'laundry_dryerDuration')}
           </span>
         )}
       </div>
@@ -294,10 +297,10 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
                     d="M4 12a8 8 0 018-8v8H4z"
                   />
                 </svg>
-                Starting...
+                {t(locale, 'laundry_starting')}
               </span>
             ) : (
-              `Start ${displayName}`
+              t(locale, 'laundry_start').replace('{machine}', displayName)
             )}
           </button>
         )}
@@ -307,15 +310,15 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
           <div className="flex flex-col gap-2">
             {timerFinished ? (
               <p className="text-sm text-amber-700 font-medium text-center py-1">
-                Finishing up...
+                {t(locale, 'laundry_finishingUp')}
               </p>
             ) : (
               <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-center">
-                <p className="text-xs text-amber-600 font-medium mb-0.5">Your session</p>
+                <p className="text-xs text-amber-600 font-medium mb-0.5">{t(locale, 'laundry_yourSession')}</p>
                 <p className="text-3xl font-bold text-amber-800 tabular-nums tracking-tight">
                   {secondsLeft !== null ? formatCountdown(secondsLeft) : '--:--'}
                 </p>
-                <p className="text-xs text-amber-500 mt-0.5">remaining</p>
+                <p className="text-xs text-amber-500 mt-0.5">{t(locale, 'laundry_remaining')}</p>
               </div>
             )}
             {!readOnly && (
@@ -326,7 +329,7 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
                   bg-white text-amber-700 hover:bg-amber-50 active:bg-amber-100
                   disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-150"
               >
-                {actionLoading ? 'Ending session...' : 'End Early'}
+                {actionLoading ? t(locale, 'laundry_endingSession') : t(locale, 'laundry_endEarly')}
               </button>
             )}
           </div>
@@ -337,16 +340,16 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
           <div className="flex flex-col gap-2">
             <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
               <p className="text-xs text-amber-700 font-medium">
-                In use by {ownerName}
+                {t(locale, 'laundry_inUseBy').replace('{name}', ownerName)}
               </p>
               {secondsLeft !== null && !timerFinished && (
                 <p className="text-sm text-amber-800 font-semibold mt-0.5">
-                  Free in {formatCountdown(secondsLeft)}
+                  {t(locale, 'laundry_freeIn').replace('{time}', formatCountdown(secondsLeft))}
                 </p>
               )}
               {timerFinished && (
                 <p className="text-sm text-amber-800 font-semibold mt-0.5">
-                  Finishing up soon...
+                  {t(locale, 'laundry_finishingUpSoon')}
                 </p>
               )}
             </div>
@@ -377,7 +380,7 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
                         clipRule="evenodd"
                       />
                     </svg>
-                    You will be notified
+                    {t(locale, 'laundry_willBeNotified')}
                   </>
                 ) : (
                   <>
@@ -395,7 +398,7 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
                         d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
                       />
                     </svg>
-                    Notify me when free
+                    {t(locale, 'laundry_notifyWhenFree')}
                   </>
                 )}
               </button>
@@ -407,10 +410,10 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
         {status === 'needs_attention' && (
           <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
             <p className="text-sm text-red-700 font-medium">
-              This machine needs attention.
+              {t(locale, 'laundry_machineNeedsAttention')}
             </p>
             <p className="text-xs text-red-500 mt-0.5">
-              Please contact your host for assistance.
+              {t(locale, 'laundry_contactHost')}
             </p>
           </div>
         )}
@@ -426,10 +429,10 @@ function MachineCard({ machineId, type, displayName, icon, waitlistState, onWait
               disabled:cursor-not-allowed transition-colors duration-150"
           >
             {reportDone
-              ? 'Report sent — thank you'
+              ? t(locale, 'laundry_reportSent')
               : reportLoading
-              ? 'Sending report...'
-              : 'Report a problem'}
+              ? t(locale, 'laundry_sendingReport')
+              : t(locale, 'laundry_reportProblem')}
           </button>
         </div>
       )}
@@ -456,19 +459,16 @@ function MachineSkeleton() {
 }
 
 // ─── Location directions per unit ───────────────────────────────────────────────
-function getLocationText(unitName) {
+function getLocationKey(unitName) {
   const lower = (unitName || '').toLowerCase();
-  if (lower.includes('cielo')) {
-    return 'The laundry is on the first floor next to the stairs. From your unit, head downstairs from the room that leads to the balcony — it\u2019s the first door on your right.';
-  }
-  if (lower.includes('tierra')) {
-    return 'The laundry is in the back of the premises, right next to the stairs. Head toward the rear of your unit and you\u2019ll find it there.';
-  }
-  return 'The laundry is on the first floor, right next to the stairs.';
+  if (lower.includes('cielo')) return 'laundry_locationCielo';
+  if (lower.includes('tierra')) return 'laundry_locationTierra';
+  return 'laundry_locationDefault';
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function Laundry({ code, readOnly = false, checkInDate = null }) {
+  const { locale } = useLocale();
   const { data: settings } = useDocument('settings', 'property');
   const [unitName, setUnitName] = useState(null);
   // waitlistState: { washer: entry | null, dryer: entry | null }
@@ -516,24 +516,24 @@ export default function Laundry({ code, readOnly = false, checkInDate = null }) 
   }, []);
 
   const machines = [
-    { machineId: 'washer', type: 'washer', displayName: 'Washer', icon: '🧺' },
-    { machineId: 'dryer', type: 'dryer', displayName: 'Dryer', icon: '💨' },
+    { machineId: 'washer', type: 'washer', displayName: t(locale, 'laundry_washer'), icon: '🧺' },
+    { machineId: 'dryer', type: 'dryer', displayName: t(locale, 'laundry_dryer'), icon: '💨' },
   ];
 
   return (
     <div className="flex flex-col gap-4">
       {/* Header */}
       <div>
-        <h2 className="text-base font-bold text-gray-900">Laundry Status</h2>
+        <h2 className="text-base font-bold text-gray-900">{t(locale, 'laundry_pageTitle')}</h2>
         <p className="text-sm text-gray-500 mt-0.5">
-          Real-time status — sessions are timed and automatically released when done.
+          {t(locale, 'laundry_pageSubtitle')}
         </p>
       </div>
 
       {/* Info notice */}
       {readOnly && checkInDate ? (() => {
         const [y, m, d] = checkInDate.split('-').map(Number);
-        const checkInDisplay = new Date(y, m - 1, d).toLocaleDateString('en-US', {
+        const checkInDisplay = new Date(y, m - 1, d).toLocaleDateString(locale === 'es' ? 'es-PR' : 'en-US', {
           weekday: 'long',
           month: 'long',
           day: 'numeric',
@@ -544,7 +544,7 @@ export default function Laundry({ code, readOnly = false, checkInDate = null }) 
               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
             </svg>
             <p className="text-xs text-coqui-800 leading-snug">
-              Laundry will be available to use when your stay begins on <strong>{checkInDisplay}</strong>. You can check machine status in the meantime.
+              {t(locale, 'laundry_readOnlyNotice').replace('{date}', checkInDisplay)}
             </p>
           </div>
         );
@@ -563,9 +563,7 @@ export default function Laundry({ code, readOnly = false, checkInDate = null }) 
             />
           </svg>
           <p className="text-xs text-blue-800 leading-snug">
-            This runs on the <strong>honor system</strong> — tap <strong>Start</strong> when you begin a load and the timer
-            handles the rest. You can end early if you finish sooner. We appreciate everyone helping keep
-            laundry running smoothly!
+            {t(locale, 'laundry_honorSystem')}
           </p>
         </div>
       )}
@@ -605,9 +603,9 @@ export default function Laundry({ code, readOnly = false, checkInDate = null }) 
           />
         </svg>
         <div>
-          <p className="text-sm font-semibold text-gray-900">Location</p>
+          <p className="text-sm font-semibold text-gray-900">{t(locale, 'laundry_location')}</p>
           <p className="text-xs text-gray-500 mt-0.5 leading-snug">
-            {getLocationText(unitName)}
+            {t(locale, getLocationKey(unitName))}
           </p>
         </div>
       </div>

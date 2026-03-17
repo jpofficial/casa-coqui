@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
 import { sendDirectMessage } from '@/lib/notifications';
+import { notifyAdminAndCohost } from '@/lib/staff-notifications';
+import { nt, getGuestLocale } from '@/lib/notification-strings';
 
 const VALID_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled', 'archived'];
 
@@ -11,6 +13,7 @@ const ASSIGNMENT_TO_MAINTENANCE_STATUS = {
   in_progress: 'in-progress',
   completed: 'done',
   cancelled: 'done',
+  archived: 'archived',
 };
 
 // ---------------------------------------------------------------------------
@@ -73,7 +76,7 @@ export async function PATCH(request, { params }) {
       if (body.guestResponse !== undefined) updates.guestResponse = String(body.guestResponse);
       if (body.estimatedTime !== undefined) updates.estimatedTime = String(body.estimatedTime);
 
-      // If admin reassigns, update assignee info
+      // If admin reassigns, update assignee info and clear ack
       if (body.assigneeId && body.assigneeId !== existing.assigneeId) {
         const newAssignee = await adminDb.collection('users').doc(body.assigneeId).get();
         if (!newAssignee.exists) {
@@ -86,6 +89,9 @@ export async function PATCH(request, { params }) {
         updates.assigneeId = body.assigneeId;
         updates.assigneeName = assigneeData.displayName || assigneeData.email;
         updates.assigneeRole = assigneeData.role;
+        // Clear acknowledgement — new assignee hasn't seen the task yet
+        updates.assigneeAckedAt = null;
+        updates.assigneeAckedBy = null;
       }
     } else {
       // Assignee can only update status, completionNote, and guest-facing fields
@@ -125,6 +131,42 @@ export async function PATCH(request, { params }) {
       );
     }
 
+    // Handle acknowledgement — co-host signals "I saw my task"
+    const pendingNotifications = [];
+
+    if (body.acknowledge === true) {
+      if (caller.uid !== existing.assigneeId) {
+        return NextResponse.json(
+          { success: false, error: 'Only the assignee can acknowledge a task.' },
+          { status: 403 }
+        );
+      }
+      updates.assigneeAckedAt = now;
+      updates.assigneeAckedBy = caller.uid;
+
+      // Look up caller name for notification copy
+      let callerName = 'Staff';
+      try {
+        const callerDoc = await adminDb.collection('users').doc(caller.uid).get();
+        if (callerDoc.exists) {
+          callerName = callerDoc.data().displayName || callerDoc.data().name || callerDoc.data().email || 'Staff';
+        }
+      } catch (_) { /* fallback */ }
+
+      pendingNotifications.push(
+        notifyAdminAndCohost({
+          title: 'Task Acknowledged',
+          body: `${callerName} acknowledged: ${existing.title}`,
+          type: 'assignment',
+          data: { assignmentId: id, targetPath: '/admin/assignments', sourceAction: 'assignment_acknowledged', sourceId: id },
+          localizer: (locale) => ({
+            title: nt(locale, 'taskAcknowledged_title'),
+            body: nt(locale, 'taskAcknowledged_body', { name: callerName, taskTitle: existing.title }),
+          }),
+        }).catch((err) => console.error('[PATCH /api/assignments] Ack notification error:', err))
+      );
+    }
+
     updates.updatedAt = now;
     await docRef.update(updates);
 
@@ -154,15 +196,21 @@ export async function PATCH(request, { params }) {
         if (body.guestResponse) parts.push(body.guestResponse);
         if (body.estimatedTime) parts.push(`ETA: ${body.estimatedTime}`);
 
+        const guestLocale = await getGuestLocale(existing.bookingCode);
         await sendDirectMessage({
           bookingCode: existing.bookingCode,
-          title: 'Maintenance Update',
-          body: parts.join(' — '),
+          title: nt(guestLocale, 'maintenanceUpdate_title'),
+          body: parts.join(' — '),  // user-written content, keep as-is
           category: 'maintenance',
           sourceAction: 'assignment_response',
           sourceId: existing.maintenanceId,
         }).catch((err) => console.error('[PATCH /api/assignments] Guest notification error:', err));
       }
+    }
+
+    // Await all pending notifications — Vercel kills unawaited promises
+    if (pendingNotifications.length > 0) {
+      await Promise.all(pendingNotifications);
     }
 
     return NextResponse.json({ success: true, data: { id, ...updates } });

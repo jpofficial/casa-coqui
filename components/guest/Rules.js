@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 // ─── Icon mapping ─────────────────────────────────────────────────────────────
 const ICON_MAP = {
@@ -161,6 +163,7 @@ function RuleSection({ section, isOpen, onToggle }) {
 }
 
 export default function Rules({ settings }) {
+  const { locale } = useLocale();
   const sections = settings?.houseRules?.length ? settings.houseRules : [];
   const [openSection, setOpenSection] = useState(null);
 
@@ -171,8 +174,8 @@ export default function Rules({ settings }) {
   if (sections.length === 0) {
     return (
       <div className="flex flex-col gap-3">
-        <h2 className="text-base font-bold text-gray-900">House Rules</h2>
-        <p className="text-sm text-gray-500">House rules will be available soon.</p>
+        <h2 className="text-base font-bold text-gray-900">{t(locale, 'rules_title')}</h2>
+        <p className="text-sm text-gray-500">{t(locale, 'rules_comingSoon')}</p>
       </div>
     );
   }
@@ -182,11 +185,11 @@ export default function Rules({ settings }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
         <div>
-          <h2 className="text-base font-bold text-gray-900">House Rules</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Tap a section to expand</p>
+          <h2 className="text-base font-bold text-gray-900">{t(locale, 'rules_title')}</h2>
+          <p className="text-xs text-gray-500 mt-0.5">{t(locale, 'rules_tapToExpand')}</p>
         </div>
         <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
-          {sections.length} sections
+          {t(locale, 'rules_sections').replace('{count}', sections.length)}
         </span>
       </div>
 
@@ -203,7 +206,7 @@ export default function Rules({ settings }) {
       {/* Footer note */}
       <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mt-1">
         <p className="text-xs text-amber-800 leading-relaxed">
-          <span className="font-semibold">Important:</span> Violations of house rules — especially the smoking and noise policies — may result in additional charges or early termination of your stay. Thank you for helping keep this a great place for everyone.
+          {t(locale, 'rules_importantNotice')}
         </p>
       </div>
     </div>

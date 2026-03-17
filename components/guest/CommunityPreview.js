@@ -5,14 +5,26 @@ import { collection, query, orderBy, limit, where, onSnapshot } from 'firebase/f
 import { db } from '@/lib/firebase';
 import { getRelativeTime } from '@/lib/time';
 import Link from 'next/link';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 const TYPE_STYLES = {
-  parking:        { label: 'Parking',        bg: 'bg-atardecer-50',  text: 'text-atardecer-700', border: 'border-atardecer-200' },
-  laundry:        { label: 'Laundry',        bg: 'bg-caribe-50',     text: 'text-caribe-700',    border: 'border-caribe-200'    },
-  property_issue: { label: 'Property Issue', bg: 'bg-flamboyan-50',  text: 'text-flamboyan-700', border: 'border-flamboyan-200' },
-  general:        { label: 'General',        bg: 'bg-coqui-50',      text: 'text-coqui-700',     border: 'border-coqui-200'     },
-  noise:          { label: 'Noise',          bg: 'bg-purple-50',     text: 'text-purple-700',    border: 'border-purple-200'    },
-  lost_found:     { label: 'Lost & Found',   bg: 'bg-flamboyan-50',  text: 'text-flamboyan-700', border: 'border-flamboyan-200' },
+  parking:        { bg: 'bg-atardecer-50',  text: 'text-atardecer-700', border: 'border-atardecer-200' },
+  laundry:        { bg: 'bg-caribe-50',     text: 'text-caribe-700',    border: 'border-caribe-200'    },
+  property_issue: { bg: 'bg-flamboyan-50',  text: 'text-flamboyan-700', border: 'border-flamboyan-200' },
+  general:        { bg: 'bg-coqui-50',      text: 'text-coqui-700',     border: 'border-coqui-200'     },
+  noise:          { bg: 'bg-purple-50',     text: 'text-purple-700',    border: 'border-purple-200'    },
+  lost_found:     { bg: 'bg-flamboyan-50',  text: 'text-flamboyan-700', border: 'border-flamboyan-200' },
+};
+
+// Maps a post type to its i18n key suffix
+const TYPE_KEY = {
+  parking:        'parking',
+  laundry:        'laundry',
+  property_issue: 'propertyIssue',
+  general:        'general',
+  noise:          'noise',
+  lost_found:     'lostFound',
 };
 
 /**
@@ -20,6 +32,7 @@ const TYPE_STYLES = {
  * Real-time via onSnapshot. Tapping navigates to the full community board.
  */
 export default function CommunityPreview({ code, dateFrom = null, dateTo = null }) {
+  const { locale } = useLocale();
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -61,12 +74,12 @@ export default function CommunityPreview({ code, dateFrom = null, dateTo = null 
       <Link href={`/g/${code}/community`} className="block">
         <div className="bg-white rounded-xl shadow-sm border border-gray-50 p-3 hover:shadow-md active:scale-[0.99] transition-all duration-150">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Community Board</span>
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t(locale, 'communityPreview_title')}</span>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 text-gray-300">
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
             </svg>
           </div>
-          <p className="text-xs text-gray-400 mt-1.5">{dateFrom ? 'No updates during your stay yet' : 'No updates yet — be the first to post!'}</p>
+          <p className="text-xs text-gray-400 mt-1.5">{dateFrom ? t(locale, 'communityPreview_noUpdatesDuring') : t(locale, 'communityPreview_noUpdates')}</p>
         </div>
       </Link>
     );
@@ -80,7 +93,7 @@ export default function CommunityPreview({ code, dateFrom = null, dateTo = null 
     <Link href={`/g/${code}/community`} className="block">
       <div className="bg-white rounded-xl shadow-sm border border-gray-50 p-3 hover:shadow-md active:scale-[0.99] transition-all duration-150">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Community Board</span>
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t(locale, 'communityPreview_title')}</span>
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 text-gray-300">
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
@@ -89,10 +102,10 @@ export default function CommunityPreview({ code, dateFrom = null, dateTo = null 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${style.bg} ${style.text} ${style.border}`}>
-                {style.label}
+                {t(locale, `communityType_${TYPE_KEY[post.type] ?? 'general'}`)}
               </span>
               {isHost && (
-                <span className="text-[10px] font-semibold text-coqui-600">Host</span>
+                <span className="text-[10px] font-semibold text-coqui-600">{t(locale, 'community_host')}</span>
               )}
               {relativeTime && (
                 <span className="text-[10px] text-gray-400">{relativeTime}</span>

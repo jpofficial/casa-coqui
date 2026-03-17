@@ -1,9 +1,12 @@
 'use client';
 
+import { t } from '@/lib/i18n';
+
 // ─── Category configuration ───────────────────────────────────────────────────
-const CATEGORY_CONFIG = {
+function getCategoryConfig(locale) {
+  return {
   parking: {
-    label: 'Parking',
+    label: t(locale, 'notif_catParking'),
     iconColor: 'text-amber-600',
     bgColor: 'bg-amber-50',
     icon: (
@@ -13,7 +16,7 @@ const CATEGORY_CONFIG = {
     ),
   },
   laundry: {
-    label: 'Laundry',
+    label: t(locale, 'notif_catLaundry'),
     iconColor: 'text-teal-600',
     bgColor: 'bg-teal-50',
     icon: (
@@ -23,7 +26,7 @@ const CATEGORY_CONFIG = {
     ),
   },
   maintenance: {
-    label: 'Maintenance',
+    label: t(locale, 'notif_catMaintenance'),
     iconColor: 'text-red-600',
     bgColor: 'bg-red-50',
     icon: (
@@ -33,7 +36,7 @@ const CATEGORY_CONFIG = {
     ),
   },
   community: {
-    label: 'Community',
+    label: t(locale, 'notif_catCommunity'),
     iconColor: 'text-rose-600',
     bgColor: 'bg-rose-50',
     icon: (
@@ -43,7 +46,7 @@ const CATEGORY_CONFIG = {
     ),
   },
   announcement: {
-    label: 'Announcement',
+    label: t(locale, 'notif_catAnnouncement'),
     iconColor: 'text-indigo-600',
     bgColor: 'bg-indigo-50',
     icon: (
@@ -53,7 +56,7 @@ const CATEGORY_CONFIG = {
     ),
   },
   checkin: {
-    label: 'Check-In',
+    label: t(locale, 'notif_catCheckin'),
     iconColor: 'text-green-600',
     bgColor: 'bg-green-50',
     icon: (
@@ -63,7 +66,7 @@ const CATEGORY_CONFIG = {
     ),
   },
   general: {
-    label: 'General',
+    label: t(locale, 'notif_catGeneral'),
     iconColor: 'text-gray-500',
     bgColor: 'bg-gray-100',
     icon: (
@@ -72,19 +75,20 @@ const CATEGORY_CONFIG = {
       </svg>
     ),
   },
-};
+  };
+}
 
 // ─── Relative timestamp ───────────────────────────────────────────────────────
-function relativeTime(iso) {
+function relativeTime(iso, locale) {
   if (!iso) return '';
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t(locale, 'notif_justNow');
+  if (mins < 60) return t(locale, 'notif_minutesAgo').replace('{count}', mins);
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return t(locale, 'notif_hoursAgo').replace('{count}', hrs);
   const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return t(locale, 'notif_daysAgo').replace('{count}', days);
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
@@ -95,8 +99,10 @@ function relativeTime(iso) {
  *   notification   {object}    Firestore notification document
  *   isRead         {bool}
  *   onPress()      {function}  Called when user taps the item
+ *   locale         {string}    Current locale passed from parent
  */
-export default function NotificationItem({ notification, isRead, onPress }) {
+export default function NotificationItem({ notification, isRead, onPress, locale = 'en' }) {
+  const CATEGORY_CONFIG = getCategoryConfig(locale);
   const cat = CATEGORY_CONFIG[notification.category] || CATEGORY_CONFIG.general;
   const ts = notification.createdAt;
 
@@ -121,7 +127,7 @@ export default function NotificationItem({ notification, isRead, onPress }) {
             {notification.title}
           </p>
           <span className="text-[11px] text-gray-400 whitespace-nowrap flex-shrink-0 mt-0.5">
-            {relativeTime(ts)}
+            {relativeTime(ts, locale)}
           </span>
         </div>
         {notification.message && (
@@ -142,5 +148,5 @@ export default function NotificationItem({ notification, isRead, onPress }) {
   );
 }
 
-// Re-export config so other components can use it
-export { CATEGORY_CONFIG };
+// Re-export config factory so other components can use it
+export { getCategoryConfig };

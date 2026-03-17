@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/api-auth';
 import { createRateLimiter } from '@/lib/rate-limit';
 import { MACHINE_IDS } from '@/lib/laundry';
 import { sendPushOnly } from '@/lib/notifications';
+import { nt, getGuestLocale } from '@/lib/notification-strings';
 
 const waitlistLimiter = createRateLimiter({ maxRequests: 5, windowMs: 15 * 60 * 1000 });
 
@@ -140,11 +141,14 @@ export async function POST(request) {
 
       // If this is the only waiting entry, it's the first waiter — notify the owner
       if (otherWaitersSnap.size === 1) {
-        const machineName = machineId === 'washer' ? 'Washer' : 'Dryer';
+        const guestLocale = await getGuestLocale(machine.sessionBookingCode);
+        const machineName = nt(guestLocale, `laundryMachine_${machineId}`);
+        const title = nt(guestLocale, 'laundryRequest_title', { machine: machineName });
+        const body = nt(guestLocale, 'laundryRequest_body', { machine: machineName.toLowerCase() });
         sendPushOnly({
           bookingCode: machine.sessionBookingCode,
-          title: `${machineName} Request`,
-          body: `Another guest would love to use the ${machineName.toLowerCase()} when you're done. Thanks for helping keep laundry moving!`,
+          title,
+          body,
           data: { type: 'laundry_waiting', machineId },
         }).catch((err) => {
           console.error('[POST /api/laundry/waitlist] Owner notify error:', err);

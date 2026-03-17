@@ -41,12 +41,20 @@ export function AuthProvider({ children }) {
 
         // Fetch role from Firestore users doc
         try {
-          console.log('[useAuth] Fetching user doc for:', firebaseUser.uid, firebaseUser.email);
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          console.log('[useAuth] Doc exists:', userDoc.exists(), userDoc.exists() ? userDoc.data() : null);
           if (userDoc.exists()) {
             const userData = userDoc.data();
-            setRole(userData.role || null);
+            // Use doc role, or fall back to admin email check, then token claims
+            const docRole = userData.role || null;
+            if (docRole) {
+              setRole(docRole);
+            } else if (firebaseUser.email === ADMIN_EMAIL) {
+              setRole('admin');
+            } else {
+              // Last resort: check token claims
+              const tokenResult = await firebaseUser.getIdTokenResult();
+              setRole(tokenResult.claims.role || null);
+            }
             setDisplayName(userData.displayName || firebaseUser.displayName || null);
 
             // Detect first-time login needing onboarding

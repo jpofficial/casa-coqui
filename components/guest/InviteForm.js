@@ -2,10 +2,13 @@
 
 import { useState } from 'react';
 import { auth } from '@/lib/firebase';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function InviteForm({ code, onSent }) {
+  const { locale } = useLocale();
   const [emailsText, setEmailsText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -29,17 +32,17 @@ export default function InviteForm({ code, onSent }) {
 
     const emails = parseEmails(emailsText);
     if (emails.length === 0) {
-      setError('Enter at least one email address.');
+      setError(t(locale, 'invite_errorAtLeastOne'));
       return;
     }
 
     const invalid = emails.filter((em) => !EMAIL_RE.test(em));
     if (invalid.length === emails.length) {
-      setError('No valid email addresses found.');
+      setError(t(locale, 'invite_errorNoValid'));
       return;
     }
     if (invalid.length > 0) {
-      setError(`Invalid email${invalid.length > 1 ? 's' : ''}: ${invalid.join(', ')}`);
+      setError(`${t(locale, 'invite_errorInvalid')} ${invalid.join(', ')}`);
       return;
     }
 
@@ -47,7 +50,7 @@ export default function InviteForm({ code, onSent }) {
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        setError('You must be signed in to invite guests.');
+        setError(t(locale, 'invite_errorSignedIn'));
         return;
       }
       const token = await currentUser.getIdToken();
@@ -62,7 +65,7 @@ export default function InviteForm({ code, onSent }) {
       const json = await res.json();
 
       if (!json.success) {
-        setError(json.error || 'Failed to send invites.');
+        setError(json.error || t(locale, 'invite_errorSendFailed'));
         return;
       }
 
@@ -74,14 +77,14 @@ export default function InviteForm({ code, onSent }) {
       if (sent > 0) {
         const failedEmails = results?.filter((r) => r.emailSent === false && !r.error) || [];
         if (failedEmails.length > 0) {
-          messages.push(`${sent} invite${sent > 1 ? 's' : ''} created, but email delivery failed for: ${failedEmails.map((r) => r.email).join(', ')}`);
+          messages.push(`${sent} ${t(locale, 'invite_deliveryFailed')} ${failedEmails.map((r) => r.email).join(', ')}`);
         }
       }
       if (duplicates?.length > 0) {
-        messages.push(`Already invited: ${duplicates.join(', ')}`);
+        messages.push(`${t(locale, 'invite_alreadyInvited')} ${duplicates.join(', ')}`);
       }
       if (capped?.length > 0) {
-        messages.push(`Group full, not invited: ${capped.join(', ')}`);
+        messages.push(`${t(locale, 'invite_groupFull')} ${capped.join(', ')}`);
       }
 
       if (messages.length > 0) {
@@ -89,13 +92,13 @@ export default function InviteForm({ code, onSent }) {
       }
 
       if (sent > 0) {
-        setSuccess(`${sent} invite${sent > 1 ? 's' : ''} sent!`);
+        setSuccess(t(locale, 'invite_success').replace('{n}', sent));
       }
 
       if (onSent) onSent();
     } catch (err) {
       console.error('[InviteForm] Error:', err);
-      setError('Something went wrong. Please try again.');
+      setError(t(locale, 'invite_errorGeneric'));
     } finally {
       setLoading(false);
     }
@@ -103,9 +106,9 @@ export default function InviteForm({ code, onSent }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 bg-white rounded-xl border border-gray-100 p-4">
-      <p className="text-sm font-semibold text-gray-900">Invite guests</p>
+      <p className="text-sm font-semibold text-gray-900">{t(locale, 'invite_title')}</p>
       <textarea
-        placeholder="Enter email addresses (comma or newline separated)"
+        placeholder={t(locale, 'invite_placeholder')}
         value={emailsText}
         onChange={(e) => { setEmailsText(e.target.value); setError(''); }}
         rows={3}
@@ -121,7 +124,7 @@ export default function InviteForm({ code, onSent }) {
         className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold text-sm
           hover:bg-green-700 active:bg-green-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        {loading ? 'Sending...' : 'Send Invites'}
+        {loading ? t(locale, 'invite_sending') : t(locale, 'invite_sendInvites')}
       </button>
     </form>
   );

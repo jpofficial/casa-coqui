@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import usePush from '@/hooks/usePush';
 import { isPushCapable, detectPlatform, isStandalone } from '@/lib/platform';
 import PushPermissionExplainer from '@/components/guest/PushPermissionExplainer';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 // Cooldown in ms before we re-show the explainer after a dismissal
 const DISMISS_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -32,6 +34,7 @@ export default function PushPermissionGate({
   children,
 }) {
   const { permission, requestPermission, supported, pushCapable, platform, standalone } = usePush({ bookingCode });
+  const { locale } = useLocale();
 
   const [dismissed, setDismissed] = useState(true); // start hidden until hydrated
   const [hydrated, setHydrated] = useState(false);
@@ -92,9 +95,9 @@ export default function PushPermissionGate({
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-amber-900">Install the app for notifications</p>
+                <p className="text-sm font-semibold text-amber-900">{t(locale, 'push_installAppForNotifs')}</p>
                 <p className="text-xs text-amber-700 mt-0.5">
-                  On iPhone, add Casa Coqui to your Home Screen (via the Share menu) to receive push notifications.
+                  {t(locale, 'push_installAppDesc')}
                 </p>
               </div>
               <button
@@ -130,9 +133,9 @@ export default function PushPermissionGate({
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-700">Notifications blocked</p>
+                <p className="text-sm font-semibold text-gray-700">{t(locale, 'push_blocked')}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  To re-enable, go to your phone&apos;s Settings &rarr; {plat === 'ios' ? 'Safari' : 'Chrome'} &rarr; Notifications and allow Casa Coqui.
+                  {t(locale, 'push_blockedReenableDesc').replace('{browser}', plat === 'ios' ? 'Safari' : 'Chrome')}
                 </p>
               </div>
               <button

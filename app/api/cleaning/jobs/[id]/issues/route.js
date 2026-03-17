@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { requireRole } from '@/lib/api-auth';
 import { notifyAdminAndCohost } from '@/lib/staff-notifications';
+import { nt } from '@/lib/notification-strings';
 
 const VALID_CATEGORIES = ['damage', 'missing', 'repair', 'other'];
 
@@ -72,13 +73,21 @@ export async function POST(request, { params }) {
 
     // Notify admin/cohost about the issue — must await on Vercel serverless.
     if (caller.role === 'cleaner') {
-      const categoryLabels = { damage: 'Damage', missing: 'Missing item', repair: 'Repair needed', other: 'Issue' };
-      const label = categoryLabels[category] || 'Issue';
+      const assigneeName = existing.assigneeName || 'cleaner';
+      const unit = existing.unit;
+      const label = nt('en', `cleaningIssueLabel_${category}`);
       await notifyAdminAndCohost({
-        title: `Cleaning Issue: ${label}`,
-        body: `${existing.unit} — ${description || label} (reported by ${existing.assigneeName || 'cleaner'})`,
+        title: nt('en', 'cleaningIssue_title', { label }),
+        body: nt('en', 'cleaningIssue_body', { unit, description: description || label, reporter: assigneeName }),
         type: 'cleaning_update',
-        data: { jobId: id, unit: existing.unit, category, targetPath: '/admin/cleaning' },
+        data: { jobId: id, unit, category, targetPath: '/admin/cleaning' },
+        localizer: (locale) => {
+          const l = nt(locale, `cleaningIssueLabel_${category}`);
+          return {
+            title: nt(locale, 'cleaningIssue_title', { label: l }),
+            body: nt(locale, 'cleaningIssue_body', { unit, description: description || l, reporter: assigneeName }),
+          };
+        },
       }).catch((err) => console.error('[cleaning/issues] notify error:', err));
     }
 

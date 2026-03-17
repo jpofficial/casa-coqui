@@ -7,23 +7,13 @@ import { db } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 import usePush from '@/hooks/usePush';
 import { ROLES, getDefaultRedirect } from '@/lib/roles';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
-const ROLE_STEPS = {
-  cohost: [
-    'View active guest stays and operations on your Dashboard',
-    'Manage and complete tasks assigned to you in the Tasks tab',
-    'Monitor the community board and calendar for upcoming activity',
-  ],
-  cleaner: [
-    'Your cleaning jobs appear automatically when guests check out',
-    'Follow the step-by-step cleaning wizard from start to finish',
-    'Take before and after photos to document each cleaning',
-  ],
-  maintenance: [
-    'Guest maintenance requests will appear as tasks assigned to you',
-    'Update task status as you work — guests can see your progress',
-    'Add completion notes when you finish a repair',
-  ],
+const ROLE_STEP_KEYS = {
+  cohost: ['admin_onb_cohostStep1', 'admin_onb_cohostStep2', 'admin_onb_cohostStep3'],
+  cleaner: ['admin_onb_cleanerStep1', 'admin_onb_cleanerStep2', 'admin_onb_cleanerStep3'],
+  maintenance: ['admin_onb_maintStep1', 'admin_onb_maintStep2', 'admin_onb_maintStep3'],
 };
 
 const ROLE_COLORS = {
@@ -36,6 +26,7 @@ export default function GettingStartedPage() {
   const { user, role, displayName, setNeedsOnboarding } = useAuth();
   const { permission, requestPermission, supported: pushSupported } = usePush({ staffId: user?.uid });
   const router = useRouter();
+  const { locale } = useLocale();
 
   const [showSafari, setShowSafari] = useState(false);
   const [showChrome, setShowChrome] = useState(false);
@@ -45,7 +36,7 @@ export default function GettingStartedPage() {
   const roleConfig = ROLES[role];
   const roleLabel = roleConfig?.label || role;
   const colors = ROLE_COLORS[role] || ROLE_COLORS.cohost;
-  const steps = ROLE_STEPS[role] || ROLE_STEPS.cohost;
+  const stepKeys = ROLE_STEP_KEYS[role] || ROLE_STEP_KEYS.cohost;
 
   async function handleGetStarted() {
     setDismissing(true);
@@ -79,10 +70,10 @@ export default function GettingStartedPage() {
             </svg>
           </div>
           <h1 className="font-display text-2xl text-coqui-900">
-            Welcome, {displayName || 'Team Member'}
+            {t(locale, 'admin_onb_welcome').replace('{name}', displayName || 'Team Member')}
           </h1>
           <p className="text-sm text-coqui-800/60 mt-1.5">
-            You&apos;ve joined Casa Coqui as a{' '}
+            {t(locale, 'admin_onb_joinedAs')}{' '}
             <span className={`inline-block font-semibold px-2 py-0.5 rounded-full text-xs ${colors.bg} ${colors.text}`}>
               {roleLabel}
             </span>
@@ -92,15 +83,15 @@ export default function GettingStartedPage() {
         {/* Role Overview */}
         <div className="bg-white rounded-xl shadow-brand border border-cafe-100 p-5">
           <h2 className="text-xs font-bold uppercase tracking-widest text-coqui-700 mb-3">
-            What You&apos;ll Do
+            {t(locale, 'admin_onb_whatYoullDo')}
           </h2>
           <ul className="space-y-3">
-            {steps.map((step, i) => (
+            {stepKeys.map((key, i) => (
               <li key={i} className="flex gap-3 text-sm text-coqui-800/80">
                 <span className="flex-none w-6 h-6 rounded-full bg-coqui-100 text-coqui-700 text-xs font-bold flex items-center justify-center mt-0.5">
                   {i + 1}
                 </span>
-                <span className="leading-relaxed">{step}</span>
+                <span className="leading-relaxed">{t(locale, key)}</span>
               </li>
             ))}
           </ul>
@@ -110,10 +101,10 @@ export default function GettingStartedPage() {
         <div className="bg-white rounded-xl shadow-brand border border-cafe-100 overflow-hidden">
           <div className="p-5 pb-3">
             <h2 className="text-xs font-bold uppercase tracking-widest text-coqui-700 mb-1">
-              Install on Your Phone
+              {t(locale, 'admin_onb_installTitle')}
             </h2>
             <p className="text-xs text-coqui-800/50">
-              Add Casa Coqui to your home screen for quick access
+              {t(locale, 'admin_onb_installDesc')}
             </p>
           </div>
 
@@ -130,7 +121,7 @@ export default function GettingStartedPage() {
                     <path d="M16.24 7.76l-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z" />
                   </svg>
                 </div>
-                <span className="text-sm font-semibold text-coqui-900">Safari</span>
+                <span className="text-sm font-semibold text-coqui-900">{t(locale, 'admin_onb_safari')}</span>
               </div>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -146,16 +137,14 @@ export default function GettingStartedPage() {
                 <div className="flex gap-3">
                   <span className="flex-none w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">1</span>
                   <div>
-                    <p className="text-sm text-coqui-800/80 leading-relaxed">
-                      Tap the <strong>three dots</strong> at the bottom of the screen
-                    </p>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed" dangerouslySetInnerHTML={{ __html: t(locale, 'admin_onb_safariStep1') }} />
                     <div className="mt-2 inline-flex items-center gap-1.5 bg-gray-100 rounded-lg px-3 py-2">
                       <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
                         <circle cx="5" cy="12" r="2" />
                         <circle cx="12" cy="12" r="2" />
                         <circle cx="19" cy="12" r="2" />
                       </svg>
-                      <span className="text-xs text-gray-500 font-medium">Options</span>
+                      <span className="text-xs text-gray-500 font-medium">{t(locale, 'admin_onb_safariStep1Label')}</span>
                     </div>
                   </div>
                 </div>
@@ -164,14 +153,12 @@ export default function GettingStartedPage() {
                 <div className="flex gap-3">
                   <span className="flex-none w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">2</span>
                   <div>
-                    <p className="text-sm text-coqui-800/80 leading-relaxed">
-                      Tap <strong>&quot;Share&quot;</strong>
-                    </p>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed" dangerouslySetInnerHTML={{ __html: t(locale, 'admin_onb_safariStep2') }} />
                     <div className="mt-2 inline-flex items-center gap-1.5 bg-gray-100 rounded-lg px-3 py-2">
                       <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 8.25H7.5a2.25 2.25 0 00-2.25 2.25v9a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H15M12 3v9m0-9l-3 3m3-3l3 3" />
                       </svg>
-                      <span className="text-xs text-gray-500 font-medium">Share</span>
+                      <span className="text-xs text-gray-500 font-medium">{t(locale, 'admin_onb_safariStep2Label')}</span>
                     </div>
                   </div>
                 </div>
@@ -180,15 +167,13 @@ export default function GettingStartedPage() {
                 <div className="flex gap-3">
                   <span className="flex-none w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">3</span>
                   <div>
-                    <p className="text-sm text-coqui-800/80 leading-relaxed">
-                      Scroll down or tap <strong>&quot;More&quot;</strong> to find <strong>&quot;Add to Home Screen&quot;</strong>
-                    </p>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed" dangerouslySetInnerHTML={{ __html: t(locale, 'admin_onb_safariStep3') }} />
                     <div className="mt-2 flex items-center gap-2 flex-wrap">
                       <div className="inline-flex items-center gap-1.5 bg-gray-100 rounded-lg px-3 py-2">
                         <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
                         </svg>
-                        <span className="text-xs text-gray-500 font-medium">More</span>
+                        <span className="text-xs text-gray-500 font-medium">{t(locale, 'admin_onb_safariStep3More')}</span>
                       </div>
                       <svg className="w-4 h-4 text-coqui-800/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -197,7 +182,7 @@ export default function GettingStartedPage() {
                         <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                         </svg>
-                        <span className="text-xs text-gray-600 font-medium">Add to Home Screen</span>
+                        <span className="text-xs text-gray-600 font-medium">{t(locale, 'admin_onb_safariStep3Add')}</span>
                       </div>
                     </div>
                   </div>
@@ -207,11 +192,9 @@ export default function GettingStartedPage() {
                 <div className="flex gap-3">
                   <span className="flex-none w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center mt-0.5">4</span>
                   <div>
-                    <p className="text-sm text-coqui-800/80 leading-relaxed">
-                      Tap <strong>&quot;Add&quot;</strong> in the top-right corner to confirm
-                    </p>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed" dangerouslySetInnerHTML={{ __html: t(locale, 'admin_onb_safariStep4') }} />
                     <div className="mt-2 inline-flex items-center bg-blue-500 rounded-lg px-3.5 py-1.5">
-                      <span className="text-xs text-white font-semibold">Add</span>
+                      <span className="text-xs text-white font-semibold">{t(locale, 'admin_onb_safariStep4Btn')}</span>
                     </div>
                   </div>
                 </div>
@@ -233,7 +216,7 @@ export default function GettingStartedPage() {
                     <path d="M21.17 8H12M3.95 6.06L8.54 14M9.47 20.06L14.06 12" strokeWidth="2" stroke="currentColor" fill="none" />
                   </svg>
                 </div>
-                <span className="text-sm font-semibold text-coqui-900">Chrome</span>
+                <span className="text-sm font-semibold text-coqui-900">{t(locale, 'admin_onb_chrome')}</span>
               </div>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -249,14 +232,12 @@ export default function GettingStartedPage() {
                 <div className="flex gap-3">
                   <span className="flex-none w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center mt-0.5">1</span>
                   <div>
-                    <p className="text-sm text-coqui-800/80 leading-relaxed">
-                      Tap the <strong>Share</strong> button at the top-right of the screen
-                    </p>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed" dangerouslySetInnerHTML={{ __html: t(locale, 'admin_onb_chromeStep1') }} />
                     <div className="mt-2 inline-flex items-center gap-1.5 bg-gray-100 rounded-lg px-3 py-2">
                       <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 8.25H7.5a2.25 2.25 0 00-2.25 2.25v9a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H15M12 3v9m0-9l-3 3m3-3l3 3" />
                       </svg>
-                      <span className="text-xs text-gray-500 font-medium">Share</span>
+                      <span className="text-xs text-gray-500 font-medium">{t(locale, 'admin_onb_chromeStep1Label')}</span>
                     </div>
                   </div>
                 </div>
@@ -265,15 +246,13 @@ export default function GettingStartedPage() {
                 <div className="flex gap-3">
                   <span className="flex-none w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center mt-0.5">2</span>
                   <div>
-                    <p className="text-sm text-coqui-800/80 leading-relaxed">
-                      Scroll down or tap <strong>&quot;More&quot;</strong> to find <strong>&quot;Add to Home Screen&quot;</strong>
-                    </p>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed" dangerouslySetInnerHTML={{ __html: t(locale, 'admin_onb_chromeStep2') }} />
                     <div className="mt-2 flex items-center gap-2 flex-wrap">
                       <div className="inline-flex items-center gap-1.5 bg-gray-100 rounded-lg px-3 py-2">
                         <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
                         </svg>
-                        <span className="text-xs text-gray-500 font-medium">More</span>
+                        <span className="text-xs text-gray-500 font-medium">{t(locale, 'admin_onb_chromeStep2More')}</span>
                       </div>
                       <svg className="w-4 h-4 text-coqui-800/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -282,12 +261,10 @@ export default function GettingStartedPage() {
                         <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                         </svg>
-                        <span className="text-xs text-gray-600 font-medium">Add to Home Screen</span>
+                        <span className="text-xs text-gray-600 font-medium">{t(locale, 'admin_onb_chromeStep2Add')}</span>
                       </div>
                     </div>
-                    <p className="text-xs text-coqui-800/40 mt-1.5">
-                      On Android, this may say <strong>&quot;Install App&quot;</strong> instead
-                    </p>
+                    <p className="text-xs text-coqui-800/40 mt-1.5" dangerouslySetInnerHTML={{ __html: t(locale, 'admin_onb_chromeStep2Note') }} />
                   </div>
                 </div>
 
@@ -295,11 +272,9 @@ export default function GettingStartedPage() {
                 <div className="flex gap-3">
                   <span className="flex-none w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center mt-0.5">3</span>
                   <div>
-                    <p className="text-sm text-coqui-800/80 leading-relaxed">
-                      Tap <strong>&quot;Add&quot;</strong> or <strong>&quot;Install&quot;</strong> to confirm
-                    </p>
+                    <p className="text-sm text-coqui-800/80 leading-relaxed" dangerouslySetInnerHTML={{ __html: t(locale, 'admin_onb_chromeStep3') }} />
                     <div className="mt-2 inline-flex items-center bg-blue-500 rounded-lg px-3.5 py-1.5">
-                      <span className="text-xs text-white font-semibold">Add</span>
+                      <span className="text-xs text-white font-semibold">{t(locale, 'admin_onb_chromeStep3Btn')}</span>
                     </div>
                   </div>
                 </div>
@@ -312,17 +287,17 @@ export default function GettingStartedPage() {
         {pushSupported && (
           <div className="bg-coqui-50 rounded-xl border border-coqui-100 p-5">
             <h2 className="text-xs font-bold uppercase tracking-widest text-coqui-700 mb-2">
-              Stay in the Loop
+              {t(locale, 'admin_onb_stayInLoop')}
             </h2>
             <p className="text-sm text-coqui-800/70 mb-4">
-              Enable notifications so you never miss a task assignment or update.
+              {t(locale, 'admin_onb_enableNotifDesc')}
             </p>
             {permission === 'granted' ? (
               <div className="flex items-center gap-2 text-sm text-coqui-700 font-medium">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Notifications enabled
+                {t(locale, 'admin_onb_notifsEnabled')}
               </div>
             ) : (
               <button
@@ -330,7 +305,7 @@ export default function GettingStartedPage() {
                 disabled={notifLoading}
                 className="w-full bg-coqui-600 hover:bg-coqui-700 active:bg-coqui-800 active:scale-[0.98] disabled:opacity-40 text-white font-semibold rounded-xl px-4 py-3 text-sm transition-all duration-200"
               >
-                {notifLoading ? 'Requesting...' : 'Enable Notifications'}
+                {notifLoading ? t(locale, 'admin_onb_requesting') : t(locale, 'admin_onb_enableNotifs')}
               </button>
             )}
           </div>
@@ -342,7 +317,7 @@ export default function GettingStartedPage() {
           disabled={dismissing}
           className="w-full bg-atardecer-400 hover:bg-atardecer-500 active:bg-atardecer-600 active:scale-[0.98] disabled:opacity-40 text-white font-semibold rounded-xl px-4 py-3.5 text-base transition-all duration-200 shadow-sm hover:shadow-md"
         >
-          {dismissing ? 'Loading...' : 'Get Started'}
+          {dismissing ? t(locale, 'admin_onb_loading') : t(locale, 'admin_onb_getStarted')}
         </button>
 
       </div>

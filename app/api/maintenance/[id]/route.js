@@ -3,8 +3,9 @@ import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
 import { sendDirectMessage } from '@/lib/notifications';
 import { notifyAdminAndCohost } from '@/lib/staff-notifications';
+import { nt, getGuestLocale, maintCategory } from '@/lib/notification-strings';
 
-const VALID_STATUSES = ['open', 'acknowledged', 'in-progress', 'done'];
+const VALID_STATUSES = ['open', 'acknowledged', 'in-progress', 'done', 'completed', 'archived', 'deleted'];
 
 // ---------------------------------------------------------------------------
 // PATCH /api/maintenance/[id]
@@ -71,6 +72,30 @@ export async function PATCH(request, { params }) {
     const now = new Date().toISOString();
     updates.updatedAt = now;
 
+    // Admin-only guard for delete
+    if (updates.status === 'deleted') {
+      if (caller.role !== 'admin') {
+        return NextResponse.json(
+          { success: false, error: 'Only admin can delete maintenance requests.' },
+          { status: 403 }
+        );
+      }
+      updates.deletedAt = now;
+      updates.deletedBy = caller.uid;
+    }
+
+    // Track completion
+    if (updates.status === 'done' || updates.status === 'completed') {
+      updates.completedAt = now;
+      updates.completedBy = caller.uid;
+    }
+
+    // Track archival
+    if (updates.status === 'archived') {
+      updates.archivedAt = now;
+      updates.archivedBy = caller.uid;
+    }
+
     // Track acknowledgement
     if (updates.status === 'acknowledged') {
       updates.acknowledgedAt = now;
@@ -101,6 +126,11 @@ export async function PATCH(request, { params }) {
     const category = maintenanceData.category;
 
     // --- Staff + guest follow-up notifications ---
+    // Skip notifications for delete/archive — silent admin housekeeping.
+    if (updates.status === 'deleted' || updates.status === 'archived') {
+      return NextResponse.json({ success: true, data: { id, ...updates } });
+    }
+
     // All notifications must be awaited — Vercel freezes serverless functions
     // after the response is sent, killing pending async work.
 
@@ -123,24 +153,39 @@ export async function PATCH(request, { params }) {
           body: `${callerName} acknowledged the ${category} request`,
           type: 'maintenance_update',
           data: { requestId: id, category, action: 'acknowledged', sourceAction: 'maintenance_acknowledged', sourceId: id },
+          localizer: (locale) => ({
+            title: nt(locale, 'maintenanceAcknowledged_title'),
+            body: nt(locale, 'maintenanceAcknowledged_body', {
+              name: callerName,
+              category: maintCategory(locale, category),
+            }),
+          }),
         }).catch((err) => console.error('[PATCH /api/maintenance] Ack staff notification error:', err))
       );
 
       // Notify guest that their request has been received
       if (bookingCode) {
-        const guestBody = estimatedTime
-          ? `Your ${category} request has been received. ETA: ${estimatedTime}`
-          : `Your ${category} request has been received and a team member is looking into it.`;
-
         pendingNotifications.push(
-          sendDirectMessage({
-            bookingCode,
-            title: 'Maintenance Update',
-            body: guestBody,
-            category: 'maintenance',
-            sourceAction: 'maintenance_acknowledged',
-            sourceId: id,
-          }).catch((err) => console.error('[PATCH /api/maintenance] Ack guest notification error:', err))
+          (async () => {
+            const guestLocale = await getGuestLocale(bookingCode);
+            const guestTitle = nt(guestLocale, 'maintenanceUpdate_title');
+            const guestBody = estimatedTime
+              ? nt(guestLocale, 'maintenanceReceived_body', {
+                  category: maintCategory(guestLocale, category),
+                  eta: estimatedTime,
+                })
+              : nt(guestLocale, 'maintenanceReceivedNoEta_body', {
+                  category: maintCategory(guestLocale, category),
+                });
+            return sendDirectMessage({
+              bookingCode,
+              title: guestTitle,
+              body: guestBody,
+              category: 'maintenance',
+              sourceAction: 'maintenance_acknowledged',
+              sourceId: id,
+            });
+          })().catch((err) => console.error('[PATCH /api/maintenance] Ack guest notification error:', err))
         );
       }
     }
@@ -153,6 +198,14 @@ export async function PATCH(request, { params }) {
           body: `${callerName} set ETA: ${estimatedTime} for ${category} request`,
           type: 'maintenance_update',
           data: { requestId: id, category, action: 'eta_set', estimatedTime, sourceAction: 'maintenance_eta_set', sourceId: id },
+          localizer: (locale) => ({
+            title: nt(locale, 'maintenanceEtaSet_title'),
+            body: nt(locale, 'maintenanceEtaSet_body', {
+              name: callerName,
+              eta: estimatedTime,
+              category: maintCategory(locale, category),
+            }),
+          }),
         }).catch((err) => console.error('[PATCH /api/maintenance] ETA staff notification error:', err))
       );
     }
@@ -168,14 +221,17 @@ export async function PATCH(request, { params }) {
           const messageBody = parts.join(' — ');
 
           pendingNotifications.push(
-            sendDirectMessage({
-              bookingCode,
-              title: 'Maintenance Update',
-              body: messageBody,
-              category: 'maintenance',
-              sourceAction: 'maintenance_response',
-              sourceId: id,
-            }).catch((err) => console.error('[PATCH /api/maintenance] Guest notification error:', err))
+            (async () => {
+              const guestLocale = await getGuestLocale(bookingCode);
+              return sendDirectMessage({
+                bookingCode,
+                title: nt(guestLocale, 'maintenanceUpdate_title'),
+                body: messageBody,  // user-written content, keep as-is
+                category: 'maintenance',
+                sourceAction: 'maintenance_response',
+                sourceId: id,
+              });
+            })().catch((err) => console.error('[PATCH /api/maintenance] Guest notification error:', err))
           );
         }
       }

@@ -13,23 +13,36 @@ import {
 import { db, auth } from '@/lib/firebase';
 import CommunityPost from './CommunityPost';
 import { getRelativeTime } from '@/lib/time';
+import useLocale from '@/hooks/useLocale';
+import { t } from '@/lib/i18n';
 
 // ─── Type badge ────────────────────────────────────────────────────────────────
 const TYPE_STYLES = {
-  parking:        { label: 'Parking',        bg: 'bg-atardecer-50',  text: 'text-atardecer-700', border: 'border-atardecer-200', accent: 'bg-atardecer-400' },
-  laundry:        { label: 'Laundry',        bg: 'bg-caribe-50',     text: 'text-caribe-700',    border: 'border-caribe-200',    accent: 'bg-caribe-400'    },
-  property_issue: { label: 'Property Issue', bg: 'bg-flamboyan-50',  text: 'text-flamboyan-700', border: 'border-flamboyan-200', accent: 'bg-flamboyan-400' },
-  general:        { label: 'General',        bg: 'bg-coqui-50',      text: 'text-coqui-700',     border: 'border-coqui-200',     accent: 'bg-coqui-400'     },
+  parking:        { bg: 'bg-atardecer-50',  text: 'text-atardecer-700', border: 'border-atardecer-200', accent: 'bg-atardecer-400' },
+  laundry:        { bg: 'bg-caribe-50',     text: 'text-caribe-700',    border: 'border-caribe-200',    accent: 'bg-caribe-400'    },
+  property_issue: { bg: 'bg-flamboyan-50',  text: 'text-flamboyan-700', border: 'border-flamboyan-200', accent: 'bg-flamboyan-400' },
+  general:        { bg: 'bg-coqui-50',      text: 'text-coqui-700',     border: 'border-coqui-200',     accent: 'bg-coqui-400'     },
   // Legacy types (for backward compatibility with old posts)
-  noise:          { label: 'Noise',          bg: 'bg-purple-50',     text: 'text-purple-700',    border: 'border-purple-200',    accent: 'bg-purple-400'    },
-  lost_found:     { label: 'Lost & Found',   bg: 'bg-flamboyan-50',  text: 'text-flamboyan-700', border: 'border-flamboyan-200', accent: 'bg-flamboyan-400' },
+  noise:          { bg: 'bg-purple-50',     text: 'text-purple-700',    border: 'border-purple-200',    accent: 'bg-purple-400'    },
+  lost_found:     { bg: 'bg-flamboyan-50',  text: 'text-flamboyan-700', border: 'border-flamboyan-200', accent: 'bg-flamboyan-400' },
 };
 
-function TypeBadge({ type }) {
+// Maps a post type to its i18n key suffix
+const TYPE_KEY = {
+  parking:        'parking',
+  laundry:        'laundry',
+  property_issue: 'propertyIssue',
+  general:        'general',
+  noise:          'noise',
+  lost_found:     'lostFound',
+};
+
+function TypeBadge({ type, locale }) {
   const style = TYPE_STYLES[type] ?? TYPE_STYLES.general;
+  const labelKey = `communityType_${TYPE_KEY[type] ?? 'general'}`;
   return (
     <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full border ${style.bg} ${style.text} ${style.border}`}>
-      {style.label}
+      {t(locale, labelKey)}
     </span>
   );
 }
@@ -53,7 +66,7 @@ function PostAvatar({ role }) {
 }
 
 // ─── Reply thread ──────────────────────────────────────────────────────────────
-function ReplyThread({ postId }) {
+function ReplyThread({ postId, locale }) {
   const [replies, setReplies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [replyText, setReplyText] = useState('');
@@ -105,7 +118,7 @@ function ReplyThread({ postId }) {
   return (
     <div className="mt-3 pt-3 border-t border-coqui-100">
       {loading ? (
-        <p className="text-xs text-coqui-800/50">Loading replies...</p>
+        <p className="text-xs text-coqui-800/50">{t(locale, 'community_loadingReplies')}</p>
       ) : (
         <>
           {replies.length > 0 && (
@@ -131,7 +144,7 @@ function ReplyThread({ postId }) {
               type="text"
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
-              placeholder="Write a reply..."
+              placeholder={t(locale, 'community_replyPlaceholder')}
               maxLength={300}
               disabled={sending}
               className="admin-input-focus flex-1 rounded-lg border border-cafe-200 px-3 py-2 text-sm text-coqui-900 placeholder-cafe-400 focus:outline-none disabled:opacity-50 bg-white"
@@ -141,7 +154,7 @@ function ReplyThread({ postId }) {
               disabled={!replyText.trim() || sending}
               className="px-3 py-2 bg-coqui-600 text-white text-sm font-medium rounded-lg hover:bg-coqui-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
             >
-              {sending ? '...' : 'Send'}
+              {sending ? '...' : t(locale, 'community_send')}
             </button>
           </form>
         </>
@@ -172,7 +185,7 @@ function PostSkeleton() {
 }
 
 // ─── Post card ─────────────────────────────────────────────────────────────────
-function PostCard({ post, showBookingCode, canDelete, onDelete }) {
+function PostCard({ post, showBookingCode, canDelete, onDelete, locale }) {
   const [showReplies, setShowReplies] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const relativeTime = getRelativeTime(post.createdAt);
@@ -180,7 +193,7 @@ function PostCard({ post, showBookingCode, canDelete, onDelete }) {
   const accentColor = typeAccent(post.type);
 
   async function handleDelete() {
-    if (!confirm('Delete this post?')) return;
+    if (!confirm(t(locale, 'community_deletePost'))) return;
     setDeleting(true);
     try {
       await onDelete(post.id);
@@ -203,9 +216,9 @@ function PostCard({ post, showBookingCode, canDelete, onDelete }) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-semibold text-coqui-900">
-                  {isHost ? 'Host' : 'A Guest'}
+                  {isHost ? t(locale, 'community_host') : t(locale, 'community_aGuest')}
                 </span>
-                <TypeBadge type={post.type} />
+                <TypeBadge type={post.type} locale={locale} />
               </div>
               {relativeTime && (
                 <span className="text-xs text-coqui-800/50 mt-0.5 block">{relativeTime}</span>
@@ -217,7 +230,7 @@ function PostCard({ post, showBookingCode, canDelete, onDelete }) {
                 onClick={handleDelete}
                 disabled={deleting}
                 className="text-coqui-800/30 hover:text-flamboyan-600 transition-colors p-1 min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
-                aria-label="Delete post"
+                aria-label={t(locale, 'community_deletePost')}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -235,14 +248,14 @@ function PostCard({ post, showBookingCode, canDelete, onDelete }) {
           {post.photoUrl && (
             <img
               src={post.photoUrl}
-              alt="Post photo"
+              alt={t(locale, 'community_postPhoto')}
               className="mt-3 w-full rounded-lg object-cover max-h-60"
             />
           )}
 
           {showBookingCode && post.bookingCode && (
             <p className="text-xs text-coqui-800/50 mt-2">
-              Booking: {post.bookingCode}
+              {t(locale, 'community_booking')} {post.bookingCode}
             </p>
           )}
 
@@ -252,10 +265,10 @@ function PostCard({ post, showBookingCode, canDelete, onDelete }) {
             onClick={() => setShowReplies(!showReplies)}
             className="mt-3 text-xs text-coqui-600 font-semibold hover:text-coqui-700 transition-colors"
           >
-            {showReplies ? 'Hide replies' : 'Reply'}
+            {showReplies ? t(locale, 'community_hideReplies') : t(locale, 'community_reply')}
           </button>
 
-          {showReplies && <ReplyThread postId={post.id} />}
+          {showReplies && <ReplyThread postId={post.id} locale={locale} />}
         </div>
       </div>
     </div>
@@ -264,6 +277,7 @@ function PostCard({ post, showBookingCode, canDelete, onDelete }) {
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function Community({ code, showBookingCode = false, hidePostButton = false, dateFrom = null, dateTo = null, canDelete = false, onDelete = null, initialPostType = null }) {
+  const { locale } = useLocale();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -287,7 +301,7 @@ export default function Community({ code, showBookingCode = false, hidePostButto
       },
       (err) => {
         console.error('Community board listener error:', err);
-        setError('Could not load the community board. Please try again later.');
+        setError(t(locale, 'community_errorLoad'));
         setLoading(false);
       }
     );
@@ -299,9 +313,9 @@ export default function Community({ code, showBookingCode = false, hidePostButto
     <div className="flex flex-col gap-4">
       {/* Header */}
       <div>
-        <h2 className="text-base font-bold text-coqui-900">Community Board</h2>
+        <h2 className="text-base font-bold text-coqui-900">{t(locale, 'community_title')}</h2>
         <p className="text-sm text-coqui-800/60 mt-0.5">
-          Parking, laundry, and property coordination
+          {t(locale, 'community_subtitle')}
         </p>
       </div>
 
@@ -322,7 +336,7 @@ export default function Community({ code, showBookingCode = false, hidePostButto
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            New Post
+            {t(locale, 'community_newPost')}
           </button>
         )
       )}
@@ -333,7 +347,7 @@ export default function Community({ code, showBookingCode = false, hidePostButto
           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
         </svg>
         <p className="text-xs text-coqui-800 leading-snug">
-          All posts are anonymous. Your identity is never shared with other guests.
+          {t(locale, 'community_anonymousNotice')}
         </p>
       </div>
 
@@ -357,7 +371,7 @@ export default function Community({ code, showBookingCode = false, hidePostButto
       {!loading && !error && visiblePosts.length > 0 && (
         <div className="flex flex-col gap-3">
           {visiblePosts.map((post) => (
-            <PostCard key={post.id} post={post} showBookingCode={showBookingCode} canDelete={canDelete} onDelete={onDelete} />
+            <PostCard key={post.id} post={post} showBookingCode={showBookingCode} canDelete={canDelete} onDelete={onDelete} locale={locale} />
           ))}
         </div>
       )}
@@ -372,10 +386,10 @@ export default function Community({ code, showBookingCode = false, hidePostButto
           </div>
           <div>
             <p className="text-sm font-semibold text-coqui-900">
-              {isDateScoped ? 'No posts during your stay yet' : 'No posts yet'}
+              {isDateScoped ? t(locale, 'community_emptyDateTitle') : t(locale, 'community_emptyTitle')}
             </p>
             <p className="text-xs text-coqui-800/50 mt-1">
-              Be the first to share something with fellow guests!
+              {t(locale, 'community_emptyDesc')}
             </p>
           </div>
         </div>
