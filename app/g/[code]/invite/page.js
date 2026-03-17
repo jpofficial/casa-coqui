@@ -5,8 +5,7 @@ import Link from 'next/link';
 import useAuth from '@/hooks/useAuth';
 import { auth } from '@/lib/firebase';
 import InviteForm from '@/components/guest/InviteForm';
-
-const MAX_MEMBERS = 6;
+import { MAX_MEMBERS } from '@/lib/constants';
 
 // ─── Avatar colors by index ─────────────────────────────────────────────────
 const AVATAR_COLORS = [
@@ -16,6 +15,10 @@ const AVATAR_COLORS = [
   { bg: 'bg-amber-500', ring: 'ring-amber-200' },
   { bg: 'bg-rose-500', ring: 'ring-rose-200' },
   { bg: 'bg-indigo-500', ring: 'ring-indigo-200' },
+  { bg: 'bg-teal-500', ring: 'ring-teal-200' },
+  { bg: 'bg-orange-500', ring: 'ring-orange-200' },
+  { bg: 'bg-pink-500', ring: 'ring-pink-200' },
+  { bg: 'bg-blue-500', ring: 'ring-blue-200' },
 ];
 
 function getAvatarColor(index) {

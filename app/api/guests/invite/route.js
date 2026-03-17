@@ -6,8 +6,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { requireAuth } from '@/lib/api-auth';
 import { resend } from '@/lib/resend';
 import { getAppUrl } from '@/lib/url';
-
-const MAX_MEMBERS = 6;
+import { MAX_MEMBERS } from '@/lib/constants';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ---------------------------------------------------------------------------
