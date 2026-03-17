@@ -40,6 +40,8 @@ const CATEGORY_PATHS = {
   announcement: (code) => code ? `/g/${code}` : '/admin',
   checkin: (code) => code ? `/g/${code}/checkin` : '/admin/stays',
   general: (code) => code ? `/g/${code}` : '/admin',
+  cleaning_assignment: () => '/admin/cleaning',
+  cleaning_update: () => '/admin/cleaning',
 };
 
 function resolveDeepLink(data) {
@@ -107,6 +109,10 @@ function buildActions(type) {
       return [{ action: 'view', title: 'View Request' }];
     case 'parking':
       return [{ action: 'view', title: 'View Map' }];
+    case 'cleaning_assignment':
+      return [{ action: 'view', title: 'Ver Limpieza' }];
+    case 'cleaning_update':
+      return [{ action: 'view', title: 'Ver Limpieza' }];
     default:
       return [];
   }

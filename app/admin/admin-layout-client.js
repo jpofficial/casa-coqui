@@ -127,6 +127,9 @@ function AdminLayoutInner({ children }) {
     const badge = badgeConfig[role];
     return (
       <div className="min-h-screen bg-cafe-50 flex flex-col">
+        {/* Foreground toast for staff notifications */}
+        <ForegroundToast foregroundMsg={foregroundMsg} code="" isStaff />
+
         <header className="bg-white/80 backdrop-blur-sm border-b border-cafe-200 px-4 py-3.5 flex items-center justify-between sticky top-0 z-40 shadow-brand">
           <div className="flex items-center gap-2.5">
             <span className="font-display text-xl text-coqui-700">Casa Coqui</span>
@@ -134,15 +137,18 @@ function AdminLayoutInner({ children }) {
               {badge.label}
             </span>
           </div>
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-1.5 text-sm text-coqui-800/50 hover:text-coqui-800 active:text-coqui-900 transition-colors min-h-[44px] px-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
-            </svg>
-            Sign out
-          </button>
+          <div className="flex items-center gap-1">
+            <StaffNotificationBell unreadCount={unreadCount} />
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-1.5 text-sm text-coqui-800/50 hover:text-coqui-800 active:text-coqui-900 transition-colors min-h-[44px] px-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
+              </svg>
+              Sign out
+            </button>
+          </div>
         </header>
         <main className="flex-1">{children}</main>
       </div>

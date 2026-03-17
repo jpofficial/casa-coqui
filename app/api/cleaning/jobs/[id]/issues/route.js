@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { requireRole } from '@/lib/api-auth';
+import { notifyAdminAndCohost } from '@/lib/staff-notifications';
 
 const VALID_CATEGORIES = ['damage', 'missing', 'repair', 'other'];
 
@@ -68,6 +69,18 @@ export async function POST(request, { params }) {
       issues: FieldValue.arrayUnion(issue),
       updatedAt: new Date().toISOString(),
     });
+
+    // Notify admin/cohost about the issue
+    if (caller.role === 'cleaner') {
+      const categoryLabels = { damage: 'Damage', missing: 'Missing item', repair: 'Repair needed', other: 'Issue' };
+      const label = categoryLabels[category] || 'Issue';
+      notifyAdminAndCohost({
+        title: `Cleaning Issue: ${label}`,
+        body: `${existing.unit} — ${description || label} (reported by ${existing.assigneeName || 'cleaner'})`,
+        type: 'cleaning_update',
+        data: { jobId: id, unit: existing.unit, category, targetPath: '/admin/cleaning' },
+      }).catch((err) => console.error('[cleaning/issues] notify error:', err));
+    }
 
     return NextResponse.json({ success: true, data: issue }, { status: 201 });
   } catch (error) {
