@@ -24,7 +24,7 @@ export default function StaffNotificationBell({ unreadCount = 0 }) {
         viewBox="0 0 24 24"
         strokeWidth={1.75}
         stroke="currentColor"
-        className="w-5.5 h-5.5"
+        className="w-[22px] h-[22px]"
       >
         <path
           strokeLinecap="round"
