@@ -161,7 +161,8 @@ service cloud.firestore {
       allow update: if isAdmin() || (
         isStaff() &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'notes', 'estimatedTime', 'guestResponse', 'respondedAt', 'respondedBy', 'updatedAt'])
+          .hasOnly(['status', 'notes', 'estimatedTime', 'guestResponse',
+                    'respondedAt', 'respondedBy', 'acknowledgedAt', 'acknowledgedBy', 'updatedAt'])
       );
       allow delete: if isAdmin();
     }

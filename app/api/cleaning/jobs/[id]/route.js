@@ -5,7 +5,7 @@ import { notifyStaff, notifyAdminAndCohost } from '@/lib/staff-notifications';
 
 // Valid state machine transitions
 const VALID_TRANSITIONS = {
-  scheduled: ['acknowledged'],
+  scheduled: ['acknowledged', 'declined'],
   acknowledged: ['en_route'],
   en_route: ['arrived'],
   arrived: ['before_photos'],
@@ -17,6 +17,7 @@ const VALID_TRANSITIONS = {
 
 const TIMESTAMP_FIELDS = {
   acknowledged: 'acknowledgedAt',
+  declined: 'declinedAt',
   en_route: 'enRouteAt',
   arrived: 'arrivedAt',
   before_photos: 'startedAt',
@@ -84,6 +85,11 @@ export async function PATCH(request, { params }) {
       }
     }
 
+    // Handle decline reason
+    if (body.declineReason !== undefined) {
+      updates.declineReason = String(body.declineReason).trim();
+    }
+
     // Handle laundry fields
     if (body.laundryFound !== undefined) updates.laundryFound = Boolean(body.laundryFound);
     if (body.laundryNote !== undefined) updates.laundryNote = String(body.laundryNote).trim();
@@ -107,11 +113,33 @@ export async function PATCH(request, { params }) {
     await docRef.update(updates);
 
     // Notify admin/cohost on meaningful status changes (fire-and-forget).
+    const cleanerName = existing.assigneeName || 'Cleaner';
+    const unit = existing.unit;
+
+    if (updates.status === 'acknowledged') {
+      notifyAdminAndCohost({
+        title: 'Cleaning Accepted',
+        body: `${cleanerName} accepted cleaning for ${unit}`,
+        type: 'cleaning_update',
+        data: { jobId: id, status: 'acknowledged' },
+      }).catch((err) => console.error('[PATCH /api/cleaning/jobs/[id]] Notify error:', err));
+    }
+
+    if (updates.status === 'declined') {
+      const reason = updates.declineReason ? `: ${updates.declineReason}` : '';
+      notifyAdminAndCohost({
+        title: 'Cleaning Declined',
+        body: `${cleanerName} cannot accept cleaning for ${unit}${reason}`,
+        type: 'cleaning_update',
+        data: { jobId: id, status: 'declined' },
+      }).catch((err) => console.error('[PATCH /api/cleaning/jobs/[id]] Notify error:', err));
+    }
+
     if (updates.status === 'arrived' || updates.status === 'completed') {
       const statusLabel = updates.status === 'arrived' ? 'arrived at' : 'completed';
       notifyAdminAndCohost({
         title: `Cleaning ${statusLabel}`,
-        body: `${existing.assigneeName || 'Cleaner'} ${statusLabel} ${existing.unit}`,
+        body: `${cleanerName} ${statusLabel} ${unit}`,
         type: 'cleaning_update',
         data: { jobId: id, status: updates.status },
       }).catch((err) => console.error('[PATCH /api/cleaning/jobs/[id]] Notify error:', err));

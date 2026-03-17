@@ -19,6 +19,7 @@ import Complete from './steps/Complete';
 const STATUS_STEP = {
   scheduled: 'acknowledge',
   acknowledged: 'en_route',
+  declined: 'declined',
   en_route: 'arrived',
   arrived: 'before_photos',
   before_photos: 'before_photos',
@@ -94,6 +95,22 @@ export default function CleaningWizard({ job, onRefresh }) {
     }
   }, [apiCall, job.id, onRefresh]);
 
+  const declineJob = useCallback(async (declineReason) => {
+    setBusy(true);
+    try {
+      await apiCall(`/api/cleaning/jobs/${job.id}`, {
+        status: 'declined',
+        declineReason,
+      });
+      onRefresh();
+    } catch (err) {
+      console.error('Failed to decline job:', err);
+      throw err;
+    } finally {
+      setBusy(false);
+    }
+  }, [apiCall, job.id, onRefresh]);
+
   const submitLaundry = useCallback(async (laundryData) => {
     setBusy(true);
     try {
@@ -146,7 +163,20 @@ export default function CleaningWizard({ job, onRefresh }) {
       {header}
 
       {step === 'acknowledge' && (
-        <Acknowledge job={job} locale={locale} onAdvance={() => advanceStatus('acknowledged')} busy={busy} />
+        <Acknowledge job={job} locale={locale} onAdvance={() => advanceStatus('acknowledged')} onDecline={declineJob} busy={busy} />
+      )}
+      {step === 'declined' && (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <p className="text-lg font-semibold text-gray-800 mb-2">{t(locale, 'declined')}</p>
+          <p className="text-sm text-gray-500 max-w-xs">
+            {job.declineReason || ''}
+          </p>
+        </div>
       )}
       {step === 'en_route' && (
         <EnRoute job={job} locale={locale} onAdvance={() => advanceStatus('en_route')} busy={busy} />

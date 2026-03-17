@@ -11,6 +11,7 @@ import { t } from '@/lib/i18n';
 const STATUS_COLORS = {
   scheduled: 'bg-gray-100 text-gray-700',
   acknowledged: 'bg-blue-100 text-blue-700',
+  declined: 'bg-red-100 text-red-700',
   en_route: 'bg-indigo-100 text-indigo-700',
   arrived: 'bg-purple-100 text-purple-700',
   before_photos: 'bg-yellow-100 text-yellow-700',

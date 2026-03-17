@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
 import { sendDirectMessage } from '@/lib/notifications';
+import { notifyAdminAndCohost } from '@/lib/staff-notifications';
 
-const VALID_STATUSES = ['open', 'in-progress', 'done'];
+const VALID_STATUSES = ['open', 'acknowledged', 'in-progress', 'done'];
 
 // ---------------------------------------------------------------------------
 // PATCH /api/maintenance/[id]
@@ -14,8 +15,11 @@ const VALID_STATUSES = ['open', 'in-progress', 'done'];
 // Request body:
 //   { status?, notes?, estimatedTime?, guestResponse? }
 //
-// When guestResponse or estimatedTime is set, a push notification is sent
-// to the guest via their bookingCode.
+// Workflow notifications:
+//   - status → 'acknowledged': notifies admin/cohost + guest
+//   - estimatedTime provided: notifies admin/cohost + guest
+//   - status → 'done': notifies guest
+//   - guestResponse provided: notifies guest
 //
 // Returns:
 //   { success: true, data: { id, ...updates } }
@@ -64,11 +68,18 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    updates.updatedAt = new Date().toISOString();
+    const now = new Date().toISOString();
+    updates.updatedAt = now;
+
+    // Track acknowledgement
+    if (updates.status === 'acknowledged') {
+      updates.acknowledgedAt = now;
+      updates.acknowledgedBy = caller.uid;
+    }
 
     // Track who responded and when if a guest-facing response is included
     if (guestResponse !== undefined || estimatedTime !== undefined) {
-      updates.respondedAt = new Date().toISOString();
+      updates.respondedAt = now;
       updates.respondedBy = caller.uid;
     }
 
@@ -85,23 +96,72 @@ export async function PATCH(request, { params }) {
 
     await docRef.update(updates);
 
-    // Notify the guest if a response or ETA was provided
-    if (guestResponse !== undefined || estimatedTime !== undefined) {
-      const maintenanceData = existing.data();
-      const bookingCode = maintenanceData.bookingCode;
+    const maintenanceData = existing.data();
+    const bookingCode = maintenanceData.bookingCode;
+    const category = maintenanceData.category;
 
+    // --- Staff follow-up notifications (fire-and-forget) ---
+
+    // Look up the caller's display name for notification copy
+    let callerName = 'Staff';
+    try {
+      const callerDoc = await adminDb.collection('users').doc(caller.uid).get();
+      if (callerDoc.exists) {
+        callerName = callerDoc.data().name || callerDoc.data().email || 'Staff';
+      }
+    } catch (_) { /* fallback to 'Staff' */ }
+
+    // When co-host/maintenance acknowledges — notify admin/cohost team
+    if (updates.status === 'acknowledged') {
+      notifyAdminAndCohost({
+        title: 'Maintenance Acknowledged',
+        body: `${callerName} acknowledged the ${category} request`,
+        type: 'maintenance_update',
+        data: { requestId: id, category, action: 'acknowledged' },
+      }).catch((err) => console.error('[PATCH /api/maintenance] Ack staff notification error:', err));
+
+      // Notify guest that their request has been received
       if (bookingCode) {
-        const parts = [];
-        if (guestResponse) parts.push(guestResponse);
-        if (estimatedTime) parts.push(`ETA: ${estimatedTime}`);
-        const messageBody = parts.join(' — ');
+        const guestBody = estimatedTime
+          ? `Your ${category} request has been received. ETA: ${estimatedTime}`
+          : `Your ${category} request has been received and a team member is looking into it.`;
 
         sendDirectMessage({
           bookingCode,
           title: 'Maintenance Update',
-          body: messageBody,
+          body: guestBody,
           category: 'maintenance',
-        }).catch((err) => console.error('[PATCH /api/maintenance/[id]] Guest notification error:', err));
+        }).catch((err) => console.error('[PATCH /api/maintenance] Ack guest notification error:', err));
+      }
+    }
+
+    // When ETA is provided (without ack — e.g. updating ETA on an already-acknowledged request)
+    if (estimatedTime !== undefined && updates.status !== 'acknowledged') {
+      notifyAdminAndCohost({
+        title: 'Maintenance ETA Set',
+        body: `${callerName} set ETA: ${estimatedTime} for ${category} request`,
+        type: 'maintenance_update',
+        data: { requestId: id, category, action: 'eta_set', estimatedTime },
+      }).catch((err) => console.error('[PATCH /api/maintenance] ETA staff notification error:', err));
+    }
+
+    // Notify the guest if a response or ETA was provided (non-ack cases — ack
+    // case already handled above with better copy)
+    if (updates.status !== 'acknowledged') {
+      if (guestResponse !== undefined || estimatedTime !== undefined) {
+        if (bookingCode) {
+          const parts = [];
+          if (guestResponse) parts.push(guestResponse);
+          if (estimatedTime) parts.push(`ETA: ${estimatedTime}`);
+          const messageBody = parts.join(' — ');
+
+          sendDirectMessage({
+            bookingCode,
+            title: 'Maintenance Update',
+            body: messageBody,
+            category: 'maintenance',
+          }).catch((err) => console.error('[PATCH /api/maintenance] Guest notification error:', err));
+        }
       }
     }
 

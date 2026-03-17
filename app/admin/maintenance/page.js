@@ -5,23 +5,26 @@ import { orderBy } from 'firebase/firestore';
 import { useCollection } from '@/hooks/useFirestore';
 import { auth } from '@/lib/firebase';
 
-const FILTER_TABS = ['All', 'Open', 'In Progress', 'Done'];
+const FILTER_TABS = ['All', 'Open', 'Acknowledged', 'In Progress', 'Done'];
 
 const STATUS_KEYS = {
   All: null,
   Open: 'open',
+  Acknowledged: 'acknowledged',
   'In Progress': 'in-progress',
   Done: 'done',
 };
 
 const STATUS_STYLES = {
   open: 'bg-red-100 text-red-600',
+  acknowledged: 'bg-blue-100 text-blue-700',
   'in-progress': 'bg-amber-100 text-amber-700',
   done: 'bg-green-100 text-green-700',
 };
 
 const STATUS_LABELS = {
   open: 'Open',
+  acknowledged: 'Acknowledged',
   'in-progress': 'In Progress',
   done: 'Done',
 };
@@ -40,14 +43,25 @@ const URGENCY_STYLES = {
   High: { dot: 'bg-red-500', label: 'text-red-600' },
 };
 
+const ETA_PRESETS = [
+  { label: 'Within 1 hour', value: 'Within 1 hour' },
+  { label: 'Today', value: 'Today' },
+  { label: 'Tomorrow', value: 'Tomorrow' },
+];
+
 const STATUS_TRANSITIONS = {
   open: [
     { key: 'in-progress', label: 'Mark In Progress' },
     { key: 'done', label: 'Mark Done' },
   ],
-  'in-progress': [
-    { key: 'open', label: 'Reopen' },
+  acknowledged: [
+    { key: 'in-progress', label: 'Mark In Progress' },
     { key: 'done', label: 'Mark Done' },
+    { key: 'open', label: 'Reopen' },
+  ],
+  'in-progress': [
+    { key: 'done', label: 'Mark Done' },
+    { key: 'open', label: 'Reopen' },
   ],
   done: [
     { key: 'open', label: 'Reopen' },
@@ -94,6 +108,11 @@ function MaintenanceCard({ request }) {
   const [guestResponse, setGuestResponse] = useState(request.guestResponse || '');
   const [estimatedTime, setEstimatedTime] = useState(request.estimatedTime || '');
   const [sendingResponse, setSendingResponse] = useState(false);
+  const [showAckFlow, setShowAckFlow] = useState(false);
+  const [ackEta, setAckEta] = useState('');
+  const [ackNote, setAckNote] = useState('');
+  const [customEta, setCustomEta] = useState('');
+  const [acknowledging, setAcknowledging] = useState(false);
 
   const urgency = request.urgency || 'Low';
   const category = request.category || 'Other';
@@ -135,6 +154,25 @@ function MaintenanceCard({ request }) {
       console.error('Failed to send response:', err);
     } finally {
       setSendingResponse(false);
+    }
+  }
+
+  async function handleAcknowledge() {
+    setAcknowledging(true);
+    try {
+      const resolvedEta = ackEta === 'custom' ? customEta.trim() : ackEta;
+      const updates = { status: 'acknowledged' };
+      if (resolvedEta) updates.estimatedTime = resolvedEta;
+      if (ackNote.trim()) updates.notes = ackNote.trim();
+      await patchMaintenance(request.id, updates);
+      setShowAckFlow(false);
+      setAckEta('');
+      setAckNote('');
+      setCustomEta('');
+    } catch (err) {
+      console.error('Failed to acknowledge:', err);
+    } finally {
+      setAcknowledging(false);
     }
   }
 
@@ -204,6 +242,16 @@ function MaintenanceCard({ request }) {
         </span>
         {request.guestName && <span className="truncate ml-2">{request.guestName}</span>}
       </div>
+
+      {/* Acknowledged badge */}
+      {request.acknowledgedAt && (
+        <div className="flex items-center gap-1.5 text-xs text-blue-600">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Acknowledged {timeAgo(request.acknowledgedAt)}</span>
+        </div>
+      )}
 
       {/* Existing guest response display */}
       {(request.guestResponse || request.estimatedTime) && !showRespond && (
@@ -302,8 +350,80 @@ function MaintenanceCard({ request }) {
         </div>
       )}
 
+      {/* Acknowledge flow */}
+      {showAckFlow && (
+        <div className="space-y-2 bg-blue-50 rounded-xl p-3">
+          <p className="text-xs font-semibold text-blue-800">Acknowledge & Set ETA</p>
+          <div className="flex flex-wrap gap-1.5">
+            {ETA_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() => { setAckEta(preset.value); setCustomEta(''); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  ackEta === preset.value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-blue-700 border border-blue-200'
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+            <button
+              onClick={() => { setAckEta('custom'); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                ackEta === 'custom'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-blue-700 border border-blue-200'
+              }`}
+            >
+              Custom
+            </button>
+          </div>
+          {ackEta === 'custom' && (
+            <input
+              type="text"
+              value={customEta}
+              onChange={(e) => setCustomEta(e.target.value)}
+              placeholder="e.g. 'Thursday 2 PM', '2-3 hours'"
+              className="w-full rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          )}
+          <textarea
+            value={ackNote}
+            onChange={(e) => setAckNote(e.target.value)}
+            placeholder="Optional note (visible to team)"
+            rows={2}
+            className="w-full rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleAcknowledge}
+              disabled={acknowledging}
+              className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-xs font-semibold disabled:opacity-50 active:bg-blue-700 transition-colors"
+            >
+              {acknowledging ? 'Acknowledging...' : 'Acknowledge'}
+            </button>
+            <button
+              onClick={() => { setShowAckFlow(false); setAckEta(''); setAckNote(''); setCustomEta(''); }}
+              className="flex-1 bg-white text-gray-600 border border-gray-200 rounded-xl py-2.5 text-xs font-semibold active:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Action row */}
       <div className="flex flex-wrap gap-2 pt-1">
+        {/* Primary acknowledge button for open requests */}
+        {status === 'open' && !showAckFlow && (
+          <button
+            onClick={() => setShowAckFlow(true)}
+            className="flex-1 min-w-[100px] bg-blue-600 text-white rounded-xl py-2.5 text-xs font-semibold active:bg-blue-700 transition-colors"
+          >
+            Acknowledge
+          </button>
+        )}
         {transitions.map((t) => (
           <button
             key={t.key}
@@ -345,6 +465,7 @@ export default function MaintenancePage() {
   const counts = {
     All: requests.length,
     Open: requests.filter((r) => r.status === 'open').length,
+    Acknowledged: requests.filter((r) => r.status === 'acknowledged').length,
     'In Progress': requests.filter((r) => r.status === 'in-progress').length,
     Done: requests.filter((r) => r.status === 'done').length,
   };
