@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import useNotifications from '@/hooks/useNotifications';
+import usePush, { detectPlatform, isStandalone } from '@/hooks/usePush';
 import NotificationItem from '@/components/guest/NotificationItem';
 
 // ─── Skeleton row ─────────────────────────────────────────────────────────────
@@ -43,8 +44,15 @@ function resolveLink(notification, code) {
  */
 export default function NotificationCenter({ code, bookingCode }) {
   const router = useRouter();
+  const bc = bookingCode || code;
   const { notifications, unreadCount, loading, isRead, markRead, markAllRead } =
-    useNotifications({ bookingCode: bookingCode || code });
+    useNotifications({ bookingCode: bc });
+  const { permission, requestPermission, supported, pushCapable } = usePush({ bookingCode: bc });
+  const [enabling, setEnabling] = useState(false);
+
+  const platform = detectPlatform();
+  const sa = isStandalone();
+  const iosNotInstalled = platform === 'ios' && !sa;
 
   // Mark all read when the center is mounted and visible
   const markedRef = useRef(false);
@@ -105,6 +113,22 @@ export default function NotificationCenter({ code, bookingCode }) {
         </div>
       </div>
 
+      {/* Push permission status */}
+      <PushStatusCard
+        permission={permission}
+        supported={supported}
+        pushCapable={pushCapable}
+        iosNotInstalled={iosNotInstalled}
+        platform={platform}
+        enabling={enabling}
+        settingsHref={`/g/${code}/notification-settings`}
+        onEnable={async () => {
+          setEnabling(true);
+          try { await requestPermission({ bookingCode: bc }); }
+          finally { setEnabling(false); }
+        }}
+      />
+
       {/* List */}
       <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
         {loading ? (
@@ -131,6 +155,90 @@ export default function NotificationCenter({ code, bookingCode }) {
           Showing the last {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
         </p>
       )}
+    </div>
+  );
+}
+
+// ─── Push permission status card ─────────────────────────────────────────────
+function PushStatusCard({
+  permission, supported, pushCapable,
+  iosNotInstalled, platform, enabling, settingsHref, onEnable,
+}) {
+  if (iosNotInstalled) {
+    return (
+      <div className="mx-4 mb-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-900">Install the app for push notifications</p>
+          <p className="text-xs text-amber-700 mt-0.5">Tap the Share button in Safari, then &ldquo;Add to Home Screen.&rdquo;</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!supported) return null;
+
+  if (permission === 'denied') {
+    return (
+      <div className="mx-4 mb-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-700">Notifications blocked</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Re-enable in Settings &rarr; {platform === 'ios' ? 'Safari' : 'Chrome'} &rarr; Notifications.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (permission === 'granted') {
+    return (
+      <div className="mx-4 mb-3 bg-green-50 border border-green-200 rounded-xl px-3.5 py-2.5 flex items-center gap-3">
+        <div className="w-7 h-7 rounded-full bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+        </div>
+        <p className="text-sm font-medium text-green-800 flex-1">Push enabled</p>
+        <Link
+          href={settingsHref}
+          className="text-xs font-semibold text-green-600 hover:text-green-700 transition whitespace-nowrap"
+        >
+          Settings
+        </Link>
+      </div>
+    );
+  }
+
+  // Default — not yet asked
+  return (
+    <div className="mx-4 mb-3 bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
+      <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center flex-shrink-0">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-4 h-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+        </svg>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-gray-900">Enable push notifications</p>
+        <p className="text-xs text-gray-500 mt-0.5">Get instant alerts for parking, laundry, and host messages.</p>
+      </div>
+      <button
+        onClick={onEnable}
+        disabled={enabling || !pushCapable}
+        className="text-xs font-semibold bg-green-600 text-white px-3 py-1.5 rounded-lg
+          hover:bg-green-700 active:bg-green-800 transition disabled:opacity-60 whitespace-nowrap flex-shrink-0"
+      >
+        {enabling ? 'Enabling...' : 'Enable'}
+      </button>
     </div>
   );
 }

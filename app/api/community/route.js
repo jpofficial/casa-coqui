@@ -102,18 +102,28 @@ export async function POST(request) {
     // Broadcast push for actionable community post types.
     // 'general' posts are informational and discoverable via the board's
     // real-time listener — no push to avoid noise.
-    const PUSH_BODIES = {
-      parking: 'An unfamiliar vehicle has been reported in the parking area. If this is your vehicle, please move it to your designated spot.',
-      laundry: 'A laundry update has been posted. Check the community board for details.',
-      property_issue: 'A building issue has been reported. Check the community board for details.',
+    //
+    // All community posts use type: 'community' so the SW routes to the
+    // community board. sourceType preserves the post origin for filtering.
+    // The standalone parking-page alert (/api/parking/notify) keeps
+    // type: 'parking' — that is a separate flow.
+    const PUSH_FALLBACKS = {
+      parking: 'An unfamiliar vehicle has been reported in the parking area.',
+      laundry: 'A laundry update has been posted on the community board.',
+      property_issue: 'A property issue has been reported. Check the community board.',
     };
 
-    if (PUSH_BODIES[type]) {
+    if (PUSH_FALLBACKS[type]) {
+      // Use the guest's actual message for context; fall back to generic copy.
+      const pushBody = message !== AUTO_MESSAGES[type]
+        ? message.replace(/\s+/g, ' ').trim().slice(0, 100) + (message.length > 100 ? '...' : '')
+        : PUSH_FALLBACKS[type];
+
       await broadcastToActiveGuests({
         title: PUSH_TITLES[type],
-        body: PUSH_BODIES[type],
-        type: type === 'parking' ? 'parking' : 'community',
-        data: { postId: docRef.id },
+        body: pushBody,
+        type: 'community',
+        data: { postId: docRef.id, sourceType: type },
       });
     }
 
