@@ -136,7 +136,7 @@ export async function POST(request) {
       title: `Maintenance: ${doc.category} (${doc.urgency})`,
       body: snippet,
       type: 'maintenance',
-      data: { requestId: docRef.id, category: doc.category, urgency: doc.urgency },
+      data: { requestId: docRef.id, category: doc.category, urgency: doc.urgency, targetPath: '/admin/maintenance' },
     }).catch((err) => console.error('[POST /api/maintenance] Notification error:', err));
 
     // Auto-create an assignment/task so admin sees it in the tasks view

@@ -322,7 +322,8 @@ service cloud.firestore {
     match /staff_notifications/{notifId} {
       allow read: if isStaff() && resource.data.recipientId == request.auth.uid;
       allow create: if isStaff();
-      allow update: if isStaff() && resource.data.recipientId == request.auth.uid;
+      allow update: if isStaff() && resource.data.recipientId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
       allow delete: if false;
     }
 

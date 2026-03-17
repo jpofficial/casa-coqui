@@ -7,17 +7,23 @@ import { AuthProvider } from '@/hooks/useAuth';
 import useAuth from '@/hooks/useAuth';
 import { canAccessRoute, getDefaultRedirect } from '@/lib/roles';
 import usePush from '@/hooks/usePush';
+import useStaffNotifications from '@/hooks/useStaffNotifications';
 import ForegroundToast from '@/components/guest/ForegroundToast';
+import StaffNotificationBell from '@/components/admin/StaffNotificationBell';
 
 function AdminLayoutInner({ children }) {
   const { user, loading, role, isStaff, needsOnboarding, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const { requestPermission, supported: pushSupported, foregroundMsg } = usePush({ staffId: user?.uid });
+  const { permission: pushPermission, requestPermission, supported: pushSupported, foregroundMsg } = usePush({ staffId: user?.uid });
+  const { unreadCount } = useStaffNotifications({ staffId: user?.uid });
 
   const isLoginPage = pathname === '/admin/login';
   const isGettingStartedPage = pathname === '/admin/getting-started';
+  const isStaffNotificationsPage = pathname === '/admin/staff-notifications';
   const [moreOpen, setMoreOpen] = useState(false);
+  const [pushBannerDismissed, setPushBannerDismissed] = useState(false);
+  const [pushEnabling, setPushEnabling] = useState(false);
   const moreRef = useRef(null);
 
   // Register FCM token for staff push notifications.
@@ -212,7 +218,7 @@ function AdminLayoutInner({ children }) {
   return (
     <div className="min-h-screen bg-cafe-50 flex flex-col">
       {/* Foreground toast — shows in-app toast for staff notifications */}
-      <ForegroundToast foregroundMsg={foregroundMsg} code="" />
+      <ForegroundToast foregroundMsg={foregroundMsg} code="" isStaff />
 
       {/* Top Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-cafe-200 px-4 py-3.5 flex items-center justify-between sticky top-0 z-40 shadow-brand">
@@ -222,16 +228,55 @@ function AdminLayoutInner({ children }) {
             Host
           </span>
         </div>
-        <button
-          onClick={handleSignOut}
-          className="flex items-center gap-1.5 text-sm text-coqui-800/50 hover:text-coqui-800 active:text-coqui-900 transition-colors min-h-[44px] px-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
-          </svg>
-          Sign out
-        </button>
+        <div className="flex items-center gap-1">
+          <StaffNotificationBell unreadCount={unreadCount} />
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-1.5 text-sm text-coqui-800/50 hover:text-coqui-800 active:text-coqui-900 transition-colors min-h-[44px] px-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
+            </svg>
+            Sign out
+          </button>
+        </div>
       </header>
+
+      {/* Staff push enable banner — shown when permission is not granted */}
+      {pushSupported && pushPermission !== 'granted' && pushPermission !== 'denied' && !pushBannerDismissed && !isStaffNotificationsPage && (
+        <div className="mx-4 mt-3 bg-coqui-50 border border-coqui-200 rounded-xl px-4 py-3 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-coqui-100 text-coqui-600 flex items-center justify-center flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-coqui-900">Enable notifications</p>
+            <p className="text-xs text-coqui-700/70 mt-0.5">Get alerts for maintenance requests and task updates.</p>
+          </div>
+          <button
+            onClick={async () => {
+              setPushEnabling(true);
+              try { await requestPermission({ staffId: user.uid }); }
+              finally { setPushEnabling(false); }
+            }}
+            disabled={pushEnabling}
+            className="text-xs font-semibold bg-coqui-600 text-white px-3 py-1.5 rounded-lg
+              hover:bg-coqui-700 active:bg-coqui-800 transition disabled:opacity-60 whitespace-nowrap flex-shrink-0"
+          >
+            {pushEnabling ? 'Enabling...' : 'Enable'}
+          </button>
+          <button
+            onClick={() => setPushBannerDismissed(true)}
+            className="text-coqui-400 hover:text-coqui-600 transition flex-shrink-0 p-0.5"
+            aria-label="Dismiss"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Page content */}
       <main className="flex-1 pb-20">

@@ -15,9 +15,10 @@ const AUTO_DISMISS_MS = 5000;
  *
  * Props:
  *   foregroundMsg   — the FCM payload from usePush().foregroundMsg
- *   code            — booking code for deep-linking
+ *   code            — booking code for deep-linking (guest context)
+ *   isStaff         — when true, uses admin-aware deep-link paths
  */
-export default function ForegroundToast({ foregroundMsg, code }) {
+export default function ForegroundToast({ foregroundMsg, code, isStaff = false }) {
   const router = useRouter();
   const [visible, setVisible] = useState(false);
   const [current, setCurrent] = useState(null);
@@ -45,6 +46,15 @@ export default function ForegroundToast({ foregroundMsg, code }) {
       router.push(targetPath);
       return;
     }
+    if (isStaff) {
+      const staffPaths = {
+        maintenance: '/admin/maintenance',
+        cleaning_update: '/admin/cleaning',
+        assignment: '/admin/assignments',
+      };
+      router.push(staffPaths[type] || '/admin/staff-notifications');
+      return;
+    }
     const base = `/g/${code}`;
     const paths = {
       parking: `${base}/parking`,
@@ -54,7 +64,7 @@ export default function ForegroundToast({ foregroundMsg, code }) {
       checkin: `${base}/checkin`,
     };
     router.push(paths[type] || base);
-  }, [current, code, router]);
+  }, [current, code, isStaff, router]);
 
   if (!visible || !current) return null;
 
