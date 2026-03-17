@@ -45,10 +45,16 @@ export async function POST(request) {
       );
     }
 
-    // Set custom claims on the Firebase Auth user
+    // Preserve staff role if user already has one — an admin/cohost who
+    // accesses the guest portal should keep their staff claim.
+    const existingUser = await adminAuth.getUser(decoded.uid);
+    const existingClaims = existingUser.customClaims || {};
+    const staffRoles = ['admin', 'cohost', 'cleaner', 'maintenance'];
+    const isStaff = staffRoles.includes(existingClaims.role);
+
     await adminAuth.setCustomUserClaims(decoded.uid, {
       bookingCode,
-      role: 'guest',
+      role: isStaff ? existingClaims.role : 'guest',
     });
 
     return NextResponse.json({ success: true });
