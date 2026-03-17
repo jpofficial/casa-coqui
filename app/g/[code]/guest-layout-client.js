@@ -194,7 +194,8 @@ function GuestLayoutInner({ children, code }) {
   const isOnboarding =
     pathname.endsWith('/checkin') ||
     pathname.endsWith('/join') ||
-    pathname.endsWith('/get-started');
+    pathname.endsWith('/get-started') ||
+    pathname.endsWith('/setup');
 
   const pageKey = getHelpContext(pathname, code);
 

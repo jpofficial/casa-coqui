@@ -13,7 +13,10 @@ export async function POST(request) {
     const { caller, error: authError } = await requireAuth(request);
     if (authError) return authError;
 
-    const { bookingCode, fullName, email, phone, arrivalTime, guestCount, specialRequests } = await request.json();
+    const {
+      bookingCode, fullName, email, phone, arrivalTime, guestCount,
+      specialRequests, hasVehicle, vehicle,
+    } = await request.json();
 
     if (!bookingCode || !fullName || !email || !arrivalTime) {
       return NextResponse.json(
@@ -21,6 +24,20 @@ export async function POST(request) {
         { status: 400 }
       );
     }
+
+    // Validate hasVehicle when provided
+    const validVehicleOptions = ['yes', 'no', 'unsure'];
+    if (hasVehicle != null && !validVehicleOptions.includes(hasVehicle)) {
+      return NextResponse.json(
+        { success: false, error: 'hasVehicle must be one of: yes, no, unsure.' },
+        { status: 400 }
+      );
+    }
+
+    const resolvedHasVehicle = hasVehicle || null;
+    const resolvedVehicle = hasVehicle === 'yes' && vehicle
+      ? { make: vehicle.make || null, model: vehicle.model || null, color: vehicle.color || null, plate: vehicle.plate || null }
+      : null;
 
     const guestId = caller.uid;
     const now = new Date().toISOString();
@@ -33,6 +50,8 @@ export async function POST(request) {
       arrivalTime,
       guestCount: guestCount || 1,
       specialRequests: specialRequests || null,
+      hasVehicle: resolvedHasVehicle,
+      vehicle: resolvedVehicle,
       bookingCode,
       createdAt: now,
       uid: guestId,
@@ -47,6 +66,8 @@ export async function POST(request) {
       arrivalTime,
       guestCount: guestCount || 1,
       specialRequests: specialRequests || null,
+      hasVehicle: resolvedHasVehicle,
+      vehicle: resolvedVehicle,
       bookingCode,
       checkedIn: true,
       checkedInAt: now,

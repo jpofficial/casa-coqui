@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import usePush, { detectPlatform, isStandalone } from '@/hooks/usePush';
+import usePush from '@/hooks/usePush';
+import { detectPlatform, isStandalone } from '@/lib/platform';
 
 // ─── Category toggle configuration ───────────────────────────────────────────
 // locked: true = user cannot disable this category

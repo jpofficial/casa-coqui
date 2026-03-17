@@ -7,7 +7,6 @@ import { useCollection, useDocument } from '@/hooks/useFirestore';
 import { where } from 'firebase/firestore';
 import { auth as firebaseAuth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
-import WelcomeExperience from '@/components/guest/WelcomeExperience';
 import WifiQuickView from '@/components/guest/WifiQuickView';
 import LaundryQuickStatus from '@/components/guest/LaundryQuickStatus';
 import CommunityPreview from '@/components/guest/CommunityPreview';
@@ -263,24 +262,15 @@ export default function GuestHome({ params }) {
   const { data: settings } = useDocument('settings', 'property');
   const { data: checkinData } = useDocument('checkins', code);
 
-  // Welcome experience — plays once per booking code
-  const [showWelcome, setShowWelcome] = useState(false);
   // Install App banner — hidden after user visits install guide
   const [installGuideSeen, setInstallGuideSeen] = useState(true);
   useEffect(() => {
-    if (!localStorage.getItem(`welcome_seen_${code}`)) {
-      setShowWelcome(true);
-    }
     setInstallGuideSeen(!!localStorage.getItem(`install_guide_seen_${code}`));
-  }, [code]);
-
-  function handleWelcomeComplete() {
-    localStorage.setItem(`welcome_seen_${code}`, '1');
-    setShowWelcome(false);
-    if (!localStorage.getItem(`getstarted_seen_${code}`)) {
-      router.push(`/g/${code}/get-started`);
+    // Redirect to setup wizard if not yet completed
+    if (!localStorage.getItem(`setup_complete_${code}`) && !localStorage.getItem(`getstarted_seen_${code}`)) {
+      router.push(`/g/${code}/setup`);
     }
-  }
+  }, [code, router]);
 
   // Check if current user is the primary guest (must be before early returns)
   const { data: members, loading: membersLoading } = useCollection('booking_members', [
@@ -364,7 +354,7 @@ export default function GuestHome({ params }) {
 
   return (
     <>
-    {showWelcome && <WelcomeExperience onComplete={handleWelcomeComplete} />}
+    {/* Welcome overlay removed — replaced by /setup wizard */}
     <div className="px-4 pt-5 pb-4">
       {/* Property photos */}
       {propertyPhotos.length > 0 && (

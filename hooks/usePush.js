@@ -22,44 +22,7 @@ async function getMessagingInstance() {
   }
 }
 
-// ─── Platform detection helpers ───────────────────────────────────────────────
-export function detectPlatform() {
-  if (typeof window === 'undefined') return 'unknown';
-  const ua = navigator.userAgent || '';
-  if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) return 'ios';
-  // iPadOS 13+ reports a desktop (Macintosh) UA — detect via touch capability
-  if (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua)) return 'ios';
-  if (/Android/.test(ua)) return 'android';
-  return 'desktop';
-}
-
-export function isStandalone() {
-  if (typeof window === 'undefined') return false;
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    navigator.standalone === true
-  );
-}
-
-// iOS Safari does not support the Push API at all outside of standalone mode.
-// Even in standalone mode it requires iOS 16.4+.
-export function isPushCapable() {
-  if (typeof window === 'undefined') return false;
-  const platform = detectPlatform();
-  if (platform === 'ios') {
-    // Must be in standalone mode AND iOS 16.4+
-    if (!isStandalone()) return false;
-    // iPhone/iPod UA: "OS 17_4", iPadOS desktop UA: "Version/17.4"
-    const iosMatch = navigator.userAgent.match(/OS (\d+)_(\d+)/);
-    const safariMatch = navigator.userAgent.match(/Version\/(\d+)\.(\d+)/);
-    const match = iosMatch || safariMatch;
-    if (!match) return false;
-    const major = parseInt(match[1], 10);
-    const minor = parseInt(match[2], 10);
-    return major > 16 || (major === 16 && minor >= 4);
-  }
-  return 'Notification' in window && 'serviceWorker' in navigator;
-}
+import { detectPlatform, isStandalone, isPushCapable } from '@/lib/platform';
 
 // ─── Hook ──────────────────────────────────────────────────────────────────────
 /**

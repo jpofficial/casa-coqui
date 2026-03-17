@@ -138,6 +138,8 @@ export async function GET(request) {
         stay.phone = checkin.phone || null;
         stay.bookingCode = code;
         stay.guestLink = b.guestLink || null;
+        stay.hasVehicle = checkin.hasVehicle || null;
+        stay.vehicle = checkin.vehicle || null;
       }
 
       return stay;

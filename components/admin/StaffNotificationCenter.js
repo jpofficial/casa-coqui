@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import useStaffNotifications from '@/hooks/useStaffNotifications';
-import usePush, { detectPlatform, isStandalone } from '@/hooks/usePush';
+import usePush from '@/hooks/usePush';
+import { detectPlatform, isStandalone } from '@/lib/platform';
 
 // ─── Staff notification type → admin deep-link ──────────────────────────────
 const TYPE_PATHS = {

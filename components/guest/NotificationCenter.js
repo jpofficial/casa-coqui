@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import useNotifications from '@/hooks/useNotifications';
-import usePush, { detectPlatform, isStandalone } from '@/hooks/usePush';
+import usePush from '@/hooks/usePush';
+import { detectPlatform, isStandalone } from '@/lib/platform';
 import NotificationItem from '@/components/guest/NotificationItem';
 
 // ─── Skeleton row ─────────────────────────────────────────────────────────────

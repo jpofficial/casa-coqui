@@ -3,20 +3,17 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+import { detectPlatform, isStandalone as checkStandalone } from '@/lib/platform';
+
 // ─── Platform detection ──────────────────────────────────────────────────────
 function usePlatform() {
   const [platform, setPlatform] = useState('ios');
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    const ua = navigator.userAgent || '';
-    if (/Android/.test(ua)) {
-      setPlatform('android');
-    }
-    const standalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      navigator.standalone === true;
-    setIsStandalone(standalone);
+    const plat = detectPlatform();
+    setPlatform(plat === 'android' ? 'android' : 'ios');
+    setIsStandalone(checkStandalone());
   }, []);
 
   return { platform, isStandalone };

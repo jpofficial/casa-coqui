@@ -7,23 +7,17 @@ import { where } from 'firebase/firestore';
 import useAuth from '@/hooks/useAuth';
 import InviteForm from '@/components/guest/InviteForm';
 
+import { detectPlatform, isStandalone as checkStandalone } from '@/lib/platform';
+
 // ─── Platform detection ──────────────────────────────────────────────────────
 function usePlatform() {
   const [platform, setPlatform] = useState('other');
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    const ua = navigator.userAgent || '';
-    if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) {
-      setPlatform('ios');
-    } else if (/Android/.test(ua)) {
-      setPlatform('android');
-    }
-
-    const standalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      navigator.standalone === true;
-    setIsStandalone(standalone);
+    const plat = detectPlatform();
+    setPlatform(plat === 'unknown' ? 'other' : plat);
+    setIsStandalone(checkStandalone());
   }, []);
 
   return { platform, isStandalone };
@@ -155,6 +149,11 @@ export default function GetStartedPage({ params }) {
   const router = useRouter();
   const { user } = useAuth();
   const { platform, isStandalone } = usePlatform();
+
+  // Redirect to new setup wizard
+  useEffect(() => {
+    router.replace(`/g/${code}/setup`);
+  }, [router, code]);
 
   // Track Android beforeinstallprompt
   const [installPrompt, setInstallPrompt] = useState(null);

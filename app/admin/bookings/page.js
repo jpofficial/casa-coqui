@@ -45,6 +45,37 @@ function StatusBadge({ status }) {
 }
 
 // ---------------------------------------------------------------------------
+// VehicleInfo
+// ---------------------------------------------------------------------------
+
+function VehicleInfo({ hasVehicle, vehicle }) {
+  if (!hasVehicle || hasVehicle === 'unsure') return null;
+  if (hasVehicle === 'no') {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-coqui-800/50">
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+        </svg>
+        No car
+      </div>
+    );
+  }
+  if (hasVehicle === 'yes' && vehicle) {
+    const parts = [vehicle.make, vehicle.model, vehicle.color ? `(${vehicle.color})` : null, vehicle.plate ? `\u2014 ${vehicle.plate}` : null].filter(Boolean);
+    if (!parts.length) return null;
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-coqui-800/60">
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 flex-shrink-0 text-coqui-800/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
+        </svg>
+        {parts.join(' ')}
+      </div>
+    );
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // CopyButton
 // ---------------------------------------------------------------------------
 
@@ -314,6 +345,7 @@ function SuccessBanner({ booking, onDismiss }) {
 function BookingCard({ booking, onCancel }) {
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const { data: checkin } = useDocument('checkins', booking.code || null);
   const unitColor = getUnitColor(booking.unit);
   const isActive = booking.status === 'active';
 
@@ -346,6 +378,11 @@ function BookingCard({ booking, onCancel }) {
           </svg>
           <span>{formatDate(booking.checkInDate)} — {formatDate(booking.checkOutDate)}</span>
         </div>
+
+        {/* Vehicle */}
+        {checkin && (checkin.hasVehicle === 'yes' || checkin.hasVehicle === 'no') && (
+          <VehicleInfo hasVehicle={checkin.hasVehicle} vehicle={checkin.vehicle} />
+        )}
 
         {/* Guest link */}
         {booking.guestLink && (

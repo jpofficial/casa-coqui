@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import usePush, { isPushCapable, detectPlatform, isStandalone } from '@/hooks/usePush';
+import usePush from '@/hooks/usePush';
+import { isPushCapable, detectPlatform, isStandalone } from '@/lib/platform';
 import PushPermissionExplainer from '@/components/guest/PushPermissionExplainer';
 
 // Cooldown in ms before we re-show the explainer after a dismissal
@@ -36,6 +37,13 @@ export default function PushPermissionGate({
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    // Defer after setup wizard completion (same 24h cooldown)
+    const setupTs = localStorage.getItem(`setup_complete_${bookingCode}`);
+    if (setupTs && Date.now() - parseInt(setupTs, 10) < DISMISS_COOLDOWN_MS) {
+      setDismissed(true);
+      setHydrated(true);
+      return;
+    }
     const raw = localStorage.getItem(storageKey);
     if (raw) {
       const ts = parseInt(raw, 10);
@@ -48,7 +56,7 @@ export default function PushPermissionGate({
       setDismissed(false);
     }
     setHydrated(true);
-  }, [storageKey]);
+  }, [storageKey, bookingCode]);
 
   function handleDismiss() {
     localStorage.setItem(storageKey, String(Date.now()));

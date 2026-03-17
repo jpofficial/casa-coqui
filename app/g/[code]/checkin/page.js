@@ -136,7 +136,6 @@ export default function CheckInPage({ params }) {
           bookingCode: code,
           fullName: form.fullName.trim(),
           email: form.email.trim().toLowerCase(),
-          phone: null,
           arrivalTime: form.arrivalTime,
           guestCount: parseInt(form.guestCount, 10),
           specialRequests: form.specialRequests.trim() || null,
@@ -167,7 +166,7 @@ export default function CheckInPage({ params }) {
       // Persist booking code so PWA can restore session from root
       localStorage.setItem('casa-coqui-guest-code', code);
 
-      router.push(`/g/${code}?welcome=1`);
+      router.push(`/g/${code}/setup`);
     } catch (err) {
       console.error('Submit error:', err);
       setErrors({ submit: 'Something went wrong. Please try again.' });
@@ -176,12 +175,13 @@ export default function CheckInPage({ params }) {
     }
   }
 
-  // Build arrival time options
-  const timeOptions = [];
-  for (let h = 15; h <= 23; h++) {
-    const label = new Date(2000, 0, 1, h).toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
-    timeOptions.push({ value: `${String(h).padStart(2, '0')}:00`, label });
-  }
+  // Arrival window options
+  const arrivalWindows = [
+    { value: 'afternoon_early', label: '3:00 \u2013 5:00 PM' },
+    { value: 'afternoon_late',  label: '5:00 \u2013 8:00 PM' },
+    { value: 'evening',         label: 'After 8:00 PM' },
+    { value: 'undecided',       label: 'Not sure yet' },
+  ];
 
   // Wait for anonymous auth to complete
   if (authLoading || !user) {
@@ -232,20 +232,45 @@ export default function CheckInPage({ params }) {
             />
           </Field>
 
-          <Field label="Expected arrival time" error={errors.arrivalTime}>
-            <select
-              value={form.arrivalTime}
-              onChange={(e) => set('arrivalTime', e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900
-                focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition appearance-none"
-              required
-            >
-              <option value="">Select a time...</option>
-              {timeOptions.map(({ value, label }) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-              <option value="late">After midnight (late arrival)</option>
-            </select>
+          <Field label="When do you plan to arrive?" error={errors.arrivalTime}>
+            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Arrival time window">
+              {arrivalWindows.map(({ value, label }) => {
+                const selected = form.arrivalTime === value;
+                const isUndecided = value === 'undecided';
+                return (
+                  <label
+                    key={value}
+                    className={[
+                      'relative flex flex-col items-center justify-center rounded-xl border p-3 cursor-pointer transition select-none',
+                      selected
+                        ? 'border-green-600 bg-green-50 ring-2 ring-green-600'
+                        : 'border-gray-200 bg-white hover:border-gray-300',
+                    ].join(' ')}
+                  >
+                    <input
+                      type="radio"
+                      name="arrivalTime"
+                      value={value}
+                      checked={selected}
+                      onChange={() => set('arrivalTime', value)}
+                      className="sr-only"
+                    />
+                    <span
+                      className={[
+                        'text-sm font-medium text-center leading-snug',
+                        selected
+                          ? 'text-green-800'
+                          : isUndecided
+                            ? 'text-gray-400 italic'
+                            : 'text-gray-800',
+                      ].join(' ')}
+                    >
+                      {label}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           </Field>
 
           <Field label="Number of guests (including yourself)" error={errors.guestCount}>
