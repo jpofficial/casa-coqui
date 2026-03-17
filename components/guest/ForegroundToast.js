@@ -26,8 +26,10 @@ export default function ForegroundToast({ foregroundMsg, code, isStaff = false }
   useEffect(() => {
     if (!foregroundMsg) return;
 
-    const { title, body } = foregroundMsg.notification ?? {};
     const data = foregroundMsg.data ?? {};
+    // Data-only messages carry title/body in `data`; fall back to `notification` for compat.
+    const title = data.title || (foregroundMsg.notification && foregroundMsg.notification.title);
+    const body = data.body || (foregroundMsg.notification && foregroundMsg.notification.body);
     if (!title) return;
 
     setCurrent({ title, body, data });
@@ -49,6 +51,7 @@ export default function ForegroundToast({ foregroundMsg, code, isStaff = false }
     if (isStaff) {
       const staffPaths = {
         maintenance: '/admin/maintenance',
+        cleaning_assignment: '/admin/cleaning',
         cleaning_update: '/admin/cleaning',
         assignment: '/admin/assignments',
       };

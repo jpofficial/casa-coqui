@@ -63,11 +63,15 @@ function resolveTag(data) {
 }
 
 // ─── Background message handler ───────────────────────────────────────────────
+// All FCM messages are sent as data-only (no `notification` key) so the SDK
+// does not auto-display a notification. This handler is the sole displayer,
+// which prevents the duplicate notification that occurs when both the SDK and
+// onBackgroundMessage show the same event.
 messaging.onBackgroundMessage((payload) => {
-  const { title, body } = payload.notification || {};
-  if (!title) return;
-
   const data = payload.data || {};
+  const title = data.title || (payload.notification && payload.notification.title);
+  const body = data.body || (payload.notification && payload.notification.body);
+  if (!title) return;
   const tag = resolveTag(data);
 
   // Notification actions vary by category
@@ -166,8 +170,10 @@ self.addEventListener('push', (event) => {
     return;
   }
 
-  // If this already has a notification key it was likely shown by FCM SDK
+  // If this has a notification key, the FCM SDK may have already shown it.
+  // If it also has data.title, onBackgroundMessage will handle it — skip here.
   if (payload.notification) return;
+  if (payload.data && payload.data.title) return; // handled by onBackgroundMessage
 
   const { title, body, type, bookingCode } = payload;
   if (!title) return;

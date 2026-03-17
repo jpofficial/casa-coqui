@@ -103,8 +103,7 @@ async function notifyAdmin(title, body, data = {}) {
     console.log('[reorderCheck] Sending push to admin FCM token');
     await messaging.send({
       token,
-      notification: { title, body },
-      data: stringData,
+      data: { ...stringData, title: String(title), body: String(body) },
     });
   } else {
     // Fallback: broadcast to the 'admin' FCM topic.
@@ -112,8 +111,7 @@ async function notifyAdmin(title, body, data = {}) {
     console.log('[reorderCheck] No admin token doc found — sending to topic "admin"');
     await messaging.send({
       topic: 'admin',
-      notification: { title, body },
-      data: stringData,
+      data: { ...stringData, title: String(title), body: String(body) },
     });
   }
 }
