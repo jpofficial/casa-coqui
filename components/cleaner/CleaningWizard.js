@@ -29,7 +29,7 @@ const STATUS_STEP = {
   completed: 'complete',
 };
 
-export default function CleaningWizard({ job, onRefresh }) {
+export default function CleaningWizard({ job, onRefresh, onClose }) {
   const { locale, setLocale } = useLocale();
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
@@ -59,13 +59,12 @@ export default function CleaningWizard({ job, onRefresh }) {
         status: newStatus,
         ...extraBody,
       });
-      onRefresh();
     } catch (err) {
       console.error('Failed to advance status:', err);
     } finally {
       setBusy(false);
     }
-  }, [apiCall, job.id, onRefresh]);
+  }, [apiCall, job.id]);
 
   const uploadPhotos = useCallback(async (type, urls) => {
     setBusy(true);
@@ -74,26 +73,24 @@ export default function CleaningWizard({ job, onRefresh }) {
       // After uploading photos, advance to next status
       const nextStatus = type === 'before' ? 'cleaning' : 'laundry_check';
       await apiCall(`/api/cleaning/jobs/${job.id}`, { status: nextStatus });
-      onRefresh();
     } catch (err) {
       console.error('Failed to upload photos:', err);
     } finally {
       setBusy(false);
     }
-  }, [apiCall, job.id, onRefresh]);
+  }, [apiCall, job.id]);
 
   const reportIssue = useCallback(async (issue) => {
     setBusy(true);
     try {
       await apiCall(`/api/cleaning/jobs/${job.id}/issues`, issue);
       setShowIssue(false);
-      onRefresh();
     } catch (err) {
       console.error('Failed to report issue:', err);
     } finally {
       setBusy(false);
     }
-  }, [apiCall, job.id, onRefresh]);
+  }, [apiCall, job.id]);
 
   const declineJob = useCallback(async (declineReason) => {
     setBusy(true);
@@ -118,18 +115,24 @@ export default function CleaningWizard({ job, onRefresh }) {
         status: 'completed',
         ...laundryData,
       });
-      onRefresh();
     } catch (err) {
       console.error('Failed to submit laundry check:', err);
     } finally {
       setBusy(false);
     }
-  }, [apiCall, job.id, onRefresh]);
+  }, [apiCall, job.id]);
 
-  // Header with locale toggle
+  // Header with close button + locale toggle
   const header = (
     <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
-      <div>
+      {onClose ? (
+        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center -ml-1 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors" aria-label={t(locale, 'backToHome')}>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-gray-600">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      ) : <div className="w-8" />}
+      <div className="text-center">
         <p className="text-sm font-bold text-gray-900">Casa Coqui</p>
         <p className="text-xs text-gray-500">{t(locale, STATUS_STEP[job.status] === 'complete' ? 'cleaningComplete' : 'todaysCleaning')}</p>
       </div>

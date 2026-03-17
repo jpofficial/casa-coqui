@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import useLocale from '@/hooks/useLocale';
@@ -108,6 +108,17 @@ function JobCard({ job, locale, isToday, onOpenWizard }) {
           </p>
         )}
 
+        {/* Quick action for scheduled jobs */}
+        {needsAction && (
+          <button
+            onClick={() => onOpenWizard(job)}
+            className="w-full mt-1 bg-cafe-600 text-white font-semibold text-sm py-3 rounded-xl
+              hover:bg-cafe-700 active:bg-cafe-800 transition-colors"
+          >
+            {t(locale, 'viewJob')}
+          </button>
+        )}
+
         {/* Quick action for active jobs */}
         {isActive && (
           <button
@@ -199,6 +210,7 @@ export default function CleanerHome({ user }) {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [wizardJob, setWizardJob] = useState(null);
+  const dismissedRef = useRef(false);
 
   // Real-time listener for cleaner's jobs
   const loadJobs = useCallback(() => {
@@ -225,6 +237,27 @@ export default function CleanerHome({ user }) {
     return unsub;
   }, [loadJobs]);
 
+  // Close wizard and prevent auto-open from re-triggering
+  const closeWizard = useCallback(() => {
+    dismissedRef.current = true;
+    setWizardJob(null);
+  }, []);
+
+  // Open wizard manually (resets dismissed flag)
+  const openWizard = useCallback((job) => {
+    dismissedRef.current = false;
+    setWizardJob(job);
+  }, []);
+
+  // Auto-open wizard if exactly one active job and user hasn't dismissed
+  useEffect(() => {
+    if (loading || wizardJob || dismissedRef.current) return;
+    const activeInProgress = jobs.filter((j) => ACTIVE_STATUSES.has(j.status));
+    if (activeInProgress.length === 1) {
+      setWizardJob(activeInProgress[0]);
+    }
+  }, [loading, jobs, wizardJob]);
+
   // Group jobs
   const today = todayStr();
   const todayJobs = jobs.filter((j) => j.scheduledDate === today && j.status !== 'completed');
@@ -237,28 +270,15 @@ export default function CleanerHome({ user }) {
   // If wizard is open, show it full-screen
   if (wizardJob) {
     const liveJob = jobs.find((j) => j.id === wizardJob.id);
-    if (liveJob && liveJob.status === 'completed') {
-      // Job was completed — return to home
-      setWizardJob(null);
-    } else if (liveJob) {
+    if (liveJob) {
       return (
         <CleaningWizard
           job={liveJob}
-          onRefresh={() => setWizardJob(null)}
+          onClose={closeWizard}
+          onRefresh={closeWizard}
         />
       );
     }
-  }
-
-  // Auto-open wizard if exactly one active job exists (preserves old behavior)
-  const activeInProgress = jobs.filter((j) => ACTIVE_STATUSES.has(j.status));
-  if (!loading && activeInProgress.length === 1 && !wizardJob) {
-    return (
-      <CleaningWizard
-        job={activeInProgress[0]}
-        onRefresh={() => {}}
-      />
-    );
   }
 
   if (loading) return <Skeleton />;
@@ -298,7 +318,7 @@ export default function CleanerHome({ user }) {
                   job={job}
                   locale={locale}
                   isToday
-                  onOpenWizard={setWizardJob}
+                  onOpenWizard={openWizard}
                 />
               ))}
             </div>
@@ -316,7 +336,7 @@ export default function CleanerHome({ user }) {
                   job={job}
                   locale={locale}
                   isToday={false}
-                  onOpenWizard={setWizardJob}
+                  onOpenWizard={openWizard}
                 />
               ))}
             </div>
@@ -334,7 +354,7 @@ export default function CleanerHome({ user }) {
                   job={job}
                   locale={locale}
                   isToday={false}
-                  onOpenWizard={setWizardJob}
+                  onOpenWizard={openWizard}
                 />
               ))}
             </div>
