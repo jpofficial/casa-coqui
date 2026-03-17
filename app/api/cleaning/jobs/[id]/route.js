@@ -30,6 +30,12 @@ const TIMESTAMP_FIELDS = {
 // Updates a cleaning job status. Enforces state machine transitions.
 // Admin can update any field. Cleaner can only update their own jobs.
 // ---------------------------------------------------------------------------
+
+// POST delegates to PATCH (cached clients may send POST with a body)
+export async function POST(request, context) {
+  return PATCH(request, context);
+}
+
 export async function PATCH(request, { params }) {
   try {
     const { caller, error: authError } = await requireRole(request, [
