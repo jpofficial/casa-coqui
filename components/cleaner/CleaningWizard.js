@@ -37,10 +37,10 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
 
   const step = STATUS_STEP[job.status] || 'acknowledge';
 
-  const apiCall = useCallback(async (url, body) => {
+  const apiCall = useCallback(async (url, body, method = 'PATCH') => {
     const token = await user.getIdToken();
     const res = await fetch(url, {
-      method: body ? 'POST' : 'PATCH',
+      method,
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
@@ -69,7 +69,7 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
   const uploadPhotos = useCallback(async (type, urls) => {
     setBusy(true);
     try {
-      await apiCall(`/api/cleaning/jobs/${job.id}/photos`, { type, urls });
+      await apiCall(`/api/cleaning/jobs/${job.id}/photos`, { type, urls }, 'POST');
       // After uploading photos, advance to next status
       const nextStatus = type === 'before' ? 'cleaning' : 'laundry_check';
       await apiCall(`/api/cleaning/jobs/${job.id}`, { status: nextStatus });
@@ -83,7 +83,7 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
   const reportIssue = useCallback(async (issue) => {
     setBusy(true);
     try {
-      await apiCall(`/api/cleaning/jobs/${job.id}/issues`, issue);
+      await apiCall(`/api/cleaning/jobs/${job.id}/issues`, issue, 'POST');
       setShowIssue(false);
     } catch (err) {
       console.error('Failed to report issue:', err);
