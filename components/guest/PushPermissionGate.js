@@ -65,22 +65,13 @@ export default function PushPermissionGate({
   // Do not render anything permission-related until hydrated
   if (!hydrated) return <>{children}</>;
 
-  // DEBUG: temporary banner to diagnose push issues — remove after testing
-  const debugInfo = `perm=${permission} supported=${supported} capable=${pushCapable} plat=${plat} sa=${sa} dismissed=${dismissed} vapid=${process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ? 'SET' : 'MISSING'}`;
-
   // Push is granted — nothing to show
-  if (permission === 'granted') return <>
-    <div className="mx-4 mt-2 mb-2 p-2 bg-blue-100 rounded text-xs font-mono text-blue-800 break-all">DEBUG: {debugInfo}</div>
-    {children}
-  </>;
+  if (permission === 'granted') return <>{children}</>;
 
-  // Not supported at all (old browser, etc) — silently skip
-  if (!supported) return <>
-    <div className="mx-4 mt-2 mb-2 p-2 bg-red-100 rounded text-xs font-mono text-red-800 break-all">DEBUG: {debugInfo}</div>
-    {children}
-  </>;
-
-  // iOS but not installed as PWA
+  // iOS but not installed as PWA — show install prompt.
+  // Must come BEFORE the !supported check because iOS Safari doesn't expose
+  // the Notification API at all outside standalone mode, so supported=false
+  // would hide this banner.
   if (plat === 'ios' && !sa) {
     return (
       <>
@@ -114,6 +105,9 @@ export default function PushPermissionGate({
       </>
     );
   }
+
+  // Not supported at all (old browser, non-iOS without Notification API) — silently skip
+  if (!supported) return <>{children}</>;
 
   // Push denied by the user — show a settings hint
   if (permission === 'denied') {

@@ -221,7 +221,11 @@ service cloud.firestore {
         (isAuthenticated() && resource.data.staffId == request.auth.uid) ||
         (isAuthenticated() && resource.data.bookingCode == request.auth.token.bookingCode);
       allow create: if isAuthenticated() &&
-        request.resource.data.token == tokenId;
+        request.resource.data.token == tokenId &&
+        (!('bookingCode' in request.resource.data) ||
+          request.resource.data.bookingCode == request.auth.token.bookingCode) &&
+        (!('staffId' in request.resource.data) ||
+          request.resource.data.staffId == request.auth.uid);
       allow update: if isAuthenticated() &&
         (resource.data.bookingCode == request.auth.token.bookingCode ||
          resource.data.staffId == request.auth.uid);

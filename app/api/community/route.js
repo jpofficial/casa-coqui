@@ -99,14 +99,20 @@ export async function POST(request) {
 
     const docRef = await adminDb.collection('community').add(postData);
 
-    // Only auto-broadcast push + SMS for parking alerts (urgent, safety-related).
-    // Other post types are discoverable via the board's real-time listener —
-    // broadcasting every post breaks anonymity by revealing timing and activity.
-    if (type === 'parking') {
+    // Broadcast push for actionable community post types.
+    // 'general' posts are informational and discoverable via the board's
+    // real-time listener — no push to avoid noise.
+    const PUSH_BODIES = {
+      parking: 'An unfamiliar vehicle has been reported in the parking area. If this is your vehicle, please move it to your designated spot.',
+      laundry: 'A laundry update has been posted. Check the community board for details.',
+      property_issue: 'A building issue has been reported. Check the community board for details.',
+    };
+
+    if (PUSH_BODIES[type]) {
       await broadcastToActiveGuests({
-        title: 'Parking Alert',
-        body: 'An unfamiliar vehicle has been reported in the parking area. If this is your vehicle, please move it to your designated spot.',
-        type: 'parking',
+        title: PUSH_TITLES[type],
+        body: PUSH_BODIES[type],
+        type: type === 'parking' ? 'parking' : 'community',
         data: { postId: docRef.id },
       });
     }

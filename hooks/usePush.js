@@ -27,6 +27,8 @@ export function detectPlatform() {
   if (typeof window === 'undefined') return 'unknown';
   const ua = navigator.userAgent || '';
   if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) return 'ios';
+  // iPadOS 13+ reports a desktop (Macintosh) UA — detect via touch capability
+  if (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua)) return 'ios';
   if (/Android/.test(ua)) return 'android';
   return 'desktop';
 }
@@ -47,7 +49,10 @@ export function isPushCapable() {
   if (platform === 'ios') {
     // Must be in standalone mode AND iOS 16.4+
     if (!isStandalone()) return false;
-    const match = navigator.userAgent.match(/OS (\d+)_(\d+)/);
+    // iPhone/iPod UA: "OS 17_4", iPadOS desktop UA: "Version/17.4"
+    const iosMatch = navigator.userAgent.match(/OS (\d+)_(\d+)/);
+    const safariMatch = navigator.userAgent.match(/Version\/(\d+)\.(\d+)/);
+    const match = iosMatch || safariMatch;
     if (!match) return false;
     const major = parseInt(match[1], 10);
     const minor = parseInt(match[2], 10);
@@ -128,6 +133,12 @@ export default function usePush({ bookingCode, staffId } = {}) {
     // Include identity fields so rotated tokens retain bookingCode/staffId.
     if (Notification.permission === 'granted') {
       (async () => {
+        // Wait for Firebase Auth to restore session before writing to Firestore,
+        // otherwise the write hits isAuthenticated() with null auth and is denied.
+        const { auth } = await import('@/lib/firebase');
+        await auth.authStateReady();
+        if (!auth.currentUser) return;
+
         const msg = await getMessagingInstance();
         if (!msg) return;
         try {

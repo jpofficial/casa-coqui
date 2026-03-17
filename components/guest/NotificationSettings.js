@@ -207,14 +207,8 @@ function PermissionStatusCard({
   granted, denied, supported, pushCapable,
   iosNotInstalled, platform, enabling, onEnable,
 }) {
-  if (!supported) {
-    return (
-      <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3.5">
-        <p className="text-sm text-gray-500">Push notifications are not supported in this browser.</p>
-      </div>
-    );
-  }
-
+  // iOS not installed must come before !supported because iOS Safari doesn't
+  // expose the Notification API outside standalone mode.
   if (iosNotInstalled) {
     return (
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5 flex items-start gap-3">
@@ -229,6 +223,14 @@ function PermissionStatusCard({
             Add Casa Coqui to your Home Screen via the Safari Share menu, then return here to enable push notifications.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (!supported) {
+    return (
+      <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3.5">
+        <p className="text-sm text-gray-500">Push notifications are not supported in this browser.</p>
       </div>
     );
   }
