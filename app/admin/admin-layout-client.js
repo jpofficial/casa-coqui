@@ -150,6 +150,43 @@ function AdminLayoutInner({ children }) {
             </button>
           </div>
         </header>
+
+        {/* Push enable banner for cleaner/maintenance — same as admin shell */}
+        {pushSupported && pushPermission !== 'granted' && pushPermission !== 'denied' && !pushBannerDismissed && !isStaffNotificationsPage && (
+          <div className="mx-4 mt-3 bg-coqui-50 border border-coqui-200 rounded-xl px-4 py-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-coqui-100 text-coqui-600 flex items-center justify-center flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-coqui-900">Enable notifications</p>
+              <p className="text-xs text-coqui-700/70 mt-0.5">Get alerts for new cleaning assignments and updates.</p>
+            </div>
+            <button
+              onClick={async () => {
+                setPushEnabling(true);
+                try { await requestPermission({ staffId: user.uid }); }
+                finally { setPushEnabling(false); }
+              }}
+              disabled={pushEnabling}
+              className="text-xs font-semibold bg-coqui-600 text-white px-3 py-1.5 rounded-lg
+                hover:bg-coqui-700 active:bg-coqui-800 transition disabled:opacity-60 whitespace-nowrap flex-shrink-0"
+            >
+              {pushEnabling ? 'Enabling...' : 'Enable'}
+            </button>
+            <button
+              onClick={() => setPushBannerDismissed(true)}
+              className="text-coqui-400 hover:text-coqui-600 transition flex-shrink-0 p-0.5"
+              aria-label="Dismiss"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         <main className="flex-1">{children}</main>
       </div>
     );

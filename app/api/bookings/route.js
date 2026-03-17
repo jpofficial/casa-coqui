@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { nanoid } from 'nanoid';
 import { requireRole } from '@/lib/api-auth';
 import { getAppUrl } from '@/lib/url';
+import { notifyStaff } from '@/lib/staff-notifications';
 
 // ---------------------------------------------------------------------------
 // GET /api/bookings
@@ -120,8 +121,67 @@ export async function POST(request) {
       createdAt: new Date().toISOString(),
     });
 
+    // ── Auto-create checkout cleaning job ────────────────────────────────
+    // Find the first active cleaner. If exactly one exists, create a
+    // cleaning job for checkout day and notify them.
+    let cleaningJobId = null;
+    try {
+      const cleanerSnap = await adminDb
+        .collection('users')
+        .where('role', '==', 'cleaner')
+        .where('status', '==', 'active')
+        .limit(2)
+        .get();
+
+      if (cleanerSnap.size === 1) {
+        const cleanerDoc = cleanerSnap.docs[0];
+        const cleanerData = cleanerDoc.data();
+        const cleanerUid = cleanerDoc.id;
+
+        const job = {
+          unit,
+          scheduledDate: checkOutDate,
+          checkoutTime: '11:00 AM',
+          assigneeId: cleanerUid,
+          assigneeName: cleanerData.displayName || cleanerData.email,
+          bookingId: docRef.id,
+          status: 'scheduled',
+          notes: guestName ? `Guest: ${guestName}` : '',
+          turnoverNotes: '',
+          sameDayArrival: false,
+          beforePhotos: [],
+          afterPhotos: [],
+          issues: [],
+          laundryFound: null,
+          laundryNote: '',
+          laundryPhoto: null,
+          acknowledgedAt: null,
+          enRouteAt: null,
+          arrivedAt: null,
+          startedAt: null,
+          completedAt: null,
+          createdAt: new Date().toISOString(),
+          createdBy: 'system',
+        };
+
+        const jobRef = await adminDb.collection('cleaning_jobs').add(job);
+        cleaningJobId = jobRef.id;
+
+        await notifyStaff({
+          staffIds: [cleanerUid],
+          title: 'New Cleaning Assignment',
+          body: `${unit} on ${checkOutDate} (checkout ${job.checkoutTime})`,
+          type: 'cleaning_assignment',
+          data: { jobId: jobRef.id, unit, scheduledDate: checkOutDate, targetPath: '/admin/cleaning' },
+        }).catch((err) => console.error('[POST /api/bookings] Cleaning notify error:', err));
+      }
+    } catch (cleaningErr) {
+      // Non-fatal: booking was created successfully, log and continue
+      console.error('[POST /api/bookings] Auto-create cleaning job error:', cleaningErr);
+    }
+
     return NextResponse.json(
-      { success: true, data: { id: docRef.id, ...booking } },
+      { success: true, data: { id: docRef.id, cleaningJobId, ...booking } },
       { status: 201 }
     );
   } catch (error) {

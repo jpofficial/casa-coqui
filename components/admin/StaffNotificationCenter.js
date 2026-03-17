@@ -9,6 +9,7 @@ import { detectPlatform, isStandalone } from '@/lib/platform';
 // ─── Staff notification type → admin deep-link ──────────────────────────────
 const TYPE_PATHS = {
   maintenance: '/admin/maintenance',
+  cleaning_assignment: '/admin/cleaning',
   cleaning_update: '/admin/cleaning',
   assignment: '/admin/assignments',
 };
@@ -28,6 +29,16 @@ const STAFF_CATEGORY_CONFIG = {
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-4 h-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l5.654-4.654m5.14-5.633l4.14-4.14a2.25 2.25 0 013.182 0l.354.354a2.25 2.25 0 010 3.182l-4.14 4.14M16.5 9.75l-4.94 4.94" />
+      </svg>
+    ),
+  },
+  cleaning_assignment: {
+    label: 'Cleaning',
+    iconColor: 'text-atardecer-600',
+    bgColor: 'bg-atardecer-50',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-4 h-4">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
       </svg>
     ),
   },

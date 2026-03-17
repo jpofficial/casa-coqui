@@ -109,7 +109,7 @@ export async function POST(request) {
       title: 'New Cleaning Assignment',
       body: `${unit} on ${scheduledDate} (checkout ${job.checkoutTime})`,
       type: 'cleaning_assignment',
-      data: { jobId: docRef.id, unit, scheduledDate },
+      data: { jobId: docRef.id, unit, scheduledDate, targetPath: '/admin/cleaning' },
     }).catch((err) => console.error('[POST /api/cleaning/jobs] Notify error:', err));
 
     return NextResponse.json(
