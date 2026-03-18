@@ -10,9 +10,9 @@ export default function Arrived({ job, locale, onAdvance, busy }) {
       <button
         onClick={onAdvance}
         disabled={busy}
-        className="w-full max-w-sm bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-xl font-bold rounded-2xl px-6 py-6 transition"
+        className="w-full max-w-sm bg-coqui-600 hover:bg-coqui-700 disabled:bg-coqui-300 text-white text-xl font-bold rounded-2xl px-6 py-6 transition"
       >
-        {busy ? '...' : t(locale, 'iArrived')}
+        {busy ? t(locale, 'sending') : t(locale, 'iArrived')}
       </button>
     </div>
   );

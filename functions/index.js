@@ -26,6 +26,7 @@ const logger = require('firebase-functions/logger');
 const { parseReceiptHandler } = require('./parseReceipt');
 const { reorderCheckHandler } = require('./reorderCheck');
 const { expireLinksHandler } = require('./expireLinks');
+const { cleaningReminderHandler } = require('./cleaningReminder');
 
 // ---------------------------------------------------------------------------
 // Global defaults
@@ -124,6 +125,33 @@ exports.expireLinks = onSchedule(
       logger.info('[expireLinks] Completed', result);
     } catch (err) {
       logger.error('[expireLinks] Unhandled error:', err);
+      throw err;
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// cleaningReminder
+//
+// Scheduled function: runs daily at 6:00 PM in the property timezone.
+// Sends a reminder push to cleaners with jobs scheduled for the next day.
+//
+// 6 PM PR = 22:00 UTC (UTC-4).
+// ---------------------------------------------------------------------------
+exports.cleaningReminder = onSchedule(
+  {
+    schedule: '0 22 * * *', // 18:00 America/Puerto_Rico (UTC-4)
+    timeZone: 'America/Puerto_Rico',
+    retryCount: 2,
+    memory: '256MiB',
+  },
+  async (event) => {
+    logger.info('[cleaningReminder] Scheduled trigger fired', { eventId: event.jobName });
+    try {
+      const result = await cleaningReminderHandler();
+      logger.info('[cleaningReminder] Completed', result);
+    } catch (err) {
+      logger.error('[cleaningReminder] Unhandled error:', err);
       throw err;
     }
   }

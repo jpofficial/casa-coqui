@@ -42,6 +42,8 @@ const CATEGORY_PATHS = {
   general: (code) => code ? `/g/${code}` : '/admin',
   cleaning_assignment: () => '/admin/cleaning',
   cleaning_update: () => '/admin/cleaning',
+  cleaning_reminder: () => '/admin/cleaning',
+  staff_message: () => '/admin/staff-messages',
 };
 
 function resolveDeepLink(data) {
@@ -116,6 +118,8 @@ function buildActions(type) {
     case 'cleaning_assignment':
       return [{ action: 'view', title: 'Ver Limpieza' }];
     case 'cleaning_update':
+      return [{ action: 'view', title: 'Ver Limpieza' }];
+    case 'cleaning_reminder':
       return [{ action: 'view', title: 'Ver Limpieza' }];
     default:
       return [];

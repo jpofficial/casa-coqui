@@ -5,8 +5,8 @@ import { t } from '@/lib/i18n';
 export default function Cleaning({ locale, onReportIssue, onAdvance, busy }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
-      <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
-        <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <div className="w-16 h-16 rounded-full bg-coqui-100 flex items-center justify-center mb-4">
+        <svg className="w-8 h-8 text-coqui-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
       </div>
@@ -26,9 +26,9 @@ export default function Cleaning({ locale, onReportIssue, onAdvance, busy }) {
         <button
           onClick={onAdvance}
           disabled={busy}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-lg font-bold rounded-2xl px-6 py-4 transition"
+          className="w-full bg-coqui-600 hover:bg-coqui-700 disabled:bg-coqui-300 text-white text-lg font-bold rounded-2xl px-6 py-4 transition"
         >
-          {busy ? '...' : t(locale, 'readyForPhotos')}
+          {busy ? t(locale, 'sending') : t(locale, 'readyForPhotos')}
         </button>
       </div>
     </div>

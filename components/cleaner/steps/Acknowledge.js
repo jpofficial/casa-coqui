@@ -24,7 +24,7 @@ export default function Acknowledge({ job, locale, onAdvance, onDecline, busy })
         {t(locale, 'newJobScheduled')}
       </p>
 
-      <div className="bg-white rounded-2xl border border-gray-200 p-5 w-full max-w-sm mb-8 text-left space-y-2">
+      <div className="bg-white rounded-2xl border border-cafe-200 p-5 w-full max-w-sm mb-8 text-left space-y-2">
         <p className="text-sm text-gray-500">{t(locale, 'unit')}</p>
         <p className="text-lg font-bold text-gray-900">{job.unit}</p>
 
@@ -53,14 +53,14 @@ export default function Acknowledge({ job, locale, onAdvance, onDecline, busy })
           <button
             onClick={onAdvance}
             disabled={busy}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-lg font-bold rounded-2xl px-6 py-4 transition"
+            className="w-full bg-coqui-600 hover:bg-coqui-700 disabled:bg-coqui-300 text-white text-lg font-bold rounded-2xl px-6 py-4 transition"
           >
-            {busy ? '...' : t(locale, 'accept')}
+            {busy ? t(locale, 'sending') : t(locale, 'accept')}
           </button>
           <button
             onClick={() => setShowDecline(true)}
             disabled={busy}
-            className="w-full bg-white hover:bg-gray-50 disabled:opacity-50 text-red-600 text-base font-semibold rounded-2xl px-6 py-3 border border-red-200 transition"
+            className="w-full bg-white hover:bg-flamboyan-50 disabled:opacity-50 text-flamboyan-600 text-base font-semibold rounded-2xl px-6 py-3 border border-flamboyan-200 transition"
           >
             {t(locale, 'cannotAccept')}
           </button>
@@ -75,19 +75,19 @@ export default function Acknowledge({ job, locale, onAdvance, onDecline, busy })
             onChange={(e) => setReason(e.target.value)}
             placeholder={t(locale, 'declineReasonPlaceholder')}
             rows={3}
-            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+            className="w-full rounded-2xl border border-cafe-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-flamboyan-500 focus:border-transparent resize-none"
           />
           <div className="flex gap-3">
             <button
               onClick={handleDecline}
               disabled={declining || !reason.trim()}
-              className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white text-base font-bold rounded-2xl px-6 py-3 transition"
+              className="flex-1 bg-flamboyan-600 hover:bg-flamboyan-700 disabled:bg-flamboyan-300 text-white text-base font-bold rounded-2xl px-6 py-3 transition"
             >
-              {declining ? '...' : t(locale, 'submitDecline')}
+              {declining ? t(locale, 'sending') : t(locale, 'submitDecline')}
             </button>
             <button
               onClick={() => { setShowDecline(false); setReason(''); }}
-              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-base font-semibold rounded-2xl px-6 py-3 transition"
+              className="flex-1 bg-cafe-100 hover:bg-cafe-200 text-coqui-800 text-base font-semibold rounded-2xl px-6 py-3 transition"
             >
               {t(locale, 'cancel')}
             </button>

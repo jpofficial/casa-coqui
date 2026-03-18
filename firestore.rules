@@ -331,6 +331,34 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
+    // staff_notification_prefs
+    // Each staff member can read/write their own notification preferences.
+    // Doc ID is the staff user's UID.
+    // -------------------------------------------------------------------------
+    match /staff_notification_prefs/{staffId} {
+      allow read, write: if isStaff() && staffId == request.auth.uid;
+      allow read: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // staff_messages
+    // Staff can read/create their own messages. Admin/cohost can read all,
+    // create host messages, and update the read field.
+    // -------------------------------------------------------------------------
+    match /staff_messages/{messageId} {
+      allow read: if isStaff() && (
+        resource.data.staffId == request.auth.uid ||
+        request.auth.token.role in ['admin', 'cohost']
+      );
+      allow create: if isStaff() && (
+        (request.resource.data.staffId == request.auth.uid && request.resource.data.sender == 'staff') ||
+        request.auth.token.role in ['admin', 'cohost']
+      );
+      allow update: if isStaff() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+    }
+
+    // -------------------------------------------------------------------------
     // booking_members
     // Any authenticated user can read (same model as bookings — the booking
     // code in the URL is the access gate). Any authenticated user can

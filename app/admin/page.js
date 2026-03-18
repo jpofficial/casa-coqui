@@ -161,12 +161,26 @@ function LaundryMachineCard({ machineId, label }) {
   );
 }
 
-function StatsCard({ label, value, accent, loading, bgTint }) {
+function StatsCard({ label, value, accent, loading, bgTint, href }) {
+  const Wrapper = href ? Link : 'div';
+  const wrapperProps = href ? { href } : {};
   return (
-    <div className={`rounded-xl shadow-brand p-4 flex flex-col gap-1 border ${bgTint || 'bg-white border-cafe-200'}`}>
-      <span className="text-[11px] text-coqui-800/60 font-semibold uppercase tracking-wider leading-none">
-        {label}
-      </span>
+    <Wrapper
+      {...wrapperProps}
+      className={`rounded-xl shadow-brand p-4 flex flex-col gap-1 border ${bgTint || 'bg-white border-cafe-200'} ${
+        href ? 'active:scale-[0.97] active:opacity-80 transition-all duration-150 cursor-pointer' : ''
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-coqui-800/60 font-semibold uppercase tracking-wider leading-none">
+          {label}
+        </span>
+        {href && (
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-coqui-800/25" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        )}
+      </div>
       {loading ? (
         <div className="h-8 w-14 rounded animate-admin-shimmer mt-1" />
       ) : (
@@ -174,7 +188,7 @@ function StatsCard({ label, value, accent, loading, bgTint }) {
           {value}
         </span>
       )}
-    </div>
+    </Wrapper>
   );
 }
 
@@ -255,6 +269,7 @@ function CohostDashboard() {
           accent="text-coqui-600"
           loading={staysLoading}
           bgTint="bg-coqui-50 border-coqui-100"
+          href="/admin/stays"
         />
         <StatsCard
           label={t(locale, 'admin_dash_openTasks')}
@@ -262,6 +277,7 @@ function CohostDashboard() {
           accent={openTasks.length > 0 ? 'text-atardecer-600' : 'text-coqui-900'}
           loading={tasksLoading}
           bgTint="bg-atardecer-50 border-atardecer-100"
+          href="/admin/assignments"
         />
       </div>
 
@@ -454,6 +470,7 @@ function FullAdminDashboard() {
           accent="text-coqui-600"
           loading={bookingsLoading}
           bgTint="bg-coqui-50 border-coqui-100"
+          href="/admin/stays"
         />
         <StatsCard
           label={t(locale, 'admin_dash_pendingCheckins')}
@@ -461,6 +478,7 @@ function FullAdminDashboard() {
           accent={pendingCheckIns.length > 0 ? 'text-atardecer-600' : 'text-coqui-900'}
           loading={bookingsLoading}
           bgTint="bg-atardecer-50 border-atardecer-100"
+          href="/admin/bookings"
         />
         <StatsCard
           label={t(locale, 'admin_dash_openTasks')}
@@ -468,6 +486,7 @@ function FullAdminDashboard() {
           accent={openTasks.length > 0 ? 'text-flamboyan-600' : 'text-coqui-900'}
           loading={tasksLoading}
           bgTint="bg-flamboyan-50 border-flamboyan-100"
+          href="/admin/assignments"
         />
         <StatsCard
           label={t(locale, 'admin_dash_monthlyRevenue')}
@@ -479,6 +498,7 @@ function FullAdminDashboard() {
           accent="text-caribe-600"
           loading={revenueLoading}
           bgTint="bg-caribe-50 border-caribe-100"
+          href="/admin/revenue"
         />
       </div>
 

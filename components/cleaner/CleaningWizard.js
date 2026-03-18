@@ -39,6 +39,7 @@ function JobChat({ job, user, locale, onClose }) {
   const [msg, setMsg] = useState('');
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState([]);
+  const [sendViaWA, setSendViaWA] = useState(false);
   const bottomRef = useRef(null);
   const phone = process.env.NEXT_PUBLIC_HOST_WHATSAPP;
   const displayName = user.displayName?.split(' ')[0] || 'Staff';
@@ -102,8 +103,8 @@ function JobChat({ job, user, locale, onClose }) {
         }).catch(() => {});
       }
 
-      // 3. Open WhatsApp with job-context prefix
-      if (phone) {
+      // 3. Optionally open WhatsApp with job-context prefix
+      if (sendViaWA && phone) {
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(jobPrefix + trimmed)}`;
         window.open(url, '_blank', 'noopener,noreferrer');
       }
@@ -169,30 +170,48 @@ function JobChat({ job, user, locale, onClose }) {
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
-        <div className="p-3 flex gap-2 border-t border-gray-100 flex-shrink-0">
-          <input
-            type="text"
-            value={msg}
-            onChange={(e) => setMsg(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-            placeholder={t(locale, 'typeMessage')}
-            className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2.5
-              focus:outline-none focus:ring-2 focus:ring-[#25D366]/30 focus:border-[#25D366]
-              placeholder:text-gray-400"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!msg.trim() || sending}
-            className="bg-[#25D366] text-white rounded-full w-10 h-10 flex items-center justify-center
-              hover:bg-[#20bd5a] active:bg-[#1da851] disabled:bg-gray-200 disabled:text-gray-400
-              transition-colors flex-shrink-0"
-            aria-label="Send"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-            </svg>
-          </button>
+        {/* WhatsApp toggle + Input */}
+        <div className="border-t border-gray-100 flex-shrink-0">
+          {phone && (
+            <button
+              onClick={() => setSendViaWA((v) => !v)}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                sendViaWA ? 'bg-[#25D366]/10 text-[#25D366]' : 'bg-gray-50 text-gray-400'
+              }`}
+            >
+              <div className={`w-8 h-5 rounded-full flex items-center transition-colors ${sendViaWA ? 'bg-[#25D366] justify-end' : 'bg-gray-300 justify-start'}`}>
+                <div className="w-4 h-4 bg-white rounded-full shadow mx-0.5" />
+              </div>
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                <path d={WA_ICON_PATH} />
+              </svg>
+              <span className="font-medium">{t(locale, 'sendViaWhatsApp')}</span>
+            </button>
+          )}
+          <div className="p-3 flex gap-2">
+            <input
+              type="text"
+              value={msg}
+              onChange={(e) => setMsg(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              placeholder={t(locale, 'typeMessage')}
+              className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2.5
+                focus:outline-none focus:ring-2 focus:ring-[#25D366]/30 focus:border-[#25D366]
+                placeholder:text-gray-400"
+            />
+            <button
+              onClick={handleSend}
+              disabled={!msg.trim() || sending}
+              className="bg-[#25D366] text-white rounded-full w-10 h-10 flex items-center justify-center
+                hover:bg-[#20bd5a] active:bg-[#1da851] disabled:bg-gray-200 disabled:text-gray-400
+                transition-colors flex-shrink-0"
+              aria-label="Send"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -223,6 +242,12 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
   }, [user?.uid, job?.id]);
 
   const step = STATUS_STEP[job.status] || 'acknowledge';
+
+  // Progress indicator: map status to step number (excludes declined & completed summary)
+  const STEP_ORDER = ['acknowledge', 'en_route', 'arrived', 'before_photos', 'cleaning', 'after_photos', 'laundry_check'];
+  const currentStepNum = STEP_ORDER.indexOf(step) + 1;
+  const totalSteps = STEP_ORDER.length;
+  const showProgress = currentStepNum > 0 && step !== 'complete' && step !== 'declined';
 
   const apiCall = useCallback(async (url, body, method = 'PATCH') => {
     const token = await user.getIdToken();
@@ -257,15 +282,21 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
     setBusy(true);
     try {
       await apiCall(`/api/cleaning/jobs/${job.id}/photos`, { type, urls }, 'POST');
-      // After uploading photos, advance to next status
-      const nextStatus = type === 'before' ? 'cleaning' : 'laundry_check';
-      await apiCall(`/api/cleaning/jobs/${job.id}`, { status: nextStatus });
+      if (type === 'before') {
+        // If still in 'arrived', advance through 'before_photos' first
+        if (job.status === 'arrived') {
+          await apiCall(`/api/cleaning/jobs/${job.id}`, { status: 'before_photos' });
+        }
+        await apiCall(`/api/cleaning/jobs/${job.id}`, { status: 'cleaning' });
+      } else {
+        await apiCall(`/api/cleaning/jobs/${job.id}`, { status: 'laundry_check' });
+      }
     } catch (err) {
       console.error('Failed to upload photos:', err);
     } finally {
       setBusy(false);
     }
-  }, [apiCall, job.id]);
+  }, [apiCall, job.id, job.status]);
 
   const reportIssue = useCallback(async (issue) => {
     setBusy(true);
@@ -309,53 +340,73 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
     }
   }, [apiCall, job.id]);
 
-  // Header with close button + WhatsApp button + locale toggle
+  // Header with close button + WhatsApp button + locale toggle + progress
   const header = (
-    <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
-      {onClose ? (
-        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center -ml-1 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors" aria-label={t(locale, 'backToHome')}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-gray-600">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      ) : <div className="w-8" />}
-      <div className="text-center">
-        <p className="text-sm font-bold text-gray-900">Casa Coqui</p>
-        <p className="text-xs text-gray-500">{t(locale, STATUS_STEP[job.status] === 'complete' ? 'cleaningComplete' : 'todaysCleaning')}</p>
-      </div>
-      <div className="flex items-center gap-1.5">
-        {/* WhatsApp chat button */}
-        {process.env.NEXT_PUBLIC_HOST_WHATSAPP && (
-          <button
-            onClick={() => setShowChat(true)}
-            className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors"
-            aria-label={t(locale, 'chatWithHost')}
-          >
-            <svg viewBox="0 0 24 24" fill="#25D366" className="w-5 h-5">
-              <path d={WA_ICON_PATH} />
+    <div>
+      <div className="flex items-center justify-between px-4 py-3 bg-white/80 backdrop-blur-sm border-b border-cafe-200 shadow-brand">
+        {onClose ? (
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center -ml-1 rounded-lg hover:bg-cafe-100 active:bg-cafe-200 transition-colors" aria-label={t(locale, 'backToHome')}>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-coqui-800">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
-            {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
           </button>
-        )}
-        {/* Locale toggle */}
-        <button
-          onClick={() => setLocale(locale === 'es' ? 'en' : 'es')}
-          className="text-xs font-bold bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full"
-        >
-          {locale === 'es' ? 'EN' : 'ES'}
-        </button>
+        ) : <div className="w-8" />}
+        <div className="text-center">
+          <p className="text-sm font-bold text-coqui-800 font-display">Casa Coqui</p>
+          <p className="text-xs text-coqui-800/50">{t(locale, STATUS_STEP[job.status] === 'complete' ? 'cleaningComplete' : 'todaysCleaning')}</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {/* WhatsApp chat button */}
+          {process.env.NEXT_PUBLIC_HOST_WHATSAPP && (
+            <button
+              onClick={() => setShowChat(true)}
+              className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-cafe-100 active:bg-cafe-200 transition-colors"
+              aria-label={t(locale, 'chatWithHost')}
+            >
+              <svg viewBox="0 0 24 24" fill="#25D366" className="w-5 h-5">
+                <path d={WA_ICON_PATH} />
+              </svg>
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+          )}
+          {/* Locale toggle */}
+          <button
+            onClick={() => setLocale(locale === 'es' ? 'en' : 'es')}
+            className="text-xs font-bold bg-cafe-100 text-coqui-700 px-3 py-1.5 rounded-full"
+          >
+            {locale === 'es' ? 'EN' : 'ES'}
+          </button>
+        </div>
       </div>
+      {/* Progress bar */}
+      {showProgress && (
+        <div className="bg-white px-4 py-2 border-b border-cafe-100 flex items-center gap-3">
+          <div className="flex gap-1 flex-1">
+            {STEP_ORDER.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1.5 flex-1 rounded-full transition-colors ${
+                  i < currentStepNum ? 'bg-coqui-500' : 'bg-cafe-200'
+                }`}
+              />
+            ))}
+          </div>
+          <span className="text-xs text-coqui-700 font-medium whitespace-nowrap">
+            {t(locale, 'wizardStep').replace('{current}', currentStepNum).replace('{total}', totalSteps)}
+          </span>
+        </div>
+      )}
     </div>
   );
 
   // Issue report overlay
   if (showIssue) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-cafe-50">
         {header}
         <IssueReport
           job={job}
@@ -369,7 +420,7 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-cafe-50">
       {header}
 
       {step === 'acknowledge' && (

@@ -28,8 +28,11 @@ export async function GET(request) {
         .orderBy('scheduledDate', 'desc');
     }
 
+    const HIDDEN = ['deleted', 'archived', 'cancelled'];
     const snapshot = await query.get();
-    const jobs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const jobs = snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .filter((j) => !HIDDEN.includes(j.status));
 
     return NextResponse.json({ success: true, data: jobs });
   } catch (error) {

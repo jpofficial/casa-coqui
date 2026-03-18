@@ -129,15 +129,15 @@ function DateRow({ job, locale, onOpenWizard }) {
               <button
                 onClick={handleConfirm}
                 disabled={busy}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-coqui-600 text-white
+                className="text-sm font-semibold px-4 py-2 rounded-xl bg-coqui-600 text-white
                   hover:bg-coqui-700 active:bg-coqui-800 disabled:opacity-50 transition-colors"
               >
-                {t(locale, 'confirmCleaning')}
+                {busy ? t(locale, 'sending') : t(locale, 'confirmCleaning')}
               </button>
               <button
                 onClick={() => setDeclining(true)}
                 disabled={busy}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-flamboyan-100 text-flamboyan-700
+                className="text-sm font-semibold px-4 py-2 rounded-xl bg-flamboyan-100 text-flamboyan-700
                   hover:bg-flamboyan-200 active:bg-flamboyan-300 disabled:opacity-50 transition-colors"
               >
                 {t(locale, 'declineCleaning')}
@@ -147,7 +147,7 @@ function DateRow({ job, locale, onOpenWizard }) {
           {isActive && (
             <button
               onClick={() => onOpenWizard(job)}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-coqui-600 text-white
+              className="text-sm font-semibold px-4 py-2 rounded-xl bg-coqui-600 text-white
                 hover:bg-coqui-700 active:bg-coqui-800 transition-colors flex items-center gap-1"
             >
               {t(locale, 'continueCleaning')}

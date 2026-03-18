@@ -7,8 +7,13 @@ import ImageUpload from '@/components/ui/ImageUpload';
 export default function BeforePhotos({ job, locale, onPhotosUploaded, busy }) {
   const [urls, setUrls] = useState([]);
 
-  function handlePhotoAdded(url) {
-    setUrls((prev) => [...prev, url]);
+  function handlePhotosAdded(newUrls) {
+    // newUrls is an array when multiple=true
+    setUrls((prev) => [...prev, ...newUrls].slice(0, 10));
+  }
+
+  function handleRemovePhoto(index) {
+    setUrls((prev) => prev.filter((_, i) => i !== index));
   }
 
   return (
@@ -21,22 +26,33 @@ export default function BeforePhotos({ job, locale, onPhotosUploaded, busy }) {
         {urls.length > 0 && (
           <div className="grid grid-cols-2 gap-2">
             {urls.map((url, i) => (
-              <img
-                key={i}
-                src={url}
-                alt={`Before ${i + 1}`}
-                className="w-full h-32 object-cover rounded-xl border border-gray-200"
-              />
+              <div key={i} className="relative">
+                <img
+                  src={url}
+                  alt={`Before ${i + 1}`}
+                  className="w-full h-32 object-cover rounded-xl border border-gray-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemovePhoto(i)}
+                  className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow hover:bg-red-700"
+                  aria-label="Remove photo"
+                >
+                  &times;
+                </button>
+              </div>
             ))}
           </div>
         )}
 
-        {urls.length < 4 && (
+        {urls.length < 10 && (
           <ImageUpload
             storagePath={`cleaning_jobs/${job.id}/before`}
             value=""
-            onChange={handlePhotoAdded}
-            label={t(locale, 'takePhoto')}
+            onChange={handlePhotosAdded}
+            label={t(locale, 'addPhotos')}
+            multiple
+            noCapture
           />
         )}
 
@@ -49,9 +65,9 @@ export default function BeforePhotos({ job, locale, onPhotosUploaded, busy }) {
         <button
           onClick={() => onPhotosUploaded(urls)}
           disabled={urls.length === 0 || busy}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-lg font-bold rounded-2xl px-6 py-4 transition"
+          className="w-full bg-coqui-600 hover:bg-coqui-700 disabled:bg-cafe-300 text-white text-lg font-bold rounded-2xl px-6 py-4 transition"
         >
-          {busy ? '...' : t(locale, 'continue')}
+          {busy ? t(locale, 'sending') : t(locale, 'continue')}
         </button>
       </div>
     </div>

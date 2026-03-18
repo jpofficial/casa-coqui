@@ -35,8 +35,8 @@ export default function IssueReport({ job, locale, onSubmit, onCancel, busy }) {
               onClick={() => setCategory(cat)}
               className={`rounded-xl border-2 px-4 py-3 text-sm font-semibold transition ${
                 category === cat
-                  ? 'border-blue-600 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 bg-white text-gray-700'
+                  ? 'border-atardecer-500 bg-atardecer-50 text-atardecer-700'
+                  : 'border-cafe-200 bg-white text-coqui-800'
               }`}
             >
               {t(locale, cat)}
@@ -49,7 +49,7 @@ export default function IssueReport({ job, locale, onSubmit, onCancel, busy }) {
           onChange={(e) => setDescription(e.target.value)}
           placeholder={t(locale, 'describeIssue')}
           rows={3}
-          className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full rounded-xl border border-cafe-200 px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-atardecer-500"
         />
 
         <ImageUpload
@@ -64,7 +64,7 @@ export default function IssueReport({ job, locale, onSubmit, onCancel, busy }) {
           disabled={!category || busy}
           className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 text-white text-lg font-bold rounded-2xl px-6 py-4 transition"
         >
-          {busy ? '...' : t(locale, 'sendReport')}
+          {busy ? t(locale, 'sending') : t(locale, 'sendReport')}
         </button>
 
         <button

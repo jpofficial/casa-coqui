@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
-import { LocaleProvider } from '@/hooks/useLocale';
 import CleanerHome from '@/components/cleaner/CleanerHome';
 import CleaningJobForm from '@/components/admin/CleaningJobForm';
 
@@ -32,11 +31,7 @@ export default function CleaningPage() {
   if (!user) return null;
 
   if (role === 'cleaner') {
-    return (
-      <LocaleProvider defaultLocale="es">
-        <CleanerHome user={user} />
-      </LocaleProvider>
-    );
+    return <CleanerHome user={user} />;
   }
 
   return <AdminCleaningDashboard user={user} role={role} isAdmin={role === 'admin'} />;

@@ -34,8 +34,8 @@ export default function LaundryCheck({ job, locale, onSubmit, busy }) {
             onClick={() => setFound(false)}
             className={`rounded-2xl border-2 px-6 py-4 text-base font-bold transition ${
               found === false
-                ? 'border-green-600 bg-green-50 text-green-700'
-                : 'border-gray-200 bg-white text-gray-700'
+                ? 'border-coqui-600 bg-coqui-50 text-coqui-700'
+                : 'border-cafe-200 bg-white text-coqui-800'
             }`}
           >
             {t(locale, 'noAllClean')}
@@ -45,8 +45,8 @@ export default function LaundryCheck({ job, locale, onSubmit, busy }) {
             onClick={() => setFound(true)}
             className={`rounded-2xl border-2 px-6 py-4 text-base font-bold transition ${
               found === true
-                ? 'border-amber-600 bg-amber-50 text-amber-700'
-                : 'border-gray-200 bg-white text-gray-700'
+                ? 'border-atardecer-500 bg-atardecer-50 text-atardecer-700'
+                : 'border-cafe-200 bg-white text-coqui-800'
             }`}
           >
             {t(locale, 'yesSomethingFound')}
@@ -60,7 +60,7 @@ export default function LaundryCheck({ job, locale, onSubmit, busy }) {
               onChange={(e) => setNote(e.target.value)}
               placeholder={t(locale, 'describeFound')}
               rows={3}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border border-cafe-200 px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-coqui-500"
             />
 
             <ImageUpload
@@ -76,9 +76,9 @@ export default function LaundryCheck({ job, locale, onSubmit, busy }) {
           <button
             onClick={handleSubmit}
             disabled={busy}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-lg font-bold rounded-2xl px-6 py-4 transition"
+            className="w-full bg-coqui-600 hover:bg-coqui-700 disabled:bg-coqui-300 text-white text-lg font-bold rounded-2xl px-6 py-4 transition"
           >
-            {busy ? '...' : t(locale, 'continue')}
+            {busy ? t(locale, 'sending') : t(locale, 'continue')}
           </button>
         )}
       </div>
