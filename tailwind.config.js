@@ -129,6 +129,16 @@ module.exports = {
         'brand-md': '0 4px 6px -1px rgba(7, 54, 32, 0.08), 0 2px 4px -2px rgba(7, 54, 32, 0.06)',
         'brand-lg': '0 10px 15px -3px rgba(7, 54, 32, 0.1), 0 4px 6px -4px rgba(7, 54, 32, 0.06)',
       },
+
+      keyframes: {
+        'slide-up': {
+          '0%': { transform: 'translateY(100%)' },
+          '100%': { transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'slide-up': 'slide-up 0.25s ease-out',
+      },
     },
   },
   plugins: [],

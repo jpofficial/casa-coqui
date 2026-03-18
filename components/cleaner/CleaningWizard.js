@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { collection, query, where, orderBy, onSnapshot, doc, addDoc, updateDoc } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
 import { t } from '@/lib/i18n';
 import useLocale from '@/hooks/useLocale';
 import useAuth from '@/hooks/useAuth';
@@ -29,11 +31,196 @@ const STATUS_STEP = {
   completed: 'complete',
 };
 
+// ─── WhatsApp icon SVG path ─────────────────────────────────────────────────
+const WA_ICON_PATH = 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z';
+
+// ─── JobChat drawer ─────────────────────────────────────────────────────────
+function JobChat({ job, user, locale, onClose }) {
+  const [msg, setMsg] = useState('');
+  const [sending, setSending] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const bottomRef = useRef(null);
+  const phone = process.env.NEXT_PUBLIC_HOST_WHATSAPP;
+  const displayName = user.displayName?.split(' ')[0] || 'Staff';
+
+  // Format job context prefix for WhatsApp: [Name - Unit Date]
+  const jobPrefix = `[${displayName} - ${job.unit} ${job.scheduledDate}] `;
+
+  // Real-time listener for messages scoped to this job
+  useEffect(() => {
+    if (!user?.uid || !job?.id) return;
+    const q = query(
+      collection(db, 'staff_messages'),
+      where('staffId', '==', user.uid),
+      where('jobId', '==', job.id),
+      orderBy('createdAt', 'asc')
+    );
+    return onSnapshot(q, (snap) => {
+      setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      console.error('[staff_messages] job chat listener error:', err.code, err.message);
+    });
+  }, [user?.uid, job?.id]);
+
+  // Mark host messages as read when drawer is open
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unread = messages.filter((m) => m.sender === 'host' && !m.read);
+    unread.forEach((m) => {
+      updateDoc(doc(db, 'staff_messages', m.id), { read: true }).catch(console.error);
+    });
+  }, [messages, user?.uid]);
+
+  // Auto-scroll on new messages
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
+
+  async function handleSend() {
+    const trimmed = msg.trim();
+    if (!trimmed || sending) return;
+    setSending(true);
+    try {
+      // 1. Save to Firestore with jobId
+      await addDoc(collection(db, 'staff_messages'), {
+        staffId: user.uid,
+        staffName: displayName,
+        sender: 'staff',
+        text: trimmed,
+        jobId: job.id,
+        read: false,
+        createdAt: new Date().toISOString(),
+      });
+
+      // 2. Notify admin/cohost
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+      if (idToken) {
+        fetch('/api/staff-messages/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+          body: JSON.stringify({ staffId: user.uid, staffName: displayName, sender: 'staff' }),
+        }).catch(() => {});
+      }
+
+      // 3. Open WhatsApp with job-context prefix
+      if (phone) {
+        const url = `https://wa.me/${phone}?text=${encodeURIComponent(jobPrefix + trimmed)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+
+      setMsg('');
+    } catch (err) {
+      console.error('Failed to send staff message:', err);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+
+      {/* Drawer */}
+      <div className="relative bg-white rounded-t-2xl max-h-[70vh] flex flex-col animate-slide-up">
+        {/* Header */}
+        <div className="bg-[#25D366] px-4 py-3 rounded-t-2xl flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-2 text-white">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-4.5 h-4.5">
+              <path d={WA_ICON_PATH} />
+            </svg>
+            <span className="text-sm font-semibold">{t(locale, 'chatWithHost')}</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-white/70 hover:text-white transition p-1"
+            aria-label="Close"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1.5 bg-gray-50 min-h-[120px]">
+          {messages.length === 0 && (
+            <p className="text-center text-sm text-gray-400 py-8">
+              {t(locale, 'whatsappPlaceholder')}
+            </p>
+          )}
+          {messages.map((m) => {
+            const isStaff = m.sender === 'staff';
+            return (
+              <div key={m.id} className={`flex ${isStaff ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-snug ${
+                  isStaff
+                    ? 'bg-[#DCF8C6] text-gray-800 rounded-br-sm'
+                    : 'bg-white text-gray-800 rounded-bl-sm shadow-sm'
+                }`}>
+                  <p>{m.text}</p>
+                  <p className="text-[10px] text-gray-400 text-right mt-0.5">
+                    {m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input */}
+        <div className="p-3 flex gap-2 border-t border-gray-100 flex-shrink-0">
+          <input
+            type="text"
+            value={msg}
+            onChange={(e) => setMsg(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            placeholder={t(locale, 'typeMessage')}
+            className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2.5
+              focus:outline-none focus:ring-2 focus:ring-[#25D366]/30 focus:border-[#25D366]
+              placeholder:text-gray-400"
+          />
+          <button
+            onClick={handleSend}
+            disabled={!msg.trim() || sending}
+            className="bg-[#25D366] text-white rounded-full w-10 h-10 flex items-center justify-center
+              hover:bg-[#20bd5a] active:bg-[#1da851] disabled:bg-gray-200 disabled:text-gray-400
+              transition-colors flex-shrink-0"
+            aria-label="Send"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CleaningWizard({ job, onRefresh, onClose }) {
   const { locale, setLocale } = useLocale();
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [showIssue, setShowIssue] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+
+  // Unread count for badge
+  const [unreadCount, setUnreadCount] = useState(0);
+  useEffect(() => {
+    if (!user?.uid || !job?.id) return;
+    const q = query(
+      collection(db, 'staff_messages'),
+      where('staffId', '==', user.uid),
+      where('jobId', '==', job.id),
+      orderBy('createdAt', 'asc')
+    );
+    return onSnapshot(q, (snap) => {
+      const unread = snap.docs.filter((d) => d.data().sender === 'host' && !d.data().read).length;
+      setUnreadCount(unread);
+    }, () => {});
+  }, [user?.uid, job?.id]);
 
   const step = STATUS_STEP[job.status] || 'acknowledge';
 
@@ -122,7 +309,7 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
     }
   }, [apiCall, job.id]);
 
-  // Header with close button + locale toggle
+  // Header with close button + WhatsApp button + locale toggle
   const header = (
     <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
       {onClose ? (
@@ -136,12 +323,32 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
         <p className="text-sm font-bold text-gray-900">Casa Coqui</p>
         <p className="text-xs text-gray-500">{t(locale, STATUS_STEP[job.status] === 'complete' ? 'cleaningComplete' : 'todaysCleaning')}</p>
       </div>
-      <button
-        onClick={() => setLocale(locale === 'es' ? 'en' : 'es')}
-        className="text-xs font-bold bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full"
-      >
-        {locale === 'es' ? 'EN' : 'ES'}
-      </button>
+      <div className="flex items-center gap-1.5">
+        {/* WhatsApp chat button */}
+        {process.env.NEXT_PUBLIC_HOST_WHATSAPP && (
+          <button
+            onClick={() => setShowChat(true)}
+            className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors"
+            aria-label={t(locale, 'chatWithHost')}
+          >
+            <svg viewBox="0 0 24 24" fill="#25D366" className="w-5 h-5">
+              <path d={WA_ICON_PATH} />
+            </svg>
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+        )}
+        {/* Locale toggle */}
+        <button
+          onClick={() => setLocale(locale === 'es' ? 'en' : 'es')}
+          className="text-xs font-bold bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full"
+        >
+          {locale === 'es' ? 'EN' : 'ES'}
+        </button>
+      </div>
     </div>
   );
 
@@ -201,6 +408,16 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
       )}
       {step === 'complete' && (
         <Complete job={job} locale={locale} onFinish={onRefresh} />
+      )}
+
+      {/* WhatsApp chat drawer */}
+      {showChat && user && (
+        <JobChat
+          job={job}
+          user={user}
+          locale={locale}
+          onClose={() => setShowChat(false)}
+        />
       )}
     </div>
   );

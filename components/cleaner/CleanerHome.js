@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { collection, query, where, orderBy, onSnapshot, doc } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
+import { getUnitNames, getUnitPalette } from '@/lib/units';
 import CleaningWizard from './CleaningWizard';
 
 // ─── Status badge colors (branded) ──────────────────────────────────────────
@@ -19,7 +20,11 @@ const STATUS_COLORS = {
   after_photos: 'bg-atardecer-100 text-atardecer-700',
   laundry_check: 'bg-teal-100 text-teal-700',
   completed: 'bg-coqui-100 text-coqui-700',
+  cancelled: 'bg-gray-100 text-gray-500',
 };
+
+// Statuses hidden from the cleaner view (deleted/archived/cancelled)
+const HIDDEN_STATUSES = new Set(['deleted', 'archived', 'cancelled']);
 
 // Statuses that mean the wizard is actively in progress
 const ACTIVE_STATUSES = new Set([
@@ -55,81 +60,192 @@ function formatTime(iso) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-// ─── Job Card ────────────────────────────────────────────────────────────────
-function JobCard({ job, locale, isToday, onOpenWizard }) {
-  const needsAction = job.status === 'scheduled';
+// ─── Date Row (one job within a unit section) ───────────────────────────────
+function DateRow({ job, locale, onOpenWizard }) {
+  const [declining, setDeclining] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const today = todayStr();
+  const isToday = job.scheduledDate === today;
   const isActive = ACTIVE_STATUSES.has(job.status);
-  const isDeclined = job.status === 'declined';
+
+  async function handleConfirm() {
+    setBusy(true);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/cleaning/jobs/${job.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: 'acknowledged' }),
+      });
+      const data = await res.json();
+      if (!data.success) console.error('Confirm failed:', data.error);
+    } catch (err) {
+      console.error('Confirm failed:', err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDecline() {
+    if (!reason.trim()) return;
+    setBusy(true);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/cleaning/jobs/${job.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: 'declined', declineReason: reason.trim() }),
+      });
+      const data = await res.json();
+      if (!data.success) console.error('Decline failed:', data.error);
+      else setDeclining(false);
+    } catch (err) {
+      console.error('Decline failed:', err);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <div className={`bg-white rounded-2xl border shadow-brand overflow-hidden transition-all ${
-      isDeclined ? 'border-flamboyan-200' :
-      isActive ? 'border-coqui-200' :
-      'border-cafe-200'
-    }`}>
-      <div className="p-4 space-y-2.5">
-        {/* Unit + status badge */}
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-coqui-900">{job.unit}</h3>
-          {!needsAction && (
-            <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${STATUS_COLORS[job.status] || 'bg-gray-100 text-gray-600'}`}>
-              {t(locale, job.status)}
-            </span>
+    <div className="py-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        {/* Date + status */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="text-sm font-medium text-coqui-900">
+            {isToday ? t(locale, 'today') : formatDate(locale, job.scheduledDate)}
+          </span>
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${
+            STATUS_COLORS[job.status] || 'bg-gray-100 text-gray-600'
+          }`}>
+            {t(locale, job.status)}
+          </span>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {job.status === 'scheduled' && !declining && (
+            <>
+              <button
+                onClick={handleConfirm}
+                disabled={busy}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-coqui-600 text-white
+                  hover:bg-coqui-700 active:bg-coqui-800 disabled:opacity-50 transition-colors"
+              >
+                {t(locale, 'confirmCleaning')}
+              </button>
+              <button
+                onClick={() => setDeclining(true)}
+                disabled={busy}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-flamboyan-100 text-flamboyan-700
+                  hover:bg-flamboyan-200 active:bg-flamboyan-300 disabled:opacity-50 transition-colors"
+              >
+                {t(locale, 'declineCleaning')}
+              </button>
+            </>
+          )}
+          {isActive && (
+            <button
+              onClick={() => onOpenWizard(job)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-coqui-600 text-white
+                hover:bg-coqui-700 active:bg-coqui-800 transition-colors flex items-center gap-1"
+            >
+              {t(locale, 'continueCleaning')}
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
           )}
         </div>
-
-        {/* Date + checkout time */}
-        <div className="flex items-center gap-3 text-sm text-coqui-800/60">
-          {!isToday && <span>{formatDate(locale, job.scheduledDate)}</span>}
-          <span>{t(locale, 'checkoutTime')}: {job.checkoutTime || '11:00 AM'}</span>
-        </div>
-
-        {/* Same-day arrival flag */}
-        {job.sameDayArrival && (
-          <div className="flex items-center gap-2 text-sm font-medium text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-4 h-4 flex-shrink-0">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
-            </svg>
-            {t(locale, 'sameDayArrival')}
-          </div>
-        )}
-
-        {/* Turnover notes */}
-        {job.turnoverNotes && (
-          <p className="text-sm text-coqui-800/50 leading-relaxed">
-            {job.turnoverNotes}
-          </p>
-        )}
-
-        {/* Decline reason */}
-        {isDeclined && job.declineReason && (
-          <p className="text-sm text-flamboyan-700 bg-flamboyan-50 rounded-xl px-3 py-2">
-            {job.declineReason}
-          </p>
-        )}
-
-        {/* Quick action for scheduled jobs */}
-        {needsAction && (
-          <button
-            onClick={() => onOpenWizard(job)}
-            className="w-full mt-1 bg-cafe-600 text-white font-semibold text-sm py-3 rounded-xl
-              hover:bg-cafe-700 active:bg-cafe-800 transition-colors"
-          >
-            {t(locale, 'viewJob')}
-          </button>
-        )}
-
-        {/* Quick action for active jobs */}
-        {isActive && (
-          <button
-            onClick={() => onOpenWizard(job)}
-            className="w-full mt-1 bg-coqui-600 text-white font-semibold text-sm py-3 rounded-xl
-              hover:bg-coqui-700 active:bg-coqui-800 transition-colors"
-          >
-            {t(locale, 'continueCleaning')}
-          </button>
-        )}
       </div>
+
+      {/* Same-day arrival flag */}
+      {job.sameDayArrival && (
+        <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-3.5 h-3.5 flex-shrink-0">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+          </svg>
+          {t(locale, 'sameDayArrival')}
+        </div>
+      )}
+
+      {/* Checkout time */}
+      {job.checkoutTime && (
+        <p className="text-xs text-coqui-800/50">
+          {t(locale, 'checkoutTime')}: {job.checkoutTime}
+        </p>
+      )}
+
+      {/* Declined reason */}
+      {job.status === 'declined' && job.declineReason && (
+        <p className="text-xs text-flamboyan-700 bg-flamboyan-50 rounded-lg px-2.5 py-1.5">
+          {job.declineReason}
+        </p>
+      )}
+
+      {/* Inline decline reason input */}
+      {declining && (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder={t(locale, 'reasonRequired')}
+            className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2
+              focus:outline-none focus:ring-2 focus:ring-flamboyan-200 focus:border-flamboyan-300
+              placeholder:text-gray-400"
+            autoFocus
+          />
+          <button
+            onClick={handleDecline}
+            disabled={!reason.trim() || busy}
+            className="text-xs font-semibold px-3 py-2 rounded-lg bg-flamboyan-600 text-white
+              hover:bg-flamboyan-700 disabled:opacity-50 transition-colors"
+          >
+            {t(locale, 'submitDeclineShort')}
+          </button>
+          <button
+            onClick={() => { setDeclining(false); setReason(''); }}
+            className="text-xs text-gray-400 px-2 py-2 hover:text-gray-600 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Unit Section (all jobs for one unit) ───────────────────────────────────
+function UnitSection({ unitName, jobs, palette, locale, onOpenWizard }) {
+  return (
+    <div className="bg-white rounded-2xl border border-cafe-200 shadow-brand overflow-hidden">
+      {/* Accent bar + unit name */}
+      <div className={`h-1.5 ${palette.accent}`} />
+      <div className="px-4 pt-3 pb-1">
+        <h3 className={`text-lg font-bold ${palette.text}`}>{unitName}</h3>
+      </div>
+
+      {jobs.length > 0 ? (
+        <div className="px-4 pb-3 divide-y divide-cafe-100">
+          {jobs.map((job) => (
+            <DateRow
+              key={job.id}
+              job={job}
+              locale={locale}
+              onOpenWizard={onOpenWizard}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="px-4 pb-4">
+          <p className="text-sm text-coqui-800/40 italic">
+            {t(locale, 'noCleaningsScheduled')}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -172,31 +288,19 @@ function SectionHeader({ label, count }) {
   );
 }
 
-// ─── Empty State ─────────────────────────────────────────────────────────────
-function EmptyDay({ locale }) {
-  return (
-    <div className="bg-white/50 rounded-2xl border border-dashed border-cafe-200 p-6 text-center">
-      <div className="w-12 h-12 rounded-2xl bg-cafe-100 text-cafe-400 flex items-center justify-center mx-auto mb-3">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-        </svg>
-      </div>
-      <p className="text-sm text-cafe-500 font-medium">{t(locale, 'noJobsToday')}</p>
-    </div>
-  );
-}
-
 // ─── Loading Skeleton ────────────────────────────────────────────────────────
 function Skeleton() {
   return (
     <div className="p-5 space-y-5 animate-pulse">
       <div className="h-5 bg-cafe-200 rounded w-2/3" />
       <div className="bg-white rounded-2xl border border-cafe-200 p-5 space-y-3">
+        <div className="h-1.5 bg-teal-200 rounded w-full" />
         <div className="h-4 bg-cafe-100 rounded w-1/2" />
         <div className="h-3 bg-cafe-100 rounded w-full" />
         <div className="h-10 bg-cafe-100 rounded-xl w-full" />
       </div>
       <div className="bg-white rounded-2xl border border-cafe-200 p-5 space-y-3">
+        <div className="h-1.5 bg-amber-200 rounded w-full" />
         <div className="h-4 bg-cafe-100 rounded w-1/2" />
         <div className="h-3 bg-cafe-100 rounded w-3/4" />
       </div>
@@ -206,8 +310,9 @@ function Skeleton() {
 
 // ─── Main: CleanerHome ───────────────────────────────────────────────────────
 export default function CleanerHome({ user }) {
-  const { locale, setLocale } = useLocale();
+  const { locale } = useLocale();
   const [jobs, setJobs] = useState([]);
+  const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [wizardJob, setWizardJob] = useState(null);
   const dismissedRef = useRef(false);
@@ -221,7 +326,9 @@ export default function CleanerHome({ user }) {
     );
     return onSnapshot(q,
       (snap) => {
-        const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const data = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((j) => !HIDDEN_STATUSES.has(j.status));
         setJobs(data);
         setLoading(false);
       },
@@ -231,6 +338,14 @@ export default function CleanerHome({ user }) {
       }
     );
   }, [user.uid]);
+
+  // Real-time listener for property settings (unit names)
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'property'), (snap) => {
+      setSettings(snap.exists() ? snap.data() : null);
+    });
+    return unsub;
+  }, []);
 
   useEffect(() => {
     const unsub = loadJobs();
@@ -258,13 +373,17 @@ export default function CleanerHome({ user }) {
     }
   }, [loading, jobs, wizardJob]);
 
-  // Group jobs
+  // Derive unit names and group ALL non-completed jobs per unit
+  const unitNames = getUnitNames(settings);
   const today = todayStr();
-  const todayJobs = jobs.filter((j) => j.scheduledDate === today && j.status !== 'completed');
-  const attention = jobs.filter((j) => j.status === 'declined' && j.scheduledDate >= today);
-  const upcoming = jobs.filter((j) =>
-    j.scheduledDate > today && j.status !== 'completed' && j.status !== 'declined'
-  );
+
+  const jobsByUnit = unitNames.map((unitName) => {
+    const unitJobs = jobs
+      .filter((j) => j.unit === unitName && j.status !== 'completed' && !HIDDEN_STATUSES.has(j.status))
+      .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
+    return { unitName, jobs: unitJobs };
+  });
+
   const completed = jobs.filter((j) => j.status === 'completed').slice(0, 5);
 
   // If wizard is open, show it full-screen
@@ -287,84 +406,34 @@ export default function CleanerHome({ user }) {
 
   return (
     <div className="pb-8">
-      {/* Greeting + locale toggle */}
-      <div className="px-5 pt-5 pb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-display font-bold text-coqui-800">
-            {getGreeting(locale)}{displayName ? `, ${displayName}` : ''}
-          </h1>
-          <p className="text-sm text-coqui-800/40 mt-0.5">{t(locale, 'myCleanings')}</p>
-        </div>
-        <button
-          onClick={() => setLocale(locale === 'es' ? 'en' : 'es')}
-          className="text-xs font-bold bg-cafe-100 text-cafe-600 px-2.5 py-1 rounded-lg
-            hover:bg-cafe-200 active:bg-cafe-300 transition-colors"
-        >
-          {locale === 'es' ? 'EN' : 'ES'}
-        </button>
+      {/* Greeting */}
+      <div className="px-5 pt-5 pb-4">
+        <h1 className="text-xl font-display font-bold text-coqui-800">
+          {getGreeting(locale)}{displayName ? `, ${displayName}` : ''}
+        </h1>
+        <p className="text-sm text-coqui-800/40 mt-0.5">{t(locale, 'myCleanings')}</p>
       </div>
 
-      <div className="px-5 space-y-6">
-        {/* ── Hoy ───────────────────────────────────────────────────── */}
-        <section>
-          <SectionHeader label={t(locale, 'today')} count={todayJobs.length} />
-          {todayJobs.length === 0 ? (
-            <EmptyDay locale={locale} />
-          ) : (
-            <div className="space-y-3">
-              {todayJobs.map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  locale={locale}
-                  isToday
-                  onOpenWizard={openWizard}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ── Necesita Atención ──────────────────────────────────────── */}
-        {attention.length > 0 && (
-          <section>
-            <SectionHeader label={t(locale, 'needsAttention')} count={attention.length} />
-            <div className="space-y-3">
-              {attention.map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  locale={locale}
-                  isToday={false}
-                  onOpenWizard={openWizard}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ── Próximas ──────────────────────────────────────────────── */}
-        {upcoming.length > 0 && (
-          <section>
-            <SectionHeader label={t(locale, 'upcoming')} count={upcoming.length} />
-            <div className="space-y-3">
-              {upcoming.map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  locale={locale}
-                  isToday={false}
-                  onOpenWizard={openWizard}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+      <div className="px-5 space-y-4">
+        {/* ── Unit Sections (all future dates per unit) ──────────────── */}
+        {jobsByUnit.map(({ unitName, jobs: unitJobs }) => {
+          const palette = getUnitPalette(unitName, unitNames);
+          return (
+            <UnitSection
+              key={unitName}
+              unitName={unitName}
+              jobs={unitJobs}
+              palette={palette}
+              locale={locale}
+              onOpenWizard={openWizard}
+            />
+          );
+        })}
 
         {/* ── Completadas Recientes ─────────────────────────────────── */}
         {completed.length > 0 && (
           <section>
-            <SectionHeader label={t(locale, 'recentlyCompleted')} count={0} />
+            <SectionHeader label={t(locale, 'recentlyCompleted')} count={completed.length} />
             <div className="bg-white rounded-2xl border border-cafe-200 shadow-brand overflow-hidden divide-y divide-cafe-100 px-4">
               {completed.map((job) => (
                 <CompletedRow key={job.id} job={job} locale={locale} />
