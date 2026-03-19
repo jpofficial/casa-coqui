@@ -450,6 +450,32 @@ function InviteStep({ locale, code, onNext, onSkip }) {
 
 // ─── Step 3: Save to Phone (PWA install) ──────────────────────────────────────
 
+function InstallVideo({ label }) {
+  const [videoError, setVideoError] = useState(false);
+
+  if (videoError) return null;
+
+  return (
+    <div className="flex flex-col items-center">
+      {label && (
+        <p className="text-xs font-medium text-gray-500 mb-2">{label}</p>
+      )}
+      <div className="w-48 rounded-[1.75rem] overflow-hidden border-[3px] border-gray-800 bg-gray-900 shadow-xl">
+        <video
+          src="/videos/save-home.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          onError={() => setVideoError(true)}
+          className="w-full h-auto rounded-[1.5rem]"
+        />
+      </div>
+    </div>
+  );
+}
+
 function InstallStep_({ locale, code, platform, onNext, onSkip }) {
   const [installPrompt, setInstallPrompt] = useState(null);
 
@@ -480,44 +506,68 @@ function InstallStep_({ locale, code, platform, onNext, onSkip }) {
           </svg>
         }
         heading={t(locale, 'saveToPhone')}
-        subtext={t(locale, 'saveToPhoneDesc')}
       />
 
-      {/* Platform-specific install instructions */}
-      {isDesktop ? (
+      {/* Value props */}
+      <div className="flex flex-col gap-1.5 -mt-2">
+        {[
+          { icon: '📸', text: t(locale, 'installBenefitCheckin') },
+          { icon: '🔔', text: t(locale, 'installBenefitAlerts') },
+          { icon: '🧺', text: t(locale, 'installBenefitLaundry') },
+        ].map((b) => (
+          <div key={b.text} className="flex items-center gap-2">
+            <span className="text-sm">{b.icon}</span>
+            <p className="text-xs text-gray-600">{b.text}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Video demo — always visible */}
+      <div className="pt-2">
+        <InstallVideo label={t(locale, 'installWatchVideo')} />
+      </div>
+
+      {/* Minimal steps */}
+      <div className="flex items-center justify-center gap-3 text-xs text-gray-500">
+        <span className="flex items-center gap-1.5">
+          <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-[10px] font-bold">1</span>
+          {t(locale, 'miniStep1')}
+        </span>
+        <span className="text-gray-300">&rsaquo;</span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-[10px] font-bold">2</span>
+          {t(locale, 'miniStep2')}
+        </span>
+        <span className="text-gray-300">&rsaquo;</span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-[10px] font-bold">3</span>
+          {t(locale, 'miniStep3')}
+        </span>
+      </div>
+
+      {/* Desktop hint */}
+      {isDesktop && (
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-center">
           <p className="text-sm font-medium text-amber-900">
             {t(locale, 'bestOnPhone')}
           </p>
         </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <p className="text-sm font-semibold text-gray-900 mb-4">
-            {platform === 'ios' ? t(locale, 'followSafari') : t(locale, 'followChrome')}
-          </p>
-          {platform === 'ios' ? (
-            <IOSInstallGuide code={code} locale={locale} />
-          ) : (
-            <AndroidInstallGuide
-              onInstallClick={handleAndroidInstall}
-              canInstall={!!installPrompt}
-              code={code}
-              locale={locale}
-            />
-          )}
-        </div>
       )}
 
-      {/* Why it matters */}
-      <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-        <p className="text-sm font-medium text-amber-900">
-          {t(locale, 'whySaveApp')}
+      {/* Need help link + reassurance */}
+      <div className="flex flex-col items-center gap-2">
+        <a
+          href={`/g/${code}/install-guide`}
+          className="text-xs text-green-600 font-medium inline-flex items-center gap-1"
+        >
+          {t(locale, 'needHelpGuide')}
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+          </svg>
+        </a>
+        <p className="text-xs text-gray-400">
+          {t(locale, 'installOnlyOnce')}
         </p>
-        <ul className="text-xs text-amber-800 mt-2 space-y-1">
-          <li>&bull; {t(locale, 'whyLaundry')}</li>
-          <li>&bull; {t(locale, 'whyAlerts')}</li>
-          <li>&bull; {t(locale, 'whyOffline')}</li>
-        </ul>
       </div>
 
       <StepActions

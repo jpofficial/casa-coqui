@@ -19,6 +19,33 @@ function usePlatform() {
   return { platform, isStandalone };
 }
 
+// ─── Video demo section ─────────────────────────────────────────────────────
+function InstallVideoSection() {
+  const [videoError, setVideoError] = useState(false);
+
+  if (videoError) return null;
+
+  return (
+    <div className="mb-8">
+      <div className="rounded-2xl overflow-hidden bg-gray-100 shadow-sm border border-gray-200">
+        <video
+          src="/videos/save-home.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          onError={() => setVideoError(true)}
+          className="w-full h-auto"
+        />
+      </div>
+      <p className="text-xs text-gray-400 text-center mt-2">
+        Step-by-step details below
+      </p>
+    </div>
+  );
+}
+
 // ─── Phone frame wrapper ─────────────────────────────────────────────────────
 function PhoneFrame({ children }) {
   return (
@@ -306,6 +333,9 @@ export default function InstallGuidePage({ params }) {
           <p className="text-xs text-gray-500">Get the full app experience in 3 easy steps</p>
         </div>
       </div>
+
+      {/* Video demo */}
+      <InstallVideoSection />
 
       {/* Platform toggle */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-8">
