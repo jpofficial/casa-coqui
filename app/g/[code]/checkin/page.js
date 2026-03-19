@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { where } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
@@ -69,13 +69,37 @@ export default function CheckInPage({ params }) {
   ]);
   const booking = bookings?.[0] ?? null;
 
-  // Already checked in → send straight to portal
+  // Already checked in → set claims (if needed) and send straight to portal
   const { data: existingCheckin } = useDocument('checkins', code);
+  const redirecting = useRef(false);
 
   useEffect(() => {
-    if (existingCheckin?.checkedIn && user) {
+    if (!existingCheckin?.checkedIn || !user || redirecting.current) return;
+    redirecting.current = true;
+
+    (async () => {
+      try {
+        // Ensure this user has proper claims for the booking code
+        // (handles session recovery where a new anonymous user was created)
+        const tokenResult = await user.getIdTokenResult();
+        if (tokenResult.claims.bookingCode !== code) {
+          const idToken = await user.getIdToken();
+          await fetch('/api/guests/set-claims', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({ bookingCode: code }),
+          });
+          await user.getIdToken(true);
+        }
+      } catch (err) {
+        console.error('[Checkin] Claims auto-set error:', err);
+      }
+      localStorage.setItem('casa-coqui-guest-code', code);
       router.replace(`/g/${code}`);
-    }
+    })();
   }, [existingCheckin, user, router, code]);
 
   // Auto sign-in anonymously if not authenticated

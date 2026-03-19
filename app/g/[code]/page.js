@@ -5,8 +5,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
 import { where } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
 import { auth as firebaseAuth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
+import { isStandalone as checkStandalone } from '@/lib/platform';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
 import WifiQuickView from '@/components/guest/WifiQuickView';
@@ -73,8 +75,28 @@ function FullPageLoader() {
 
 // ─── Card definitions ────────────────────────────────────────────────────────
 // "Your Stay" cards — daily-use tools shown prominently after check-in
-function getStayCards(code, locale) {
+function getStayCards(code, hasCheckedIn, locale) {
   return [
+    {
+      id: 'checkin-guide',
+      title: t(locale, 'checkInGuide'),
+      description: hasCheckedIn
+        ? t(locale, 'checkInGuideCompletedDesc')
+        : t(locale, 'checkInGuideDesc'),
+      href: `/g/${code}/checkin`,
+      icon: hasCheckedIn ? (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+          <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+        </svg>
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-6 h-6">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      color: 'text-green-600',
+      bg: 'bg-green-50',
+      completed: hasCheckedIn,
+    },
     {
       id: 'parking',
       title: t(locale, 'parking'),
@@ -145,28 +167,8 @@ function getStayCards(code, locale) {
 }
 
 // "Arrival Info" cards — reference items for arrival/logistics
-function getArrivalCards(code, hasCheckedIn, locale) {
+function getArrivalCards(code, locale) {
   return [
-    {
-      id: 'checkin-guide',
-      title: t(locale, 'checkInGuide'),
-      description: hasCheckedIn
-        ? t(locale, 'checkInGuideCompletedDesc')
-        : t(locale, 'checkInGuideDesc'),
-      href: `/g/${code}/checkin`,
-      icon: hasCheckedIn ? (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-          <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
-        </svg>
-      ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-6 h-6">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      ),
-      color: hasCheckedIn ? 'text-green-600' : 'text-green-600',
-      bg: hasCheckedIn ? 'bg-green-50' : 'bg-green-50',
-      completed: hasCheckedIn,
-    },
     {
       id: 'access',
       title: t(locale, 'accessCodes'),
@@ -265,15 +267,89 @@ export default function GuestHome({ params }) {
   const { data: settings } = useDocument('settings', 'property');
   const { data: checkinData } = useDocument('checkins', code);
 
-  // Install App banner — hidden after user visits install guide
+  // ── Session auto-recovery ──────────────────────────────────────────
+  // When a guest opens the PWA from their home screen, the Firebase
+  // anonymous auth session may be lost (different browser context on iOS,
+  // cleared storage, etc.). The booking code in the URL is enough to
+  // re-establish the session: sign in anonymously → set claims → continue.
+  const recovering = useRef(false);
+  const [showRecoveryLoader, setShowRecoveryLoader] = useState(false);
+
+  useEffect(() => {
+    if (authLoading || user || recovering.current) return;
+
+    recovering.current = true;
+    setShowRecoveryLoader(true);
+
+    (async () => {
+      try {
+        const { user: anonUser } = await signInAnonymously(firebaseAuth);
+
+        // Check if this session already has correct claims (restored from storage)
+        const tokenResult = await anonUser.getIdTokenResult();
+        if (tokenResult.claims.bookingCode === code) {
+          localStorage.setItem('casa-coqui-guest-code', code);
+          setShowRecoveryLoader(false);
+          recovering.current = false;
+          return;
+        }
+
+        // Set claims for this booking code
+        const idToken = await anonUser.getIdToken();
+        const res = await fetch('/api/guests/set-claims', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ bookingCode: code }),
+        });
+        const json = await res.json();
+
+        if (!json.success) {
+          // Booking not found or inactive — go to check-in form
+          router.replace(`/g/${code}/checkin`);
+          setShowRecoveryLoader(false);
+          recovering.current = false;
+          return;
+        }
+
+        // Refresh token so Firestore rules see the new claims
+        await anonUser.getIdToken(true);
+        localStorage.setItem('casa-coqui-guest-code', code);
+        setShowRecoveryLoader(false);
+        recovering.current = false;
+      } catch (err) {
+        console.error('[GuestHome] Session recovery failed:', err);
+        router.replace(`/g/${code}/checkin`);
+        setShowRecoveryLoader(false);
+        recovering.current = false;
+      }
+    })();
+  }, [authLoading, user, code, router]);
+
+  // ── Install banner + setup redirect ──────────────────────────────
   const [installGuideSeen, setInstallGuideSeen] = useState(true);
   useEffect(() => {
+    // Wait for auth to be resolved before checking setup state
+    if (authLoading || showRecoveryLoader) return;
+
+    const standalone = checkStandalone();
+
+    // If running as installed PWA, the install step is inherently done
+    if (standalone) {
+      setInstallGuideSeen(true);
+      return;
+    }
+
     setInstallGuideSeen(!!localStorage.getItem(`install_guide_seen_${code}`));
-    // Redirect to setup wizard if not yet completed
+
+    // Redirect to setup wizard if not yet completed (only when NOT standalone)
+    if (!user) return; // Recovery handles the no-user case
     if (!localStorage.getItem(`setup_complete_${code}`) && !localStorage.getItem(`getstarted_seen_${code}`)) {
       router.push(`/g/${code}/setup`);
     }
-  }, [code, router]);
+  }, [code, router, authLoading, showRecoveryLoader, user]);
 
   // Check if current user is the primary guest (must be before early returns)
   const { data: members, loading: membersLoading } = useCollection('booking_members', [
@@ -314,14 +390,8 @@ export default function GuestHome({ params }) {
     (m) => m.role === 'primary' && m.uid === user?.uid
   );
 
-  // Not authenticated → redirect straight to check-in
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace(`/g/${code}/checkin`);
-    }
-  }, [authLoading, user, router, code]);
-
-  if (!authLoading && !user) {
+  // Show loader while auth is initializing, recovering session, or no user yet
+  if (authLoading || showRecoveryLoader || !user) {
     return <FullPageLoader />;
   }
 
@@ -350,10 +420,10 @@ export default function GuestHome({ params }) {
   const propertyPhotos = settings?.propertyPhotos ?? [];
   const propertyName = settings?.propertyName || 'Casa Coqui';
 
-  const stayCards = getStayCards(code, locale).filter(
+  const stayCards = getStayCards(code, hasCheckedIn, locale).filter(
     (card) => !card.primaryOnly || isPrimary
   );
-  const arrivalCards = getArrivalCards(code, hasCheckedIn, locale);
+  const arrivalCards = getArrivalCards(code, locale);
 
   return (
     <>
