@@ -3,6 +3,7 @@
 import { where } from 'firebase/firestore';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
 import AccessCodes from '@/components/guest/AccessCodes';
+import CheckInGuide from '@/components/guest/CheckInGuide';
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function AccessSkeleton() {
@@ -41,7 +42,10 @@ export default function AccessPage({ params }) {
       {loading ? (
         <AccessSkeleton />
       ) : (
-        <AccessCodes bookingData={bookingData} settings={settings} />
+        <div className="flex flex-col gap-6">
+          <AccessCodes bookingData={bookingData} settings={settings} />
+          <CheckInGuide settings={settings} booking={bookingData} />
+        </div>
       )}
     </div>
   );

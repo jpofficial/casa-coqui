@@ -1,6 +1,6 @@
 'use client';
 
-import { getUnitNames, resolveUnitDisplayName } from '@/lib/units';
+import { getUnitNames, resolveUnitDisplayName, resolveUnitParking } from '@/lib/units';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
 
@@ -63,19 +63,12 @@ function ParkingMap({ unitIndex, unitNames, locale }) {
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function Parking({ bookingData, settings }) {
   const { locale } = useLocale();
-  const rawUnit = bookingData?.unit ?? null;
   const unitNames = getUnitNames(settings);
   const unitDisplayName = resolveUnitDisplayName(bookingData, settings);
-  const matchIdx = unitDisplayName ? unitNames.indexOf(unitDisplayName) : -1;
-  const unitIndex = matchIdx >= 0 ? matchIdx : null;
-
-  // Legacy compat: derive the old single-letter unit for parkingInfo apartment keys
-  const unit = rawUnit ? rawUnit.replace(/^Unit\s*/i, '') : null;
   const parkingInfo = settings?.parkingInfo;
 
-  // Per-apartment data (new schema)
-  const aptKey = unit ? `apartment${unit}` : null;
-  const apartment = aptKey ? parkingInfo?.[aptKey] : null;
+  // Resolve per-unit parking data using stable unitId (falls back to name-based)
+  const { apartment, unitIndex } = resolveUnitParking(bookingData, settings);
 
   // Detect old schema (has `spots` or `rules` keys but no apartmentA)
   const isOldSchema = parkingInfo && !parkingInfo.apartmentA && (parkingInfo.spots || parkingInfo.rules !== undefined);
@@ -95,9 +88,9 @@ export default function Parking({ bookingData, settings }) {
       <div className="flex flex-col gap-4">
         <div>
           <h2 className="text-base font-bold text-gray-900">{t(locale, 'parking_title')}</h2>
-          {unit ? (
+          {unitDisplayName ? (
             <p className="text-sm text-gray-500 mt-0.5">
-              {t(locale, 'parking_designatedSpot')} <span className="font-semibold text-green-700">{unitDisplayName || rawUnit}</span>.
+              {t(locale, 'parking_designatedSpot')} <span className="font-semibold text-green-700">{unitDisplayName}</span>.
             </p>
           ) : (
             <p className="text-sm text-gray-500 mt-0.5">{t(locale, 'parking_infoForProperty')}</p>
@@ -136,9 +129,9 @@ export default function Parking({ bookingData, settings }) {
         </h2>
         {apartment?.instructions ? (
           <p className="text-sm text-gray-500 mt-0.5">{apartment.instructions}</p>
-        ) : unit ? (
+        ) : unitDisplayName ? (
           <p className="text-sm text-gray-500 mt-0.5">
-            {t(locale, 'parking_designatedSpot')} <span className="font-semibold text-green-700">{unitDisplayName || rawUnit}</span>.
+            {t(locale, 'parking_designatedSpot')} <span className="font-semibold text-green-700">{unitDisplayName}</span>.
           </p>
         ) : (
           <p className="text-sm text-gray-500 mt-0.5">{t(locale, 'parking_infoForProperty')}</p>
@@ -148,7 +141,7 @@ export default function Parking({ bookingData, settings }) {
       {/* Map */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-50 p-3">
         {apartment?.mapImageUrl ? (
-          <img src={apartment.mapImageUrl} alt={`${t(locale, 'parking_mapLabel')} — ${unitDisplayName || rawUnit}`} className="w-full rounded-xl object-cover" />
+          <img src={apartment.mapImageUrl} alt={`${t(locale, 'parking_mapLabel')}${unitDisplayName ? ` — ${unitDisplayName}` : ''}`} className="w-full rounded-xl object-cover" />
         ) : (
           <>
             <ParkingMap unitIndex={unitIndex} unitNames={unitNames} locale={locale} />

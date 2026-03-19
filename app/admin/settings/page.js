@@ -581,7 +581,7 @@ export default function SettingsPage() {
               <div className="w-24 h-1.5 bg-gray-300 rounded-full" />
             </div>
             <div className="px-4 py-3 max-h-[500px] overflow-y-auto">
-              <Parking bookingData={{ unit: parkingTab }} settings={{ parkingInfo: form.parkingInfo, units: form.units }} />
+              <Parking bookingData={{ unit: parkingTab, unitId: parkingTab === 'A' ? 'unit-a' : 'unit-b' }} settings={{ parkingInfo: form.parkingInfo, units: form.units }} />
             </div>
           </div>
         </div>
