@@ -73,6 +73,7 @@ export default function SettingsPage() {
   const [openSections, setOpenSections] = useState({ units: true });
   const [parkingTab, setParkingTab] = useState('A');
   const [wifiTab, setWifiTab] = useState('A');
+  const [checkinTab, setCheckinTab] = useState('A');
   const [unitsSaving, setUnitsSaving] = useState(false);
 
   // Initialize form from Firestore
@@ -95,6 +96,12 @@ export default function SettingsPage() {
         gateCode: settings.gateCode || '',
         lockboxCode: settings.lockboxCode || '',
         checkInSteps: settings.checkInSteps || [],
+        unitCheckInSteps: Array.isArray(settings.unitCheckInSteps) && settings.unitCheckInSteps.length > 0
+          ? settings.unitCheckInSteps
+          : [
+              { unitId: 'unit-a', steps: settings.checkInSteps || [] },
+              { unitId: 'unit-b', steps: [] },
+            ],
         parkingInfo: settings.parkingInfo?.apartmentA
           ? settings.parkingInfo
           : {
@@ -123,8 +130,11 @@ export default function SettingsPage() {
     if (!form) return;
     setSaving(true);
     try {
+      // Mirror unit-a check-in steps to flat checkInSteps for backward compat
+      const unitASteps = form.unitCheckInSteps?.find((u) => u.unitId === 'unit-a')?.steps || [];
       await updateDoc(doc(db, 'settings', 'property'), {
         ...form,
+        checkInSteps: unitASteps,
         updatedAt: new Date().toISOString(),
       });
       setToast('Settings saved!');
@@ -293,91 +303,132 @@ export default function SettingsPage() {
         </div>
       </Section>
 
-      {/* C. Check-In Steps */}
+      {/* C. Check-In Steps (per unit) */}
       <Section title="Check-In Steps" open={openSections.checkin} onToggle={() => toggleSection('checkin')}>
-        {form.checkInSteps.map((step, i) => (
-          <div key={i} className="bg-gray-50 rounded-lg p-3 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-400">Step {i + 1}</span>
-              <div className="flex gap-1">
-                {i > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const arr = [...form.checkInSteps];
-                      [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
-                      set('checkInSteps', arr);
+        {/* Unit tabs */}
+        <div className="flex gap-2">
+          {['A', 'B'].map((tab, idx) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setCheckinTab(tab)}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition ${
+                checkinTab === tab
+                  ? 'bg-green-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {form.units?.[idx]?.name || `Unit ${tab}`}
+            </button>
+          ))}
+        </div>
+
+        {/* Per-unit step editor */}
+        {(() => {
+          const unitIdx = checkinTab === 'A' ? 0 : 1;
+          const unitId = form.units?.[unitIdx]?.id || (unitIdx === 0 ? 'unit-a' : 'unit-b');
+          const entryIdx = form.unitCheckInSteps.findIndex((u) => u.unitId === unitId);
+          const entry = form.unitCheckInSteps[entryIdx] || { unitId, steps: [] };
+          const steps = entry.steps || [];
+
+          function updateSteps(newSteps) {
+            const arr = [...form.unitCheckInSteps];
+            if (entryIdx >= 0) {
+              arr[entryIdx] = { ...entry, steps: newSteps };
+            } else {
+              arr.push({ unitId, steps: newSteps });
+            }
+            set('unitCheckInSteps', arr);
+          }
+
+          return (
+            <>
+              {steps.map((step, i) => (
+                <div key={i} className="bg-gray-50 rounded-lg p-3 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-400">Step {i + 1}</span>
+                    <div className="flex gap-1">
+                      {i > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const s = [...steps];
+                            [s[i - 1], s[i]] = [s[i], s[i - 1]];
+                            updateSteps(s);
+                          }}
+                          className="w-7 h-7 rounded bg-white border border-gray-200 flex items-center justify-center text-gray-500 text-xs"
+                          aria-label="Move up"
+                        >
+                          &uarr;
+                        </button>
+                      )}
+                      {i < steps.length - 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const s = [...steps];
+                            [s[i], s[i + 1]] = [s[i + 1], s[i]];
+                            updateSteps(s);
+                          }}
+                          className="w-7 h-7 rounded bg-white border border-gray-200 flex items-center justify-center text-gray-500 text-xs"
+                          aria-label="Move down"
+                        >
+                          &darr;
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => updateSteps(steps.filter((_, j) => j !== i))}
+                        className="w-7 h-7 rounded bg-white border border-red-200 flex items-center justify-center text-red-500 text-xs"
+                        aria-label="Remove step"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    className={INPUT_CLASS}
+                    placeholder="Step title"
+                    value={step.title}
+                    onChange={(e) => {
+                      const s = [...steps];
+                      s[i] = { ...s[i], title: e.target.value };
+                      updateSteps(s);
                     }}
-                    className="w-7 h-7 rounded bg-white border border-gray-200 flex items-center justify-center text-gray-500 text-xs"
-                    aria-label="Move up"
-                  >
-                    &uarr;
-                  </button>
-                )}
-                {i < form.checkInSteps.length - 1 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const arr = [...form.checkInSteps];
-                      [arr[i], arr[i + 1]] = [arr[i + 1], arr[i]];
-                      set('checkInSteps', arr);
+                  />
+                  <textarea
+                    className={INPUT_CLASS + ' resize-none'}
+                    rows={2}
+                    placeholder="Description"
+                    value={step.description}
+                    onChange={(e) => {
+                      const s = [...steps];
+                      s[i] = { ...s[i], description: e.target.value };
+                      updateSteps(s);
                     }}
-                    className="w-7 h-7 rounded bg-white border border-gray-200 flex items-center justify-center text-gray-500 text-xs"
-                    aria-label="Move down"
-                  >
-                    &darr;
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => set('checkInSteps', form.checkInSteps.filter((_, j) => j !== i))}
-                  className="w-7 h-7 rounded bg-white border border-red-200 flex items-center justify-center text-red-500 text-xs"
-                  aria-label="Remove step"
-                >
-                  &times;
-                </button>
-              </div>
-            </div>
-            <input
-              className={INPUT_CLASS}
-              placeholder="Step title"
-              value={step.title}
-              onChange={(e) => {
-                const arr = [...form.checkInSteps];
-                arr[i] = { ...arr[i], title: e.target.value };
-                set('checkInSteps', arr);
-              }}
-            />
-            <textarea
-              className={INPUT_CLASS + ' resize-none'}
-              rows={2}
-              placeholder="Description"
-              value={step.description}
-              onChange={(e) => {
-                const arr = [...form.checkInSteps];
-                arr[i] = { ...arr[i], description: e.target.value };
-                set('checkInSteps', arr);
-              }}
-            />
-            <ImageUpload
-              storagePath={`settings/photos/checkin/step-${i}`}
-              value={step.imageUrl}
-              onChange={(url) => {
-                const arr = [...form.checkInSteps];
-                arr[i] = { ...arr[i], imageUrl: url };
-                set('checkInSteps', arr);
-              }}
-              label="Step photo"
-            />
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={() => set('checkInSteps', [...form.checkInSteps, { title: '', description: '', imageUrl: '' }])}
-          className="text-sm text-green-600 font-semibold py-2 hover:underline"
-        >
-          + Add Step
-        </button>
+                  />
+                  <ImageUpload
+                    storagePath={`settings/photos/checkin/${unitId}/step-${i}`}
+                    value={step.imageUrl}
+                    onChange={(url) => {
+                      const s = [...steps];
+                      s[i] = { ...s[i], imageUrl: url };
+                      updateSteps(s);
+                    }}
+                    label="Step photo"
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => updateSteps([...steps, { title: '', description: '', imageUrl: '' }])}
+                className="text-sm text-green-600 font-semibold py-2 hover:underline"
+              >
+                + Add Step
+              </button>
+            </>
+          );
+        })()}
       </Section>
 
       {/* D. Parking */}

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
+import { resolveUnitCheckInSteps } from '@/lib/units';
 
 // Fallback steps used when no settings are loaded
 function getFallbackSteps(locale) {
@@ -97,9 +98,9 @@ function GuideStep({ step, index, isOpen, onToggle }) {
   );
 }
 
-export default function CheckInGuide({ settings }) {
+export default function CheckInGuide({ settings, booking }) {
   const { locale } = useLocale();
-  const steps = settings?.checkInSteps?.length ? settings.checkInSteps : getFallbackSteps(locale);
+  const steps = resolveUnitCheckInSteps(booking, settings) || getFallbackSteps(locale);
   const [openStep, setOpenStep] = useState(0);
 
   function toggle(index) {

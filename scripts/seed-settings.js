@@ -39,6 +39,28 @@ async function seed() {
         { title: 'Open lockbox', description: '', imageUrl: '' },
         { title: 'Enter and enjoy', description: '', imageUrl: '' },
       ],
+      unitCheckInSteps: [
+        {
+          unitId: 'unit-a',
+          steps: [
+            { title: 'Find the property', description: '', imageUrl: '' },
+            { title: 'Enter through gate', description: '', imageUrl: '' },
+            { title: 'Find your unit', description: '', imageUrl: '' },
+            { title: 'Open lockbox', description: '', imageUrl: '' },
+            { title: 'Enter and enjoy', description: '', imageUrl: '' },
+          ],
+        },
+        {
+          unitId: 'unit-b',
+          steps: [
+            { title: 'Find the property', description: '', imageUrl: '' },
+            { title: 'Enter through gate', description: '', imageUrl: '' },
+            { title: 'Find your unit', description: '', imageUrl: '' },
+            { title: 'Open lockbox', description: '', imageUrl: '' },
+            { title: 'Enter and enjoy', description: '', imageUrl: '' },
+          ],
+        },
+      ],
       parkingInfo: {
         apartmentA: {
           instructions: 'Your parking spot is on the left side of the driveway.',
