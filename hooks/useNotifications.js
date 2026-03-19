@@ -8,6 +8,7 @@ import {
   orderBy,
   limit,
   onSnapshot,
+  getDocs,
   doc,
   updateDoc,
   writeBatch,
@@ -56,35 +57,18 @@ export default function useNotifications({ bookingCode, staffId, pageSize = 40 }
     }
 
     setLoading(true);
-
-    // Build the query. Guests see their own + broadcasts.
-    // Staff see everything (admin dashboard query is broader — callers may
-    // swap this for a simpler unscoped query when building the admin inbox).
-    let q;
-    if (bookingCode) {
-      // Guests: their booking-specific notifications
-      // We listen to two separate queries and merge client-side because
-      // Firestore does not support OR queries on different fields.
-      // Query A: targeted to this booking
-      // Query B: broadcasts
-      // This hook subscribes to both and merges the results.
-    }
-
-    // For simplicity and to avoid a composite index on `broadcast` + `createdAt`,
-    // we query by bookingCode OR fetch broadcasts separately and merge.
+    let cancelled = false;
     const unsubscribers = [];
     const snapshots = { targeted: [], broadcast: [] };
 
     function merge() {
       const all = [...snapshots.targeted, ...snapshots.broadcast];
-      // Deduplicate by id (a broadcast notification won't also be targeted)
       const seen = new Set();
       const unique = all.filter((n) => {
         if (seen.has(n.id)) return false;
         seen.add(n.id);
         return true;
       });
-      // Sort newest first
       unique.sort((a, b) => {
         const ta = a.createdAt ?? '';
         const tb = b.createdAt ?? '';
@@ -94,59 +78,84 @@ export default function useNotifications({ bookingCode, staffId, pageSize = 40 }
       setLoading(false);
     }
 
-    if (bookingCode) {
-      // Query A — notifications targeted at this booking
-      const qTargeted = query(
-        collection(db, 'notifications'),
-        where('bookingCode', '==', bookingCode),
-        orderBy('createdAt', 'desc'),
-        limit(pageSize)
-      );
-      unsubscribers.push(
-        onSnapshot(qTargeted, (snap) => {
-          snapshots.targeted = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          merge();
-        }, (err) => {
-          console.error('[useNotifications] targeted query error:', err.code);
-          setLoading(false);
-        })
-      );
+    async function subscribe() {
+      if (bookingCode) {
+        // Look up the booking's check-in date so we only show broadcasts
+        // that were sent during or after this guest's stay. Without this,
+        // a new guest would see old broadcasts from prior bookings.
+        let since = null;
+        try {
+          const bookingSnap = await getDocs(
+            query(collection(db, 'bookings'), where('code', '==', bookingCode), limit(1))
+          );
+          if (!bookingSnap.empty) {
+            since = bookingSnap.docs[0].data().checkInDate || null;
+          }
+        } catch (err) {
+          console.warn('[useNotifications] booking lookup error:', err.message);
+        }
 
-      // Query B — broadcasts sent to all active guests
-      const qBroadcast = query(
-        collection(db, 'notifications'),
-        where('broadcast', '==', true),
-        orderBy('createdAt', 'desc'),
-        limit(pageSize)
-      );
-      unsubscribers.push(
-        onSnapshot(qBroadcast, (snap) => {
-          snapshots.broadcast = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          merge();
-        }, (err) => {
-          console.error('[useNotifications] broadcast query error:', err.code);
-          setLoading(false);
-        })
-      );
-    } else if (staffId) {
-      // Staff: all notifications (admin inbox) — no bookingCode filter
-      const qAll = query(
-        collection(db, 'notifications'),
-        orderBy('createdAt', 'desc'),
-        limit(pageSize)
-      );
-      unsubscribers.push(
-        onSnapshot(qAll, (snap) => {
-          snapshots.targeted = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          merge();
-        }, (err) => {
-          console.error('[useNotifications] staff query error:', err.code);
-          setLoading(false);
-        })
-      );
+        if (cancelled) return;
+
+        // Query A — notifications targeted at this booking
+        const qTargeted = query(
+          collection(db, 'notifications'),
+          where('bookingCode', '==', bookingCode),
+          orderBy('createdAt', 'desc'),
+          limit(pageSize)
+        );
+        unsubscribers.push(
+          onSnapshot(qTargeted, (snap) => {
+            snapshots.targeted = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            merge();
+          }, (err) => {
+            console.error('[useNotifications] targeted query error:', err.code);
+            setLoading(false);
+          })
+        );
+
+        // Query B — broadcasts, time-scoped to this booking's check-in date
+        const broadcastFilters = [
+          where('broadcast', '==', true),
+          ...(since ? [where('createdAt', '>=', since)] : []),
+          orderBy('createdAt', 'desc'),
+          limit(pageSize),
+        ];
+        const qBroadcast = query(collection(db, 'notifications'), ...broadcastFilters);
+        unsubscribers.push(
+          onSnapshot(qBroadcast, (snap) => {
+            snapshots.broadcast = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            merge();
+          }, (err) => {
+            console.error('[useNotifications] broadcast query error:', err.code);
+            setLoading(false);
+          })
+        );
+      } else if (staffId) {
+        // Staff: all notifications (admin inbox) — no bookingCode filter
+        const qAll = query(
+          collection(db, 'notifications'),
+          orderBy('createdAt', 'desc'),
+          limit(pageSize)
+        );
+        unsubscribers.push(
+          onSnapshot(qAll, (snap) => {
+            snapshots.targeted = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            merge();
+          }, (err) => {
+            console.error('[useNotifications] staff query error:', err.code);
+            setLoading(false);
+          })
+        );
+      }
     }
 
-    return () => unsubscribers.forEach((u) => u());
+    subscribe();
+
+    return () => {
+      cancelled = true;
+      unsubscribers.forEach((u) => u());
+    };
   }, [readerKey, bookingCode, staffId, pageSize]);
 
   // A notification is "read" when readerKey appears in its readBy array

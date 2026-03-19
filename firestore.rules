@@ -85,7 +85,6 @@ service cloud.firestore {
       allow read: if isStaff() ||
         (isAuthenticated() && (
           resource.data.broadcast == true ||
-          resource.data.type in ['broadcast', 'parking', 'general', 'maintenance', 'community', 'direct', 'push'] ||
           resource.data.guestId == request.auth.uid ||
           resource.data.bookingCode == request.auth.token.bookingCode
         ));
@@ -315,6 +314,13 @@ service cloud.firestore {
         isStaff() && resource.data.assigneeId == request.auth.uid
       );
       allow delete: if isAdmin();
+
+      // Forum posts sub-collection — staff can read all, staff can create
+      match /posts/{postId} {
+        allow read: if isStaff();
+        allow create: if isStaff();
+        allow update, delete: if isAdmin();
+      }
     }
 
     // -------------------------------------------------------------------------
