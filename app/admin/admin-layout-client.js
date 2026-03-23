@@ -277,6 +277,7 @@ function AdminLayoutInner({ children }) {
     { href: '/admin/supplies', label: t(locale, 'admin_nav_supplies') },
     { href: '/admin/receipts', label: t(locale, 'admin_nav_receipts') },
     { href: '/admin/revenue', label: t(locale, 'admin_nav_revenue') },
+    { href: '/admin/hours', label: t(locale, 'admin_nav_taskHours') },
     { href: '/admin/staff-messages', label: t(locale, 'admin_nav_staffMessages') },
     { href: '/admin/settings', label: t(locale, 'admin_nav_settings') },
     { href: '/admin/team', label: t(locale, 'admin_nav_team') },
