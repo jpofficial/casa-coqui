@@ -43,8 +43,8 @@ export default function AccessPage({ params }) {
         <AccessSkeleton />
       ) : (
         <div className="flex flex-col gap-6">
-          <AccessCodes bookingData={bookingData} settings={settings} />
           <CheckInGuide settings={settings} booking={bookingData} />
+          <AccessCodes bookingData={bookingData} settings={settings} />
         </div>
       )}
     </div>
