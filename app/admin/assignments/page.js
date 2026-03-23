@@ -138,6 +138,75 @@ function AlertIcon({ className = 'w-4 h-4' }) {
 }
 
 // ---------------------------------------------------------------------------
+// Format minutes as human-readable duration
+// ---------------------------------------------------------------------------
+function formatMinutes(n) {
+  if (!n || n <= 0) return '';
+  const h = Math.floor(n / 60);
+  const m = n % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+// ---------------------------------------------------------------------------
+// Hours Summary Dashboard
+// ---------------------------------------------------------------------------
+function HoursSummary({ assignments }) {
+  const stats = useMemo(() => {
+    const completed = assignments.filter((a) => a.status === 'completed' || a.status === 'cancelled');
+    const active = assignments.filter((a) => a.status === 'pending' || a.status === 'in_progress');
+    const logged = completed.filter((a) => a.minutesSpent > 0);
+    const totalMinutes = logged.reduce((sum, a) => sum + (a.minutesSpent || 0), 0);
+    const totalHours = Math.round((totalMinutes / 60) * 10) / 10;
+
+    const personMap = {};
+    for (const a of logged) {
+      const name = a.assigneeName || 'Unknown';
+      if (!personMap[name]) personMap[name] = { name, minutes: 0, tasks: 0 };
+      personMap[name].minutes += a.minutesSpent;
+      personMap[name].tasks += 1;
+    }
+    const byPerson = Object.values(personMap).sort((a, b) => b.minutes - a.minutes);
+
+    return { totalHours, loggedCount: logged.length, openCount: active.length, byPerson };
+  }, [assignments]);
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-4">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Hours Summary</p>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="text-center">
+          <p className="text-2xl font-bold text-gray-900">{stats.totalHours}</p>
+          <p className="text-[11px] text-gray-500 mt-0.5">hours total</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-bold text-gray-900">{stats.loggedCount}</p>
+          <p className="text-[11px] text-gray-500 mt-0.5">tasks logged</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-bold text-gray-900">{stats.openCount}</p>
+          <p className="text-[11px] text-gray-500 mt-0.5">open tasks</p>
+        </div>
+      </div>
+      {stats.byPerson.length > 0 && (
+        <div className="border-t border-gray-100 mt-3 pt-3 space-y-1.5">
+          {stats.byPerson.map((p) => (
+            <div key={p.name} className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">{p.name}</span>
+              <span className="flex items-center gap-2">
+                <span className="text-sm text-gray-900">{formatMinutes(p.minutes)}</span>
+                <span className="text-xs text-gray-400">{p.tasks} {p.tasks === 1 ? 'task' : 'tasks'}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Skeleton loader
 // ---------------------------------------------------------------------------
 function SkeletonCard() {
@@ -915,6 +984,11 @@ export default function AssignmentsPage() {
           </button>
         )}
       </div>
+
+      {/* Hours Summary (admin/cohost only) */}
+      {canManage && !loading && assignments.length > 0 && (
+        <HoursSummary assignments={assignments} />
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
