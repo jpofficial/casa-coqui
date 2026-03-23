@@ -75,6 +75,19 @@ export async function PATCH(request, { params }) {
       if (body.completionNote !== undefined) updates.completionNote = body.completionNote;
       if (body.guestResponse !== undefined) updates.guestResponse = String(body.guestResponse);
       if (body.estimatedTime !== undefined) updates.estimatedTime = String(body.estimatedTime);
+      if (body.estimatedMinutes !== undefined) {
+        const parsed = Number(body.estimatedMinutes);
+        if (body.estimatedMinutes === null) {
+          updates.estimatedMinutes = null;
+        } else if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 1440) {
+          return NextResponse.json(
+            { success: false, error: 'estimatedMinutes must be an integer between 1 and 1440.' },
+            { status: 400 }
+          );
+        } else {
+          updates.estimatedMinutes = parsed;
+        }
+      }
 
       // If admin reassigns, update assignee info and clear ack
       if (body.assigneeId && body.assigneeId !== existing.assigneeId) {
@@ -99,6 +112,36 @@ export async function PATCH(request, { params }) {
       if (body.completionNote !== undefined) updates.completionNote = String(body.completionNote).trim().substring(0, 500);
       if (body.guestResponse !== undefined) updates.guestResponse = String(body.guestResponse);
       if (body.estimatedTime !== undefined) updates.estimatedTime = String(body.estimatedTime);
+    }
+
+    // minutesSpent — available to admin, cohost, and assignee
+    if (body.minutesSpent !== undefined) {
+      if (body.minutesSpent === null) {
+        updates.minutesSpent = null;
+        updates.hoursEnteredBy = null;
+        updates.hoursEnteredByName = null;
+        updates.hoursEnteredAt = null;
+      } else {
+        const parsed = Number(body.minutesSpent);
+        if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 1440) {
+          return NextResponse.json(
+            { success: false, error: 'minutesSpent must be an integer between 1 and 1440.' },
+            { status: 400 }
+          );
+        }
+        updates.minutesSpent = parsed;
+        updates.hoursEnteredAt = now;
+        updates.hoursEnteredBy = caller.uid;
+        // Resolve caller display name
+        let callerDisplayName = caller.email || 'Staff';
+        try {
+          const callerDoc = await adminDb.collection('users').doc(caller.uid).get();
+          if (callerDoc.exists) {
+            callerDisplayName = callerDoc.data().displayName || callerDoc.data().name || callerDoc.data().email || 'Staff';
+          }
+        } catch (_) { /* fallback */ }
+        updates.hoursEnteredByName = callerDisplayName;
+      }
     }
 
     // Track who responded when guest-facing fields are set

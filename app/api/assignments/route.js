@@ -65,7 +65,7 @@ export async function POST(request) {
     if (authError) return authError;
 
     const body = await request.json();
-    const { title, description, assigneeId, dueDate, priority, unit, photoUrl } = body;
+    const { title, description, assigneeId, dueDate, priority, unit, photoUrl, estimatedMinutes } = body;
 
     if (!title) {
       return NextResponse.json(
@@ -79,6 +79,16 @@ export async function POST(request) {
         { success: false, error: 'title must be 120 characters or fewer.' },
         { status: 400 }
       );
+    }
+
+    if (estimatedMinutes !== undefined && estimatedMinutes !== null) {
+      const parsed = Number(estimatedMinutes);
+      if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 1440) {
+        return NextResponse.json(
+          { success: false, error: 'estimatedMinutes must be an integer between 1 and 1440.' },
+          { status: 400 }
+        );
+      }
     }
 
     const resolvedPriority = priority || 'medium';
@@ -125,6 +135,11 @@ export async function POST(request) {
       dueDate: dueDate || null,
       unit: unit || null,
       photoUrl: photoUrl || null,
+      estimatedMinutes: estimatedMinutes ? Number(estimatedMinutes) : null,
+      minutesSpent: null,
+      hoursEnteredBy: null,
+      hoursEnteredByName: null,
+      hoursEnteredAt: null,
       completionNote: '',
       completedAt: null,
       createdAt: now,

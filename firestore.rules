@@ -298,7 +298,8 @@ service cloud.firestore {
           .hasOnly(['status', 'completionNote', 'completedAt', 'updatedAt',
                     'guestResponse', 'estimatedTime', 'respondedAt', 'respondedBy',
                     'assigneeId', 'assigneeName', 'assigneeRole',
-                    'assigneeAckedAt', 'assigneeAckedBy'])
+                    'assigneeAckedAt', 'assigneeAckedBy',
+                    'minutesSpent', 'hoursEnteredBy', 'hoursEnteredByName', 'hoursEnteredAt'])
       );
       allow delete: if isAdmin();
     }

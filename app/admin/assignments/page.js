@@ -85,6 +85,26 @@ function isOverdue(dueDate, status) {
   return new Date(dueDate) < today;
 }
 
+function formatMinutes(n) {
+  if (!n || n <= 0) return '';
+  const h = Math.floor(n / 60);
+  const m = n % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+const TIME_PRESETS = [
+  { label: '15m', value: 15 },
+  { label: '30m', value: 30 },
+  { label: '45m', value: 45 },
+  { label: '1h', value: 60 },
+  { label: '1.5h', value: 90 },
+  { label: '2h', value: 120 },
+  { label: '3h', value: 180 },
+  { label: '4h', value: 240 },
+];
+
 // ---------------------------------------------------------------------------
 // Icons (inline SVGs)
 // ---------------------------------------------------------------------------
@@ -138,15 +158,112 @@ function AlertIcon({ className = 'w-4 h-4' }) {
 }
 
 // ---------------------------------------------------------------------------
-// Format minutes as human-readable duration
+// Time Input — preset chips + optional custom
 // ---------------------------------------------------------------------------
-function formatMinutes(n) {
-  if (!n || n <= 0) return '';
-  const h = Math.floor(n / 60);
-  const m = n % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
+function TimeInput({ value, onChange, label }) {
+  const [showCustom, setShowCustom] = useState(false);
+  const [customH, setCustomH] = useState(0);
+  const [customM, setCustomM] = useState(0);
+
+  const isPreset = TIME_PRESETS.some((p) => p.value === value);
+
+  function handlePreset(mins) {
+    setShowCustom(false);
+    onChange(mins);
+  }
+
+  function handleCustomToggle() {
+    if (showCustom) {
+      setShowCustom(false);
+    } else {
+      setShowCustom(true);
+      // Initialize custom fields from current value
+      if (value) {
+        setCustomH(Math.floor(value / 60));
+        setCustomM(value % 60);
+      } else {
+        setCustomH(0);
+        setCustomM(0);
+      }
+    }
+  }
+
+  function handleCustomApply() {
+    const total = customH * 60 + customM;
+    if (total > 0 && total <= 1440) {
+      onChange(total);
+      setShowCustom(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {label && <p className="text-xs font-medium text-gray-600">{label}</p>}
+      <div className="flex flex-wrap gap-1.5">
+        {TIME_PRESETS.map((p) => (
+          <button
+            key={p.value}
+            type="button"
+            onClick={() => handlePreset(p.value)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              value === p.value
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={handleCustomToggle}
+          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+            showCustom || (value && !isPreset)
+              ? 'bg-green-600 text-white'
+              : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+          }`}
+        >
+          {value && !isPreset ? formatMinutes(value) : 'Custom'}
+        </button>
+      </div>
+      {showCustom && (
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              min={0}
+              max={23}
+              value={customH}
+              onChange={(e) => setCustomH(Math.max(0, Math.min(23, Number(e.target.value) || 0)))}
+              className="w-14 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-center focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+            <span className="text-xs text-gray-500">hr</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <select
+              value={customM}
+              onChange={(e) => setCustomM(Number(e.target.value))}
+              className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-center focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            >
+              <option value={0}>0</option>
+              <option value={15}>15</option>
+              <option value={30}>30</option>
+              <option value={45}>45</option>
+            </select>
+            <span className="text-xs text-gray-500">min</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleCustomApply}
+            disabled={customH * 60 + customM <= 0}
+            className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold disabled:opacity-50 active:bg-green-700"
+          >
+            Set
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -158,8 +275,9 @@ function HoursSummary({ assignments }) {
     const active = assignments.filter((a) => a.status === 'pending' || a.status === 'in_progress');
     const logged = completed.filter((a) => a.minutesSpent > 0);
     const totalMinutes = logged.reduce((sum, a) => sum + (a.minutesSpent || 0), 0);
-    const totalHours = Math.round((totalMinutes / 60) * 10) / 10;
+    const totalHours = Math.round((totalMinutes / 60) * 10) / 10; // 1 decimal
 
+    // Per-person breakdown
     const personMap = {};
     for (const a of logged) {
       const name = a.assigneeName || 'Unknown';
@@ -232,7 +350,7 @@ function SkeletonCard() {
 // ---------------------------------------------------------------------------
 // Assignment Card — redesigned for clarity
 // ---------------------------------------------------------------------------
-function AssignmentCard({ assignment, canManage, isAdmin, currentUid, staffMembers, bookingInfo, onUpdateStatus, onPatch }) {
+function AssignmentCard({ assignment, canManage, isAdmin, currentUid, staffMembers, bookingInfo, onPatch }) {
   const [completing, setCompleting] = useState(false);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -243,6 +361,9 @@ function AssignmentCard({ assignment, canManage, isAdmin, currentUid, staffMembe
   const [showAssign, setShowAssign] = useState(false);
   const [viewPhoto, setViewPhoto] = useState(false);
   const [acking, setAcking] = useState(false);
+  const [showTimeLog, setShowTimeLog] = useState(false);
+  const [timeValue, setTimeValue] = useState(assignment.minutesSpent || null);
+  const [savingTime, setSavingTime] = useState(false);
 
   const a = assignment;
   const isAssignee = currentUid && a.assigneeId === currentUid;
@@ -270,10 +391,29 @@ function AssignmentCard({ assignment, canManage, isAdmin, currentUid, staffMembe
       return;
     }
     setBusy(true);
-    await onUpdateStatus(a.id, newStatus, newStatus === 'completed' ? note : undefined);
+    const body = { status: newStatus };
+    if (newStatus === 'completed') {
+      if (note) body.completionNote = note;
+      if (timeValue) body.minutesSpent = timeValue;
+    }
+    await onPatch(a.id, body);
     setBusy(false);
     setCompleting(false);
     setNote('');
+    setTimeValue(null);
+  }
+
+  async function handleSaveTime() {
+    if (!timeValue) return;
+    setSavingTime(true);
+    try {
+      await onPatch(a.id, { minutesSpent: timeValue });
+      setShowTimeLog(false);
+    } catch (err) {
+      console.error('Failed to save time:', err);
+    } finally {
+      setSavingTime(false);
+    }
   }
 
   async function handleSendResponse() {
@@ -423,6 +563,35 @@ function AssignmentCard({ assignment, canManage, isAdmin, currentUid, staffMembe
               <span className="inline-flex items-center gap-1 text-green-600">
                 <CalendarIcon className="w-3.5 h-3.5" />
                 Done {formatDate(a.completedAt)}
+              </span>
+            )}
+            {a.minutesSpent > 0 && (
+              <span className="inline-flex items-center gap-1 text-green-700 font-medium">
+                <ClockIcon className="w-3.5 h-3.5" />
+                {formatMinutes(a.minutesSpent)}
+              </span>
+            )}
+            {a.estimatedMinutes > 0 && a.minutesSpent > 0 && a.minutesSpent > a.estimatedMinutes && (
+              <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
+                Over est. {formatMinutes(a.estimatedMinutes)}
+              </span>
+            )}
+            {a.minutesSpent > 480 && a.minutesSpent <= 960 && (
+              <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
+                <AlertIcon className="w-3.5 h-3.5" />
+                High hours
+              </span>
+            )}
+            {a.minutesSpent > 960 && (
+              <span className="inline-flex items-center gap-1 text-red-600 font-medium">
+                <AlertIcon className="w-3.5 h-3.5" />
+                Very high
+              </span>
+            )}
+            {a.estimatedMinutes > 0 && !a.minutesSpent && a.status !== 'completed' && (
+              <span className="inline-flex items-center gap-1 text-gray-400">
+                <ClockIcon className="w-3.5 h-3.5" />
+                Est. {formatMinutes(a.estimatedMinutes)}
               </span>
             )}
             {a.assigneeAckedAt && (
@@ -575,13 +744,18 @@ function AssignmentCard({ assignment, canManage, isAdmin, currentUid, staffMembe
 
           {/* Completion flow */}
           {completing && (
-            <div className="space-y-2 pt-1">
+            <div className="space-y-3 pt-1">
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Completion note (optional)"
                 className="w-full border border-gray-200 rounded-lg p-3 text-sm resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 rows={2}
+              />
+              <TimeInput
+                value={timeValue}
+                onChange={setTimeValue}
+                label="Time spent (optional)"
               />
               <div className="flex gap-2">
                 <button
@@ -592,8 +766,58 @@ function AssignmentCard({ assignment, canManage, isAdmin, currentUid, staffMembe
                   {busy ? 'Saving...' : 'Confirm Done'}
                 </button>
                 <button
-                  onClick={() => { setCompleting(false); setNote(''); }}
+                  onClick={() => { setCompleting(false); setNote(''); setTimeValue(null); }}
                   className="px-4 text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg min-h-[36px]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Log / Edit time on completed tasks */}
+          {a.status === 'completed' && (isAssignee || canManage) && !showTimeLog && !a.minutesSpent && (
+            <div className="pt-1">
+              <button
+                onClick={() => { setTimeValue(a.minutesSpent || null); setShowTimeLog(true); }}
+                className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-gray-600"
+              >
+                <ClockIcon className="w-3.5 h-3.5" />
+                Log time
+              </button>
+            </div>
+          )}
+          {a.status === 'completed' && (isAssignee || canManage) && !showTimeLog && a.minutesSpent > 0 && (
+            <div className="pt-1">
+              <button
+                onClick={() => { setTimeValue(a.minutesSpent); setShowTimeLog(true); }}
+                className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-gray-600"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Edit time
+              </button>
+            </div>
+          )}
+          {showTimeLog && (
+            <div className="space-y-2 pt-1 bg-gray-50 rounded-lg p-3">
+              <TimeInput
+                value={timeValue}
+                onChange={setTimeValue}
+                label="Time spent"
+              />
+              <div className="flex gap-2">
+                <button
+                  disabled={savingTime || !timeValue}
+                  onClick={handleSaveTime}
+                  className="px-4 py-2 bg-green-600 text-white text-xs font-semibold rounded-lg disabled:opacity-50 active:bg-green-700 min-h-[36px]"
+                >
+                  {savingTime ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => { setShowTimeLog(false); setTimeValue(a.minutesSpent || null); }}
+                  className="px-4 py-2 text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg min-h-[36px]"
                 >
                   Cancel
                 </button>
@@ -662,6 +886,7 @@ function CreateAssignmentModal({ user, staffMembers, settings, onClose }) {
   const [priority, setPriority] = useState('medium');
   const [unit, setUnit] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
+  const [estMinutes, setEstMinutes] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -688,6 +913,7 @@ function CreateAssignmentModal({ user, staffMembers, settings, onClose }) {
           priority,
           unit: unit || null,
           photoUrl: photoUrl || null,
+          estimatedMinutes: estMinutes || null,
         }),
       });
       const json = await res.json();
@@ -779,6 +1005,11 @@ function CreateAssignmentModal({ user, staffMembers, settings, onClose }) {
                 <option value="high">High</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Time</label>
+            <TimeInput value={estMinutes} onChange={setEstMinutes} />
           </div>
 
           <div>
@@ -955,12 +1186,6 @@ export default function AssignmentsPage() {
     return res.json();
   }
 
-  async function updateStatus(assignmentId, newStatus, completionNote) {
-    const body = { status: newStatus };
-    if (completionNote) body.completionNote = completionNote;
-    await patchAssignment(assignmentId, body);
-  }
-
   return (
     <div className="px-4 pt-5 pb-6 max-w-lg mx-auto space-y-4">
       {/* Header */}
@@ -1038,7 +1263,7 @@ export default function AssignmentsPage() {
               currentUid={user?.uid}
               staffMembers={staffMembers}
               bookingInfo={a.bookingCode ? bookingMap[a.bookingCode] : null}
-              onUpdateStatus={updateStatus}
+
               onPatch={patchAssignment}
             />
           ))}
