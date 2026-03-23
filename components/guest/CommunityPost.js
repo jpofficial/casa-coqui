@@ -6,29 +6,57 @@ import { storage, auth } from '@/lib/firebase';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
 
-// ─── Static post type icons (locale-independent) ────────────────────────────
+// ─── Post type icon badges (colored square + white icon, Apple Settings style) ─
 const POST_TYPE_ICONS = {
-  parking: (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-      <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h1.218c.252-.948.949-1.724 1.858-2.093A3.75 3.75 0 0112 13.5h2.625c.946 0 1.77-.565 2.135-1.375A3.75 3.75 0 0122.5 13.5V6.375c0-1.036-.84-1.875-1.875-1.875H3.375z" />
-      <path d="M7.5 16.5a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5zM18 16.5a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5zM1.5 15.75V18a2.25 2.25 0 002.25 2.25h1.28a3.74 3.74 0 01-.03-.5 3.75 3.75 0 013-3.675V15.75H1.5zM15 15.75v.325A3.75 3.75 0 0118 19.75c0 .168-.01.334-.03.5h1.28A2.25 2.25 0 0021.5 18v-2.25H15z" />
-    </svg>
-  ),
-  laundry: (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-      <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
-    </svg>
-  ),
-  property_issue: (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-      <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.499-2.599 4.499H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
-    </svg>
-  ),
-  general: (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-      <path fillRule="evenodd" d="M4.848 2.771A49.144 49.144 0 0112 2.25c2.43 0 4.817.178 7.152.52 1.978.29 3.348 2.024 3.348 3.97v6.02c0 1.946-1.37 3.68-3.348 3.97a48.901 48.901 0 01-3.476.383.39.39 0 00-.297.17l-2.755 4.133a.75.75 0 01-1.248 0l-2.755-4.133a.39.39 0 00-.297-.17 48.9 48.9 0 01-3.476-.384c-1.978-.29-3.348-2.024-3.348-3.97V6.741c0-1.946 1.37-3.68 3.348-3.97z" clipRule="evenodd" />
-    </svg>
-  ),
+  parking: {
+    badge: 'bg-atardecer-500',
+    selectedBg: 'bg-atardecer-50',
+    selectedBorder: 'border-atardecer-400',
+    selectedText: 'text-atardecer-700',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+        <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
+        <path d="M9.5 17V7h3a3.5 3.5 0 010 7H9.5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  laundry: {
+    badge: 'bg-caribe-500',
+    selectedBg: 'bg-caribe-50',
+    selectedBorder: 'border-caribe-400',
+    selectedText: 'text-caribe-700',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+        <rect x="4" y="2" width="16" height="20" rx="2.5" />
+        <path d="M4 7.5h16" />
+        <circle cx="12" cy="14.5" r="4" />
+        <circle cx="7.5" cy="4.75" r="0.75" fill="currentColor" stroke="none" />
+        <circle cx="10.5" cy="4.75" r="0.75" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
+  property_issue: {
+    badge: 'bg-flamboyan-500',
+    selectedBg: 'bg-flamboyan-50',
+    selectedBorder: 'border-flamboyan-400',
+    selectedText: 'text-flamboyan-700',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+      </svg>
+    ),
+  },
+  general: {
+    badge: 'bg-coqui-500',
+    selectedBg: 'bg-coqui-50',
+    selectedBorder: 'border-coqui-400',
+    selectedText: 'text-coqui-700',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+      </svg>
+    ),
+  },
 };
 
 // Builds locale-aware post type definitions inside the component
@@ -37,28 +65,28 @@ function getPostTypes(locale) {
     {
       value: 'parking',
       label: t(locale, 'communityType_parking'),
-      icon: POST_TYPE_ICONS.parking,
+      ...POST_TYPE_ICONS.parking,
       autoMessage: t(locale, 'communityPost_autoMessageParking'),
       requiresPhoto: true,
     },
     {
       value: 'laundry',
       label: t(locale, 'communityType_laundry'),
-      icon: POST_TYPE_ICONS.laundry,
+      ...POST_TYPE_ICONS.laundry,
       autoMessage: null,
       requiresPhoto: false,
     },
     {
       value: 'property_issue',
       label: t(locale, 'communityType_propertyIssue'),
-      icon: POST_TYPE_ICONS.property_issue,
+      ...POST_TYPE_ICONS.property_issue,
       autoMessage: null,
       requiresPhoto: true,
     },
     {
       value: 'general',
       label: t(locale, 'communityType_general'),
-      icon: POST_TYPE_ICONS.general,
+      ...POST_TYPE_ICONS.general,
       autoMessage: null,
       requiresPhoto: false,
     },
@@ -218,25 +246,30 @@ export default function CommunityPost({ code, onClose, onSuccess, initialType })
         <div>
           <p className="text-xs font-medium text-gray-500 mb-2">{t(locale, 'communityPost_whatReport')}</p>
           <div className="grid grid-cols-2 gap-2">
-            {POST_TYPES.map((postType) => (
-              <button
-                key={postType.value}
-                type="button"
-                onClick={() => {
-                  setSelectedType(postType.value);
-                  setError(null);
-                }}
-                disabled={isLoading}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition text-center ${
-                  selectedType === postType.value
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-200'
-                } disabled:opacity-50`}
-              >
-                {postType.icon}
-                <span className="text-xs font-medium">{postType.label}</span>
-              </button>
-            ))}
+            {POST_TYPES.map((postType) => {
+              const isSelected = selectedType === postType.value;
+              return (
+                <button
+                  key={postType.value}
+                  type="button"
+                  onClick={() => {
+                    setSelectedType(postType.value);
+                    setError(null);
+                  }}
+                  disabled={isLoading}
+                  className={`flex flex-col items-center gap-2 p-3.5 rounded-xl border-2 transition-all text-center ${
+                    isSelected
+                      ? `${postType.selectedBorder} ${postType.selectedBg} ${postType.selectedText}`
+                      : 'border-gray-100 bg-gray-50/50 text-gray-500 hover:border-gray-200 hover:bg-gray-50'
+                  } disabled:opacity-50`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white ${postType.badge}`}>
+                    {postType.icon}
+                  </div>
+                  <span className="text-xs font-semibold">{postType.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

@@ -105,7 +105,6 @@ function getIconData(iconKey) {
 
 function RuleSection({ section, isOpen, onToggle }) {
   const iconData = getIconData(section.icon);
-  // Split description into lines for numbered list
   const rules = section.description
     ? section.description.split('\n').filter((l) => l.trim())
     : [];
@@ -140,9 +139,7 @@ function RuleSection({ section, isOpen, onToggle }) {
             <ul className="flex flex-col gap-2 mt-2" role="list">
               {rules.map((rule, i) => (
                 <li key={i} className="flex gap-2.5 items-start pt-1">
-                  <span className={`flex-shrink-0 mt-0.5 font-bold text-sm ${iconData.color}`} aria-hidden="true">
-                    {i + 1}.
-                  </span>
+                  <span className="flex-shrink-0 w-1.5 h-1.5 mt-1.5 rounded-full bg-gray-300" aria-hidden="true" />
                   <span className="text-sm text-gray-600 leading-snug">{rule}</span>
                 </li>
               ))}
