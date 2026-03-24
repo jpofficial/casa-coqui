@@ -26,8 +26,8 @@ function InstallVideoSection() {
   if (videoError) return null;
 
   return (
-    <div className="mb-8">
-      <div className="rounded-2xl overflow-hidden bg-gray-100 shadow-sm border border-gray-200">
+    <div className="mb-8 flex flex-col items-center">
+      <div className="w-48 rounded-[1.75rem] overflow-hidden border-[3px] border-gray-800 bg-gray-900 shadow-xl">
         <video
           src="/videos/save-home.mp4"
           autoPlay
@@ -36,10 +36,10 @@ function InstallVideoSection() {
           playsInline
           preload="metadata"
           onError={() => setVideoError(true)}
-          className="w-full h-auto"
+          className="w-full h-auto rounded-[1.5rem]"
         />
       </div>
-      <p className="text-xs text-gray-400 text-center mt-2">
+      <p className="text-xs text-gray-400 text-center mt-3">
         Step-by-step details below
       </p>
     </div>
