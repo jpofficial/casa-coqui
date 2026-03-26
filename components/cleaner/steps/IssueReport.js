@@ -1,3 +1,5 @@
+// DEPRECATED (March 2026): Replaced by photo-capable JobChat in CleaningWizard.
+// Kept for historical jobs that have issues[]. Do not use for new flows.
 'use client';
 
 import { useState } from 'react';

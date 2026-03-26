@@ -1,13 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-
-const UNITS = [
-  { value: 'Casa Coqui Tierra', label: 'Casa Coqui Tierra' },
-  { value: 'Casa Coqui Cielo', label: 'Casa Coqui Cielo' },
-];
+import { getUnitNames } from '@/lib/units';
 
 /**
  * CleaningJobForm — modal form for creating ad-hoc cleaning jobs.
@@ -24,15 +20,22 @@ export default function CleaningJobForm({ open, onClose, onCreated }) {
   const [assigneeId, setAssigneeId] = useState('');
   const [sameDayArrival, setSameDayArrival] = useState(false);
   const [turnoverNotes, setTurnoverNotes] = useState('');
+  const [units, setUnits] = useState([]);
   const [cleaners, setCleaners] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Fetch active cleaners for the assignee dropdown
+  // Fetch unit names from settings + active cleaners
   useEffect(() => {
     if (!open) return;
-    async function fetchCleaners() {
+    async function fetchData() {
       try {
+        // Unit names from settings/property
+        const settingsSnap = await getDoc(doc(db, 'settings', 'property'));
+        const settings = settingsSnap.exists() ? settingsSnap.data() : null;
+        setUnits(getUnitNames(settings));
+
+        // Active cleaners
         const q = query(
           collection(db, 'users'),
           where('role', '==', 'cleaner'),
@@ -46,10 +49,10 @@ export default function CleaningJobForm({ open, onClose, onCreated }) {
         setCleaners(list);
         if (list.length === 1) setAssigneeId(list[0].id);
       } catch (err) {
-        console.error('Failed to fetch cleaners:', err);
+        console.error('Failed to fetch form data:', err);
       }
     }
-    fetchCleaners();
+    fetchData();
   }, [open]);
 
   // Reset form when opening
@@ -140,8 +143,8 @@ export default function CleaningJobForm({ open, onClose, onCreated }) {
               required
             >
               <option value="">Select unit...</option>
-              {UNITS.map((u) => (
-                <option key={u.value} value={u.value}>{u.label}</option>
+              {units.map((name) => (
+                <option key={name} value={name}>{name}</option>
               ))}
             </select>
           </div>

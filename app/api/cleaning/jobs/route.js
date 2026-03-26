@@ -107,6 +107,26 @@ export async function POST(request) {
 
     const docRef = await adminDb.collection('cleaning_jobs').add(job);
 
+    // Auto-create welcome message in the forum (warm, personal, like a host greeting)
+    const cleanerFirstName = (assigneeData.displayName || '').split(' ')[0] || 'hey';
+    const cleanerLocale = assigneeData.locale || 'es';
+    const welcomeText = nt(cleanerLocale, 'forumWelcome', {
+      name: cleanerFirstName,
+      unit,
+      date: scheduledDate,
+    });
+    await docRef.collection('posts').add({
+      type: 'message',
+      sender: 'host',
+      senderId: caller.uid,
+      senderName: caller.displayName || caller.email || 'Julio',
+      text: welcomeText,
+      imageUrls: [],
+      newStatus: null,
+      laundryFound: null,
+      createdAt: now,
+    });
+
     // Notify the assigned cleaner — must await on Vercel serverless.
     const notifyTitle = nt('en', 'newCleaningAssignment_title');
     const notifyBody = nt('en', 'cleaningAssignment_body', { unit, date: scheduledDate, time: job.checkoutTime });

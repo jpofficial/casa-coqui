@@ -144,6 +144,41 @@ export async function PATCH(request, { params }) {
     updates.updatedAt = now;
     await docRef.update(updates);
 
+    // Auto-create forum post for status transitions
+    if (updates.status && updates.status !== 'deleted' && updates.status !== 'archived') {
+      const post = {
+        type: 'status',
+        sender: isAdmin ? 'host' : 'cleaner',
+        senderId: caller.uid,
+        senderName: isAdmin ? (caller.displayName || caller.email) : (existing.assigneeName || 'Cleaner'),
+        text: null,
+        imageUrls: [],
+        newStatus: updates.status,
+        laundryFound: null,
+        createdAt: now,
+      };
+      // Attach decline reason if present
+      if (updates.status === 'declined' && updates.declineReason) {
+        post.text = updates.declineReason;
+      }
+      await docRef.collection('posts').add(post);
+
+      // If laundry fields were set alongside a status change, add a laundry post too
+      if (updates.laundryFound !== undefined) {
+        await docRef.collection('posts').add({
+          type: 'laundry',
+          sender: isAdmin ? 'host' : 'cleaner',
+          senderId: caller.uid,
+          senderName: isAdmin ? (caller.displayName || caller.email) : (existing.assigneeName || 'Cleaner'),
+          text: updates.laundryNote || null,
+          imageUrls: updates.laundryPhoto ? [updates.laundryPhoto] : [],
+          newStatus: null,
+          laundryFound: updates.laundryFound,
+          createdAt: now,
+        });
+      }
+    }
+
     // Skip notifications for archive/delete — silent admin housekeeping.
     if (updates.status === 'deleted' || updates.status === 'archived') {
       return NextResponse.json({ success: true, data: { id, ...updates } });

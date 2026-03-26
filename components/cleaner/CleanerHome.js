@@ -6,7 +6,7 @@ import { db, auth } from '@/lib/firebase';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
 import { getUnitNames, getUnitPalette } from '@/lib/units';
-import CleaningWizard from './CleaningWizard';
+import JobForum from './JobForum';
 
 // ─── Status badge colors (branded) ──────────────────────────────────────────
 const STATUS_COLORS = {
@@ -61,7 +61,7 @@ function formatTime(iso) {
 }
 
 // ─── Date Row (one job within a unit section) ───────────────────────────────
-function DateRow({ job, locale, onOpenWizard }) {
+function DateRow({ job, locale, onOpenForum }) {
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -146,7 +146,7 @@ function DateRow({ job, locale, onOpenWizard }) {
           )}
           {isActive && (
             <button
-              onClick={() => onOpenWizard(job)}
+              onClick={() => onOpenForum(job)}
               className="text-sm font-semibold px-4 py-2 rounded-xl bg-coqui-600 text-white
                 hover:bg-coqui-700 active:bg-coqui-800 transition-colors flex items-center gap-1"
             >
@@ -219,7 +219,7 @@ function DateRow({ job, locale, onOpenWizard }) {
 }
 
 // ─── Unit Section (all jobs for one unit) ───────────────────────────────────
-function UnitSection({ unitName, jobs, palette, locale, onOpenWizard }) {
+function UnitSection({ unitName, jobs, palette, locale, onOpenForum }) {
   return (
     <div className="bg-white rounded-2xl border border-cafe-200 shadow-brand overflow-hidden">
       {/* Accent bar + unit name */}
@@ -235,7 +235,7 @@ function UnitSection({ unitName, jobs, palette, locale, onOpenWizard }) {
               key={job.id}
               job={job}
               locale={locale}
-              onOpenWizard={onOpenWizard}
+              onOpenForum={onOpenForum}
             />
           ))}
         </div>
@@ -251,7 +251,7 @@ function UnitSection({ unitName, jobs, palette, locale, onOpenWizard }) {
 }
 
 // ─── Completed Row ───────────────────────────────────────────────────────────
-function CompletedRow({ job, locale }) {
+function CompletedRow({ job, locale, onOpenForum }) {
   return (
     <div className="flex items-center justify-between py-3 px-1">
       <div className="flex items-center gap-3 min-w-0">
@@ -265,9 +265,17 @@ function CompletedRow({ job, locale }) {
           <p className="text-xs text-coqui-800/40">{formatDate(locale, job.scheduledDate)}</p>
         </div>
       </div>
-      <span className="text-xs text-coqui-800/40 flex-shrink-0">
-        {formatTime(job.completedAt)}
-      </span>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <span className="text-xs text-coqui-800/40">
+          {formatTime(job.completedAt)}
+        </span>
+        <button
+          onClick={() => onOpenForum(job)}
+          className="text-xs font-medium text-coqui-600 px-2 py-1 rounded-lg hover:bg-coqui-50 transition-colors"
+        >
+          {t(locale, 'forum_openForum')}
+        </button>
+      </div>
     </div>
   );
 }
@@ -314,7 +322,7 @@ export default function CleanerHome({ user }) {
   const [jobs, setJobs] = useState([]);
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [wizardJob, setWizardJob] = useState(null);
+  const [forumJob, setWizardJob] = useState(null);
   const dismissedRef = useRef(false);
 
   // Real-time listener for cleaner's jobs
@@ -353,25 +361,25 @@ export default function CleanerHome({ user }) {
   }, [loadJobs]);
 
   // Close wizard and prevent auto-open from re-triggering
-  const closeWizard = useCallback(() => {
+  const closeForum = useCallback(() => {
     dismissedRef.current = true;
     setWizardJob(null);
   }, []);
 
   // Open wizard manually (resets dismissed flag)
-  const openWizard = useCallback((job) => {
+  const openForum = useCallback((job) => {
     dismissedRef.current = false;
     setWizardJob(job);
   }, []);
 
   // Auto-open wizard if exactly one active job and user hasn't dismissed
   useEffect(() => {
-    if (loading || wizardJob || dismissedRef.current) return;
+    if (loading || forumJob || dismissedRef.current) return;
     const activeInProgress = jobs.filter((j) => ACTIVE_STATUSES.has(j.status));
     if (activeInProgress.length === 1) {
       setWizardJob(activeInProgress[0]);
     }
-  }, [loading, jobs, wizardJob]);
+  }, [loading, jobs, forumJob]);
 
   // Derive unit names and group ALL non-completed jobs per unit
   const unitNames = getUnitNames(settings);
@@ -386,15 +394,14 @@ export default function CleanerHome({ user }) {
 
   const completed = jobs.filter((j) => j.status === 'completed').slice(0, 5);
 
-  // If wizard is open, show it full-screen
-  if (wizardJob) {
-    const liveJob = jobs.find((j) => j.id === wizardJob.id);
+  // If forum is open, show it full-screen
+  if (forumJob) {
+    const liveJob = jobs.find((j) => j.id === forumJob.id);
     if (liveJob) {
       return (
-        <CleaningWizard
+        <JobForum
           job={liveJob}
-          onClose={closeWizard}
-          onRefresh={closeWizard}
+          onClose={closeForum}
         />
       );
     }
@@ -425,7 +432,7 @@ export default function CleanerHome({ user }) {
               jobs={unitJobs}
               palette={palette}
               locale={locale}
-              onOpenWizard={openWizard}
+              onOpenForum={openForum}
             />
           );
         })}
@@ -436,7 +443,7 @@ export default function CleanerHome({ user }) {
             <SectionHeader label={t(locale, 'recentlyCompleted')} count={completed.length} />
             <div className="bg-white rounded-2xl border border-cafe-200 shadow-brand overflow-hidden divide-y divide-cafe-100 px-4">
               {completed.map((job) => (
-                <CompletedRow key={job.id} job={job} locale={locale} />
+                <CompletedRow key={job.id} job={job} locale={locale} onOpenForum={openForum} />
               ))}
             </div>
           </section>

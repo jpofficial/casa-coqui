@@ -55,9 +55,23 @@ export async function POST(request, { params }) {
     }
 
     const field = type === 'before' ? 'beforePhotos' : 'afterPhotos';
+    const now = new Date().toISOString();
     await docRef.update({
       [field]: FieldValue.arrayUnion(...urls),
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
+    });
+
+    // Auto-create forum post for photos
+    await docRef.collection('posts').add({
+      type: type === 'before' ? 'before_photos' : 'after_photos',
+      sender: caller.role === 'admin' ? 'host' : 'cleaner',
+      senderId: caller.uid,
+      senderName: caller.role === 'admin' ? (caller.displayName || caller.email) : (existing.assigneeName || 'Cleaner'),
+      text: null,
+      imageUrls: urls,
+      newStatus: null,
+      laundryFound: null,
+      createdAt: now,
     });
 
     return NextResponse.json({ success: true, data: { type, added: urls.length } });

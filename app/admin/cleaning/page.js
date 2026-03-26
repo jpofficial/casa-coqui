@@ -6,6 +6,7 @@ import { db, auth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 import CleanerHome from '@/components/cleaner/CleanerHome';
 import CleaningJobForm from '@/components/admin/CleaningJobForm';
+import JobForum from '@/components/cleaner/JobForum';
 
 const STATUS_COLORS = {
   scheduled: 'bg-gray-100 text-gray-700',
@@ -75,6 +76,7 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
   const [showForm, setShowForm] = useState(false);
   const [confirm, setConfirm] = useState(null); // { jobId, action: 'archive' | 'delete' }
   const [actionBusy, setActionBusy] = useState(null); // jobId being acted on
+  const [selectedJob, setSelectedJob] = useState(null); // job to view in forum
 
   useEffect(() => {
     const q = query(
@@ -120,19 +122,24 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
     }
   }
 
-  // Filter logic: always exclude deleted; partition active vs completed vs archived
+  // Statuses that admin has removed — hide from active view (cleaner already hides these)
+  const ADMIN_HIDDEN = new Set(['deleted', 'cancelled']);
+
+  // Filter logic: partition active vs completed vs archived
   const filtered = jobs.filter((j) => {
     if (j.status === 'deleted') return false;
-    if (filter === 'active') return j.status !== 'completed' && j.status !== 'archived';
+    if (filter === 'active') return j.status !== 'completed' && j.status !== 'archived' && j.status !== 'cancelled';
     if (filter === 'completed') return j.status === 'completed';
     if (filter === 'archived') return j.status === 'archived';
+    if (filter === 'cancelled') return j.status === 'cancelled';
     return true;
   });
 
   const counts = {
-    active: jobs.filter((j) => j.status !== 'completed' && j.status !== 'archived' && j.status !== 'deleted').length,
+    active: jobs.filter((j) => j.status !== 'completed' && j.status !== 'archived' && !ADMIN_HIDDEN.has(j.status)).length,
     completed: jobs.filter((j) => j.status === 'completed').length,
     archived: jobs.filter((j) => j.status === 'archived').length,
+    cancelled: jobs.filter((j) => j.status === 'cancelled').length,
   };
 
   return (
@@ -159,7 +166,7 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
 
       {/* Filter tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-        {['active', 'completed', 'archived'].map((f) => (
+        {['active', 'completed', 'archived', ...(counts.cancelled > 0 ? ['cancelled'] : [])].map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -179,7 +186,7 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
       ) : filtered.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
           <p className="text-sm text-gray-500">
-            {filter === 'active' ? 'No active cleaning jobs.' : filter === 'completed' ? 'No completed jobs.' : 'No archived jobs.'}
+            {filter === 'active' ? 'No active cleaning jobs.' : filter === 'completed' ? 'No completed jobs.' : filter === 'cancelled' ? 'No cancelled jobs.' : 'No archived jobs.'}
           </p>
         </div>
       ) : (
@@ -240,29 +247,33 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
                   </div>
                 )}
 
-                {/* Archive / Delete actions */}
-                {(canArchive || canDelete) && (
-                  <div className="flex gap-2 pt-1">
-                    {canArchive && (
-                      <button
-                        disabled={isBusy}
-                        onClick={() => setConfirm({ jobId: job.id, action: 'archive', unit: job.unit })}
-                        className="text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-2 rounded-lg active:bg-gray-50 disabled:opacity-50 min-h-[36px]"
-                      >
-                        Archive
-                      </button>
-                    )}
-                    {canDelete && (
-                      <button
-                        disabled={isBusy}
-                        onClick={() => setConfirm({ jobId: job.id, action: 'delete', unit: job.unit })}
-                        className="text-xs font-semibold text-red-500 border border-red-200 px-3 py-2 rounded-lg active:bg-red-50 disabled:opacity-50 min-h-[36px]"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                )}
+                {/* View forum + Archive / Delete actions */}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => setSelectedJob(job)}
+                    className="text-xs font-semibold text-coqui-600 border border-coqui-200 px-3 py-2 rounded-lg active:bg-coqui-50 min-h-[36px]"
+                  >
+                    View Forum
+                  </button>
+                  {canArchive && (
+                    <button
+                      disabled={isBusy}
+                      onClick={() => setConfirm({ jobId: job.id, action: 'archive', unit: job.unit })}
+                      className="text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-2 rounded-lg active:bg-gray-50 disabled:opacity-50 min-h-[36px]"
+                    >
+                      Archive
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      disabled={isBusy}
+                      onClick={() => setConfirm({ jobId: job.id, action: 'delete', unit: job.unit })}
+                      className="text-xs font-semibold text-red-500 border border-red-200 px-3 py-2 rounded-lg active:bg-red-50 disabled:opacity-50 min-h-[36px]"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
 
                 {/* Restore button for archived jobs */}
                 {job.status === 'archived' && (
@@ -303,6 +314,14 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
           }
           onConfirm={handleConfirmAction}
           onCancel={() => setConfirm(null)}
+        />
+      )}
+
+      {/* Job forum overlay */}
+      {selectedJob && (
+        <JobForum
+          job={jobs.find((j) => j.id === selectedJob.id) || selectedJob}
+          onClose={() => setSelectedJob(null)}
         />
       )}
     </div>

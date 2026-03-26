@@ -1,3 +1,4 @@
+// DEPRECATED (March 2026): Replaced by photo-capable JobChat. Kept for historical data.
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { collection, query, where, orderBy, onSnapshot, doc, addDoc, updateDoc } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { db, auth, storage } from '@/lib/firebase';
 import { t } from '@/lib/i18n';
 import useLocale from '@/hooks/useLocale';
 import useAuth from '@/hooks/useAuth';
@@ -12,7 +13,7 @@ import EnRoute from './steps/EnRoute';
 import Arrived from './steps/Arrived';
 import BeforePhotos from './steps/BeforePhotos';
 import Cleaning from './steps/Cleaning';
-import IssueReport from './steps/IssueReport';
+// IssueReport deprecated — replaced by photo-capable JobChat (March 2026)
 import AfterPhotos from './steps/AfterPhotos';
 import LaundryCheck from './steps/LaundryCheck';
 import Complete from './steps/Complete';
@@ -40,7 +41,9 @@ function JobChat({ job, user, locale, onClose }) {
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState([]);
   const [sendViaWA, setSendViaWA] = useState(false);
+  const [pendingImages, setPendingImages] = useState([]); // { file, preview, uploading, url }
   const bottomRef = useRef(null);
+  const fileInputRef = useRef(null);
   const phone = process.env.NEXT_PUBLIC_HOST_WHATSAPP;
   const displayName = user.displayName?.split(' ')[0] || 'Staff';
 
@@ -77,11 +80,65 @@ function JobChat({ job, user, locale, onClose }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      pendingImages.forEach((img) => URL.revokeObjectURL(img.preview));
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleFilesSelected(e) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    // Max 3 pending
+    const remaining = 3 - pendingImages.length;
+    const toAdd = files.slice(0, remaining).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+      uploading: false,
+      url: null,
+    }));
+    setPendingImages((prev) => [...prev, ...toAdd]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  function removePending(idx) {
+    setPendingImages((prev) => {
+      URL.revokeObjectURL(prev[idx].preview);
+      return prev.filter((_, i) => i !== idx);
+    });
+  }
+
+  async function uploadPendingImages() {
+    const results = [];
+    for (const img of pendingImages) {
+      if (img.url) { results.push(img.url); continue; }
+      const ext = img.file.name.split('.').pop() || 'jpg';
+      const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+      const storageRef = ref(storage, `cleaning_jobs/${job.id}/chat/${filename}`);
+      const snap = await uploadBytesResumable(storageRef, img.file);
+      const url = await getDownloadURL(snap.ref);
+      results.push(url);
+    }
+    return results;
+  }
+
+  const canSend = (msg.trim() || pendingImages.length > 0) && !sending;
+
   async function handleSend() {
-    const trimmed = msg.trim();
-    if (!trimmed || sending) return;
+    if (!canSend) return;
     setSending(true);
     try {
+      // Upload pending images first
+      let imageUrls = [];
+      if (pendingImages.length > 0) {
+        imageUrls = await uploadPendingImages();
+      }
+
+      const trimmed = msg.trim();
+      const notifyText = trimmed || t(locale, 'sentPhoto');
+
       // 1. Save to Firestore with jobId
       await addDoc(collection(db, 'staff_messages'), {
         staffId: user.uid,
@@ -91,6 +148,7 @@ function JobChat({ job, user, locale, onClose }) {
         jobId: job.id,
         read: false,
         createdAt: new Date().toISOString(),
+        ...(imageUrls.length > 0 && { imageUrls }),
       });
 
       // 2. Notify admin/cohost
@@ -99,17 +157,19 @@ function JobChat({ job, user, locale, onClose }) {
         fetch('/api/staff-messages/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-          body: JSON.stringify({ staffId: user.uid, staffName: displayName, sender: 'staff' }),
+          body: JSON.stringify({ staffId: user.uid, staffName: displayName, sender: 'staff', text: notifyText }),
         }).catch(() => {});
       }
 
-      // 3. Optionally open WhatsApp with job-context prefix
-      if (sendViaWA && phone) {
+      // 3. Optionally open WhatsApp with job-context prefix (text only, photos stay in-app)
+      if (sendViaWA && phone && trimmed) {
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(jobPrefix + trimmed)}`;
         window.open(url, '_blank', 'noopener,noreferrer');
       }
 
       setMsg('');
+      pendingImages.forEach((img) => URL.revokeObjectURL(img.preview));
+      setPendingImages([]);
     } catch (err) {
       console.error('Failed to send staff message:', err);
     } finally {
@@ -159,7 +219,21 @@ function JobChat({ job, user, locale, onClose }) {
                     ? 'bg-[#DCF8C6] text-gray-800 rounded-br-sm'
                     : 'bg-white text-gray-800 rounded-bl-sm shadow-sm'
                 }`}>
-                  <p>{m.text}</p>
+                  {m.imageUrls?.length > 0 && (
+                    <div className={`flex gap-1 flex-wrap ${m.text ? 'mb-1.5' : ''}`}>
+                      {m.imageUrls.map((url, i) => (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                          <img
+                            src={url}
+                            alt=""
+                            className="rounded-lg max-w-[180px] max-h-[140px] object-cover"
+                            loading="lazy"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {m.text && <p>{m.text}</p>}
                   <p className="text-[10px] text-gray-400 text-right mt-0.5">
                     {m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                   </p>
@@ -170,7 +244,7 @@ function JobChat({ job, user, locale, onClose }) {
           <div ref={bottomRef} />
         </div>
 
-        {/* WhatsApp toggle + Input */}
+        {/* WhatsApp toggle + Pending images + Input */}
         <div className="border-t border-gray-100 flex-shrink-0">
           {phone && (
             <button
@@ -188,7 +262,51 @@ function JobChat({ job, user, locale, onClose }) {
               <span className="font-medium">{t(locale, 'sendViaWhatsApp')}</span>
             </button>
           )}
+          {/* Pending photo strip */}
+          {pendingImages.length > 0 && (
+            <div className="px-3 pt-2 flex gap-2 overflow-x-auto">
+              {pendingImages.map((img, idx) => (
+                <div key={idx} className="relative flex-shrink-0">
+                  <img src={img.preview} alt="" className="w-14 h-14 rounded-lg object-cover" />
+                  <button
+                    onClick={() => removePending(idx)}
+                    className="absolute -top-1 -right-1 bg-gray-800/70 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                    aria-label={t(locale, 'removePhoto')}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              {sending && (
+                <div className="flex items-center text-xs text-gray-400 pl-1">
+                  {t(locale, 'uploadingPhoto')}
+                </div>
+              )}
+            </div>
+          )}
           <div className="p-3 flex gap-2">
+            {/* Attach photo button */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleFilesSelected}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={pendingImages.length >= 3 || sending}
+              className="text-gray-400 hover:text-[#25D366] disabled:text-gray-200 transition-colors flex-shrink-0 w-10 h-10 flex items-center justify-center"
+              aria-label={t(locale, 'attachPhoto')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5.5 h-5.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+              </svg>
+            </button>
             <input
               type="text"
               value={msg}
@@ -201,7 +319,7 @@ function JobChat({ job, user, locale, onClose }) {
             />
             <button
               onClick={handleSend}
-              disabled={!msg.trim() || sending}
+              disabled={!canSend}
               className="bg-[#25D366] text-white rounded-full w-10 h-10 flex items-center justify-center
                 hover:bg-[#20bd5a] active:bg-[#1da851] disabled:bg-gray-200 disabled:text-gray-400
                 transition-colors flex-shrink-0"
@@ -222,7 +340,6 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
   const { locale, setLocale } = useLocale();
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
-  const [showIssue, setShowIssue] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
   // Unread count for badge
@@ -297,18 +414,6 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
       setBusy(false);
     }
   }, [apiCall, job.id, job.status]);
-
-  const reportIssue = useCallback(async (issue) => {
-    setBusy(true);
-    try {
-      await apiCall(`/api/cleaning/jobs/${job.id}/issues`, issue, 'POST');
-      setShowIssue(false);
-    } catch (err) {
-      console.error('Failed to report issue:', err);
-    } finally {
-      setBusy(false);
-    }
-  }, [apiCall, job.id]);
 
   const declineJob = useCallback(async (declineReason) => {
     setBusy(true);
@@ -403,22 +508,6 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
     </div>
   );
 
-  // Issue report overlay
-  if (showIssue) {
-    return (
-      <div className="min-h-screen bg-cafe-50">
-        {header}
-        <IssueReport
-          job={job}
-          locale={locale}
-          onSubmit={reportIssue}
-          onCancel={() => setShowIssue(false)}
-          busy={busy}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-cafe-50">
       {header}
@@ -449,7 +538,7 @@ export default function CleaningWizard({ job, onRefresh, onClose }) {
         <BeforePhotos job={job} locale={locale} onPhotosUploaded={(urls) => uploadPhotos('before', urls)} busy={busy} />
       )}
       {step === 'cleaning' && (
-        <Cleaning locale={locale} onReportIssue={() => setShowIssue(true)} onAdvance={() => advanceStatus('after_photos')} busy={busy} />
+        <Cleaning locale={locale} onOpenChat={() => setShowChat(true)} onAdvance={() => advanceStatus('after_photos')} busy={busy} />
       )}
       {step === 'after_photos' && (
         <AfterPhotos job={job} locale={locale} onPhotosUploaded={(urls) => uploadPhotos('after', urls)} busy={busy} />
