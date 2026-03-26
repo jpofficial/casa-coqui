@@ -1,9 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
 import { auth } from '@/lib/firebase';
+import dynamic from 'next/dynamic';
+
+const ResponsiveContainer = dynamic(() => import('recharts').then(m => m.ResponsiveContainer), { ssr: false });
+const ComposedChart = dynamic(() => import('recharts').then(m => m.ComposedChart), { ssr: false });
+const Area = dynamic(() => import('recharts').then(m => m.Area), { ssr: false });
+const Line = dynamic(() => import('recharts').then(m => m.Line), { ssr: false });
+const BarChart = dynamic(() => import('recharts').then(m => m.BarChart), { ssr: false });
+const Bar = dynamic(() => import('recharts').then(m => m.Bar), { ssr: false });
+const XAxis = dynamic(() => import('recharts').then(m => m.XAxis), { ssr: false });
+const YAxis = dynamic(() => import('recharts').then(m => m.YAxis), { ssr: false });
+const Tooltip = dynamic(() => import('recharts').then(m => m.Tooltip), { ssr: false });
 
 // ---------------------------------------------------------------------------
 // Verdict colors + labels
@@ -850,8 +861,241 @@ function ResearchTab({ activeUnit, locale }) {
           </div>
         </div>
       )}
+
+      {/* Airbnb Data Import */}
+      <AirbnbImportSection locale={locale} />
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Airbnb Import Section (inside Config tab)
+// ---------------------------------------------------------------------------
+
+function AirbnbImportSection({ locale }) {
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState(null);
+  const [importError, setImportError] = useState(null);
+  const [batches, setBatches] = useState([]);
+  const [stats, setStats] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Load import history on first expand
+  const loadHistory = useCallback(async () => {
+    if (batches.length > 0) return;
+    try {
+      const data = await apiCall('/api/pricing/import');
+      if (data.success) {
+        setBatches(data.data.batches || []);
+        setStats(data.data.stats || []);
+      }
+    } catch { /* ignore */ }
+  }, [batches.length]);
+
+  async function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setImporting(true);
+    setResult(null);
+    setImportError(null);
+
+    try {
+      const text = await file.text();
+      const rows = parseCSV(text);
+
+      if (rows.length === 0) {
+        setImportError('No valid rows found in CSV');
+        setImporting(false);
+        return;
+      }
+
+      const data = await apiCall('/api/pricing/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          filename: file.name,
+          unitMappings: {},
+          rows,
+        }),
+      });
+
+      if (data.success) {
+        setResult(data.data);
+        // Refresh history
+        setBatches([]);
+        loadHistory();
+      } else {
+        setImportError(data.error);
+      }
+    } catch (err) {
+      setImportError(err.message);
+    } finally {
+      setImporting(false);
+      e.target.value = '';
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-cafe-200 shadow-brand p-4 mt-6">
+      <h3 className="text-sm font-semibold text-coqui-800 mb-3">
+        {locale === 'es' ? 'Importar Datos de Airbnb' : 'Import Airbnb Data'}
+      </h3>
+      <p className="text-xs text-coqui-800/60 mb-3">
+        {locale === 'es'
+          ? 'Sube tu historial de transacciones CSV de Airbnb para rastrear ingresos reales vs. tarifas de mercado.'
+          : 'Upload your Airbnb transaction history CSV to track actual revenue vs. market rates.'}
+      </p>
+
+      {/* Upload button */}
+      <label className={`block w-full border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition ${
+        importing ? 'border-gray-300 bg-gray-50' : 'border-cafe-300 hover:border-coqui-500 hover:bg-cafe-50'
+      }`}>
+        <input
+          type="file"
+          accept=".csv"
+          onChange={handleFileSelect}
+          className="hidden"
+          disabled={importing}
+        />
+        {importing ? (
+          <span className="text-xs text-coqui-800/50">
+            {locale === 'es' ? 'Importando…' : 'Importing...'}
+          </span>
+        ) : (
+          <span className="text-xs text-coqui-800/70 font-medium">
+            {locale === 'es' ? 'Seleccionar CSV de transacciones' : 'Select transaction CSV'}
+          </span>
+        )}
+      </label>
+
+      {/* Result */}
+      {result && (
+        <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-xs text-emerald-900">
+          <p className="font-semibold">
+            {locale === 'es' ? 'Importación exitosa' : 'Import successful'}
+          </p>
+          <p>{result.rowsSaved} {locale === 'es' ? 'guardados' : 'saved'}, {result.rowsSkipped} {locale === 'es' ? 'omitidos' : 'skipped'}</p>
+          {result.errors?.length > 0 && (
+            <details className="mt-1">
+              <summary className="cursor-pointer text-emerald-700">
+                {result.errors.length} {locale === 'es' ? 'errores' : 'errors'}
+              </summary>
+              <ul className="mt-1 space-y-0.5 text-[10px] text-emerald-800">
+                {result.errors.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+
+      {importError && (
+        <div className="mt-3 bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-xs text-red-800">
+          {importError}
+        </div>
+      )}
+
+      {/* Import History */}
+      <details
+        className="mt-3"
+        onToggle={(e) => { if (e.target.open) loadHistory(); }}
+      >
+        <summary className="text-xs text-coqui-800/50 cursor-pointer select-none">
+          {locale === 'es' ? 'Historial de importaciones' : 'Import history'}
+        </summary>
+        <div className="mt-2 space-y-2">
+          {/* Revenue stats */}
+          {stats.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              {stats.map(s => (
+                <div key={s.unit_id} className="bg-cafe-50 rounded-lg px-3 py-2">
+                  <p className="text-[10px] text-coqui-800/50">{s.unit_id}</p>
+                  <p className="text-sm font-semibold text-coqui-900">${Math.round(s.total_revenue || 0)}</p>
+                  <p className="text-[10px] text-coqui-800/40">{s.total_transactions} transactions</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Batch list */}
+          {batches.length > 0 ? batches.slice(0, 5).map(b => (
+            <div key={b.id} className="text-[10px] text-coqui-800/60 flex justify-between">
+              <span>{b.filename}</span>
+              <span>{b.rows_saved}/{b.rows_parsed} rows | {new Date(b.imported_at).toLocaleDateString()}</span>
+            </div>
+          )) : (
+            <p className="text-[10px] text-coqui-800/40">
+              {locale === 'es' ? 'Sin importaciones aún' : 'No imports yet'}
+            </p>
+          )}
+        </div>
+      </details>
+    </div>
+  );
+}
+
+/**
+ * Parse Airbnb transaction CSV into structured rows.
+ * Handles common column names from Airbnb exports.
+ */
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+
+  // Parse header
+  const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+
+  // Map common Airbnb CSV column names
+  const colMap = {
+    date: headers.findIndex(h => h === 'date' || h === 'transaction date' || h.includes('fecha')),
+    type: headers.findIndex(h => h === 'type' || h === 'transaction type' || h.includes('tipo')),
+    confirmationCode: headers.findIndex(h => h.includes('confirmation') || h.includes('confirmación') || h.includes('code')),
+    amount: headers.findIndex(h => h === 'amount' || h === 'paid out' || h.includes('monto') || h.includes('total')),
+    listing: headers.findIndex(h => h === 'listing' || h.includes('listing') || h.includes('alojamiento')),
+    description: headers.findIndex(h => h === 'description' || h === 'details' || h.includes('descripción')),
+  };
+
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = parseCSVLine(lines[i]);
+    if (vals.length < 3) continue;
+
+    const row = {
+      date: colMap.date >= 0 ? vals[colMap.date]?.trim() : null,
+      type: colMap.type >= 0 ? vals[colMap.type]?.trim() : 'Payout',
+      confirmationCode: colMap.confirmationCode >= 0 ? vals[colMap.confirmationCode]?.trim() : null,
+      amount: colMap.amount >= 0 ? parseFloat((vals[colMap.amount] || '').replace(/[$,]/g, '')) : null,
+      listing: colMap.listing >= 0 ? vals[colMap.listing]?.trim() : null,
+      description: colMap.description >= 0 ? vals[colMap.description]?.trim() : null,
+    };
+
+    if (row.date && row.confirmationCode && row.amount != null && !isNaN(row.amount)) {
+      rows.push(row);
+    }
+  }
+
+  return rows;
+}
+
+/**
+ * Parse a single CSV line, handling quoted fields.
+ */
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -1228,7 +1472,7 @@ function FreshnessBar({ lastRun, running, onRunAnalysis, locale }) {
 // Autopilot Tab (Recommendations)
 // ---------------------------------------------------------------------------
 
-function AutopilotTab({ activeUnit, locale }) {
+function AutopilotTab({ activeUnit, locale, onViewRuns }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -1529,39 +1773,37 @@ function AutopilotTab({ activeUnit, locale }) {
         </details>
       )}
 
-      {/* Run history card */}
+      {/* Run history link */}
       <div className="bg-white rounded-2xl border border-cafe-200 shadow-brand p-4">
-        <h3 className="text-xs font-bold text-coqui-900 mb-3">
-          {t(locale, 'admin_pricing_autopilot_runHistory')}
-        </h3>
-
         {lastRun ? (
-          <div className="text-xs text-coqui-800/70 space-y-1">
-            <div className="flex justify-between">
-              <span>{t(locale, 'admin_pricing_autopilot_lastRun')}</span>
-              <span className="font-medium">{new Date(lastRun.startedAt).toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>{t(locale, 'admin_pricing_research_status')}</span>
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-coqui-800/70">
+              <span>{t(locale, 'admin_pricing_autopilot_lastRun')}: </span>
               <span className={`font-medium ${lastRun.status === 'completed' ? 'text-emerald-700' : lastRun.status === 'failed' ? 'text-red-600' : 'text-amber-600'}`}>
                 {lastRun.status}
               </span>
+              <span className="ml-2">{lastRun.analysisOk || 0} {t(locale, 'admin_pricing_runs_recs')}</span>
+              {lastRun.durationMs && <span className="ml-2">{(lastRun.durationMs / 1000).toFixed(1)}s</span>}
             </div>
-            {lastRun.durationMs && (
-              <div className="flex justify-between">
-                <span>{t(locale, 'admin_pricing_research_duration')}</span>
-                <span className="font-medium">{(lastRun.durationMs / 1000).toFixed(1)}s</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span>{t(locale, 'admin_pricing_autopilot_analyzed')}</span>
-              <span className="font-medium">{lastRun.analysisOk || 0} {t(locale, 'admin_pricing_recommendations').toLowerCase()}</span>
-            </div>
+            <button
+              onClick={onViewRuns}
+              className="text-xs font-semibold text-coqui-600 hover:text-coqui-800 transition"
+            >
+              {t(locale, 'admin_pricing_runs_viewAll')} →
+            </button>
           </div>
         ) : (
-          <p className="text-xs text-coqui-800/50">
-            {t(locale, 'admin_pricing_autopilot_noRuns')}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-coqui-800/50">
+              {t(locale, 'admin_pricing_autopilot_noRuns')}
+            </p>
+            <button
+              onClick={onViewRuns}
+              className="text-xs font-semibold text-coqui-600 hover:text-coqui-800 transition"
+            >
+              {t(locale, 'admin_pricing_runs_viewAll')} →
+            </button>
+          </div>
         )}
 
         {/* CLI hint */}
@@ -1579,10 +1821,873 @@ function AutopilotTab({ activeUnit, locale }) {
 }
 
 // ---------------------------------------------------------------------------
-// Page (3-tab layout)
+// Trends tab
 // ---------------------------------------------------------------------------
 
-const TABS = ['recommendations', 'competitors', 'research'];
+const TREND_PERIODS = [7, 30, 90];
+
+const INSIGHT_STYLES = {
+  strengthening: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-900', icon: '↑' },
+  softening: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-900', icon: '↓' },
+  stable: { bg: 'bg-cafe-50', border: 'border-cafe-200', text: 'text-cafe-900', icon: '→' },
+  position_shift: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-900', icon: '◎' },
+  demand_rising: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-900', icon: '▲' },
+  demand_soft: { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', icon: '▽' },
+  thin_data: { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-800', icon: '!' },
+  insufficient_data: { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-600', icon: 'i' },
+};
+
+function TrendsTab({ activeUnit, locale }) {
+  const [period, setPeriod] = useState(30);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await apiCall(`/api/pricing/trends?unit=${activeUnit}&days=${period}`);
+        if (!cancelled) {
+          if (result.success) setData(result.data);
+          else setError(result.error);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [activeUnit, period]);
+
+  // Build chart data from history
+  const chartData = useMemo(() => {
+    if (!data?.history?.length) return [];
+
+    // For each check_date, use the latest data point
+    // Then aggregate across dates to show market trend over time by scrape run
+    const byRun = {};
+    for (const dateGroup of data.history) {
+      for (const point of dateGroup.points) {
+        const runKey = point.scraped_at?.split('T')[0] || point.scraped_at;
+        if (!byRun[runKey]) {
+          byRun[runKey] = { date: runKey, medians: [], p25s: [], p75s: [], yours: [] };
+        }
+        if (point.median_tcpn_2n) byRun[runKey].medians.push(point.median_tcpn_2n);
+        if (point.p25_tcpn_2n) byRun[runKey].p25s.push(point.p25_tcpn_2n);
+        if (point.p75_tcpn_2n) byRun[runKey].p75s.push(point.p75_tcpn_2n);
+        if (point.your_tcpn) byRun[runKey].yours.push(point.your_tcpn);
+      }
+    }
+
+    return Object.values(byRun)
+      .map(run => ({
+        date: run.date,
+        label: formatShortDate(run.date),
+        median: run.medians.length ? Math.round(avg(run.medians)) : null,
+        p25: run.p25s.length ? Math.round(avg(run.p25s)) : null,
+        p75: run.p75s.length ? Math.round(avg(run.p75s)) : null,
+        yours: run.yours.length ? Math.round(avg(run.yours)) : null,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [data]);
+
+  // Build availability chart data
+  const availData = useMemo(() => {
+    if (!data?.availability?.length) return [];
+
+    const byRun = {};
+    for (const dateGroup of data.availability) {
+      for (const snap of dateGroup.snapshots) {
+        const runKey = snap.scraped_at?.split('T')[0] || 'unknown';
+        if (!byRun[runKey]) byRun[runKey] = { date: runKey, available: 0, booked: 0, total: 0 };
+        byRun[runKey].available += snap.available;
+        byRun[runKey].booked += (snap.total - snap.available);
+        byRun[runKey].total += snap.total;
+      }
+    }
+
+    return Object.values(byRun)
+      .map(r => ({ ...r, label: formatShortDate(r.date) }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [data]);
+
+  if (loading) {
+    return (
+      <div className="text-center py-12 text-coqui-800/50 text-sm">
+        {t(locale, 'admin_pricing_autopilot_running') || 'Loading...'}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-800">
+        {error}
+      </div>
+    );
+  }
+
+  const hasData = data && data.dataQuality?.totalDataPoints > 0;
+
+  return (
+    <div className="space-y-4">
+      {/* Period selector */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-coqui-900">
+          {t(locale, 'admin_pricing_trends_title')}
+        </h2>
+        <div className="flex gap-1 bg-cafe-100 rounded-lg p-0.5">
+          {TREND_PERIODS.map(p => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`text-xs font-semibold px-3 py-1 rounded-md transition ${
+                period === p
+                  ? 'bg-white text-coqui-900 shadow-sm'
+                  : 'text-coqui-800/50 hover:text-coqui-800/80'
+              }`}
+            >
+              {t(locale, `admin_pricing_trends_period_${p}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!hasData ? (
+        <div className="bg-cafe-50 border border-cafe-200 rounded-2xl p-6 text-center">
+          <p className="text-sm text-coqui-800/60">
+            {t(locale, 'admin_pricing_trends_no_data')}
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Market Position Chart */}
+          {chartData.length > 0 && (
+            <div className="bg-white rounded-2xl border border-cafe-200 shadow-brand p-4">
+              <h3 className="text-xs font-semibold text-coqui-800 mb-3">
+                {t(locale, 'admin_pricing_trends_market_position')}
+              </h3>
+              <div style={{ width: '100%', height: 200 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10, fill: '#9ca3af' }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: '#9ca3af' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={v => `$${v}`}
+                    />
+                    <Tooltip
+                      contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                      formatter={(value, name) => [`$${value}`, name]}
+                    />
+                    <Area
+                      dataKey="p25"
+                      stackId="range"
+                      stroke="none"
+                      fill="transparent"
+                      name={t(locale, 'admin_pricing_trends_market_range')}
+                    />
+                    <Area
+                      dataKey="p75"
+                      stackId="range"
+                      stroke="none"
+                      fill="#10b98133"
+                      name={t(locale, 'admin_pricing_trends_market_range')}
+                    />
+                    <Line
+                      dataKey="median"
+                      stroke="#10b981"
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: '#10b981' }}
+                      name={t(locale, 'admin_pricing_trends_market_median')}
+                    />
+                    <Line
+                      dataKey="yours"
+                      stroke="#7c3aed"
+                      strokeWidth={2}
+                      strokeDasharray="5 3"
+                      dot={{ r: 3, fill: '#7c3aed' }}
+                      name={t(locale, 'admin_pricing_trends_your_rate')}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+              {/* Legend */}
+              <div className="flex gap-4 mt-2 justify-center">
+                <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                  <span className="w-3 h-0.5 bg-emerald-500 inline-block rounded" />
+                  {t(locale, 'admin_pricing_trends_market_median')}
+                </span>
+                <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                  <span className="w-3 h-0.5 bg-purple-600 inline-block rounded" style={{ borderBottom: '1px dashed #7c3aed' }} />
+                  {t(locale, 'admin_pricing_trends_your_rate')}
+                </span>
+                <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                  <span className="w-3 h-2 bg-emerald-500/20 inline-block rounded" />
+                  {t(locale, 'admin_pricing_trends_market_range')}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Availability Chart */}
+          {availData.length > 0 && (
+            <div className="bg-white rounded-2xl border border-cafe-200 shadow-brand p-4">
+              <h3 className="text-xs font-semibold text-coqui-800 mb-3">
+                {t(locale, 'admin_pricing_trends_availability')}
+              </h3>
+              <div style={{ width: '100%', height: 120 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={availData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10, fill: '#9ca3af' }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: '#9ca3af' }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                    <Bar
+                      dataKey="available"
+                      stackId="a"
+                      fill="#10b981"
+                      name={t(locale, 'admin_pricing_trends_available')}
+                      radius={[0, 0, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="booked"
+                      stackId="a"
+                      fill="#ef4444"
+                      name={t(locale, 'admin_pricing_trends_booked')}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Insight Cards */}
+          {data.insights?.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold text-coqui-800">
+                {t(locale, 'admin_pricing_trends_insights')}
+              </h3>
+              {data.insights.map((insight, i) => {
+                const style = INSIGHT_STYLES[insight.type] || INSIGHT_STYLES.stable;
+                return (
+                  <div
+                    key={i}
+                    className={`${style.bg} border ${style.border} rounded-xl px-3 py-2.5 flex items-start gap-2`}
+                  >
+                    <span className={`text-sm font-bold ${style.text} mt-px`}>{style.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-semibold ${style.text}`}>
+                        {t(locale, `admin_pricing_trends_${insight.type}`) || insight.type}
+                      </p>
+                      <p className={`text-xs ${style.text} opacity-80 mt-0.5`}>
+                        {insight.message}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Comp Movement */}
+          {data.compMovement?.length > 0 && (
+            <details className="bg-white rounded-2xl border border-cafe-200 shadow-brand">
+              <summary className="px-4 py-3 text-xs font-semibold text-coqui-800 cursor-pointer select-none">
+                {t(locale, 'admin_pricing_trends_comp_movement')} ({data.compMovement.length})
+              </summary>
+              <div className="px-4 pb-3 space-y-1.5">
+                {data.compMovement.map((m, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="text-coqui-800 truncate flex-1 mr-2">{m.name}</span>
+                    <span className={`font-semibold ${m.direction === 'raised' ? 'text-amber-700' : 'text-blue-700'}`}>
+                      {m.direction === 'raised' ? '+' : ''}{m.delta > 0 ? `+$${m.delta}` : `-$${Math.abs(m.delta)}`}
+                      <span className="text-[10px] font-normal ml-1 opacity-60">
+                        ({m.pctChange}%)
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {/* Data quality footer */}
+          {data.dataQuality && (
+            <p className="text-[10px] text-coqui-800/40 text-center">
+              {t(locale, 'admin_pricing_trends_data_points')
+                .replace('{n}', data.dataQuality.totalDataPoints)
+                .replace('{r}', data.dataQuality.totalRuns)}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function formatShortDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T12:00:00');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[d.getMonth()]} ${d.getDate()}`;
+}
+
+function avg(arr) {
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+// ---------------------------------------------------------------------------
+// Tab: Runs
+// ---------------------------------------------------------------------------
+
+const TRIGGER_ICONS = {
+  terminal: '⌨',
+  scheduled: '⏰',
+  dashboard: '🖥',
+  research: '🔍',
+};
+
+function formatDuration(ms) {
+  if (ms == null) return '—';
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${(ms / 60000).toFixed(1)}m`;
+}
+
+function relativeTime(dateStr) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function PhaseBar({ phaseDurations, locale }) {
+  const phases = [
+    { key: 'scrape', ms: phaseDurations.scrape, color: 'bg-blue-400' },
+    { key: 'analyze', ms: phaseDurations.analyze, color: 'bg-emerald-400' },
+    { key: 'archive', ms: phaseDurations.archive, color: 'bg-amber-400' },
+  ].filter(p => p.ms != null && p.ms > 0);
+
+  if (phases.length === 0) return null;
+  const total = phases.reduce((sum, p) => sum + p.ms, 0);
+
+  return (
+    <div>
+      <p className="text-[10px] font-semibold text-coqui-900 mb-1.5">
+        {t(locale, 'admin_pricing_runs_phaseTimeline')}
+      </p>
+      <div className="flex h-3 rounded-full overflow-hidden bg-cafe-100">
+        {phases.map((p) => (
+          <div
+            key={p.key}
+            className={`${p.color} transition-all`}
+            style={{ width: `${Math.max((p.ms / total) * 100, 2)}%` }}
+            title={`${t(locale, `admin_pricing_runs_${p.key}`)}: ${formatDuration(p.ms)}`}
+          />
+        ))}
+      </div>
+      <div className="flex gap-3 mt-1">
+        {phases.map((p) => (
+          <span key={p.key} className="text-[10px] text-coqui-800/60 flex items-center gap-1">
+            <span className={`inline-block w-2 h-2 rounded-full ${p.color}`} />
+            {t(locale, `admin_pricing_runs_${p.key}`)} {formatDuration(p.ms)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ListingsSection({ listings, locale }) {
+  if (!listings || listings.length === 0) return null;
+  return (
+    <div>
+      <p className="text-[10px] font-semibold text-coqui-900 mb-1.5">
+        {t(locale, 'admin_pricing_runs_listingsObserved')} ({listings.length})
+      </p>
+      <div className="max-h-48 overflow-y-auto space-y-1.5">
+        {listings.map((l) => (
+          <div key={l.competitorId} className="flex items-start gap-2 text-[10px] bg-cafe-50 rounded-lg px-2.5 py-1.5">
+            <div className="flex-1 min-w-0">
+              {l.url ? (
+                <a href={l.url} target="_blank" rel="noopener noreferrer" className="font-medium text-coqui-700 hover:underline truncate block">
+                  {l.name || l.airbnbId}
+                </a>
+              ) : (
+                <span className="font-medium text-coqui-900 truncate block">{l.name || l.airbnbId}</span>
+              )}
+              <div className="flex items-center gap-2 text-coqui-800/50 mt-0.5">
+                {l.bedrooms && <span>{l.bedrooms}BR</span>}
+                {l.rating && <span>★{l.rating}</span>}
+                {l.superhost ? <span className="text-amber-600">SH</span> : null}
+                <span>{l.obsCount} {t(locale, 'admin_pricing_runs_observations')}</span>
+                {l.stayLengths && <span>{l.stayLengths}n</span>}
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <span className="font-semibold text-coqui-900">${l.avgRate}</span>
+              {l.minRate !== l.maxRate && (
+                <div className="text-coqui-800/40">${l.minRate}–${l.maxRate}</div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CalendarSection({ calendarSummary, calendarWindow, locale }) {
+  if (!calendarSummary || calendarSummary.length === 0) return null;
+
+  // Group by competitorId (not listing name — names can collide)
+  const byListing = {};
+  for (const c of calendarSummary) {
+    const key = c.competitorId;
+    if (!byListing[key]) byListing[key] = { ...c, months: [] };
+    byListing[key].months.push(c);
+  }
+
+  return (
+    <details className="group" open>
+      <summary className="text-[10px] font-semibold text-coqui-900 cursor-pointer hover:text-coqui-800">
+        {t(locale, 'admin_pricing_runs_calendarAvailability')}
+        {calendarWindow && (
+          <span className="ml-1 font-normal text-coqui-800/40">
+            {calendarWindow.start} — {calendarWindow.end}
+          </span>
+        )}
+      </summary>
+      <div className="mt-1.5 max-h-64 overflow-y-auto space-y-1.5">
+        {Object.values(byListing).map((listing) => (
+          <div key={listing.competitorId} className="bg-cafe-50 rounded-lg px-2.5 py-1.5">
+            <div className="flex items-start gap-2 text-[10px]">
+              <div className="flex-1 min-w-0">
+                <a
+                  href={`https://www.airbnb.com/rooms/${listing.airbnbId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-coqui-700 hover:underline truncate block"
+                >
+                  {listing.listingName || listing.airbnbId}
+                </a>
+                <span className="text-[9px] text-coqui-800/40">#{listing.airbnbId}</span>
+              </div>
+            </div>
+            {listing.months.map((m) => {
+              const total = m.availableNights + m.notAvailableNights;
+              const pct = total > 0 ? Math.round((m.notAvailableNights / total) * 100) : 0;
+              return (
+                <div key={m.month} className="flex items-center gap-2 mt-1 text-[10px] text-coqui-800/70">
+                  <span className="font-medium w-14 shrink-0">{m.month}</span>
+                  <div className="flex-1 bg-cafe-200 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="h-full bg-coqui-600 rounded-full"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <div className="flex gap-2 shrink-0 text-[9px]">
+                    <span className="text-emerald-700">{m.availableNights} {t(locale, 'admin_pricing_runs_calAvail')}</span>
+                    <span className="text-coqui-800/50">{m.notAvailableNights} {t(locale, 'admin_pricing_runs_calNotAvail')}</span>
+                    {m.weekendNotAvailableNights > 0 && (
+                      <span className="text-amber-700">{m.weekendNotAvailableNights} {t(locale, 'admin_pricing_runs_calWeekendNotAvail')}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function ComparisonSection({ comparison, locale }) {
+  if (!comparison || !comparison.deltas || !comparison.previous) return null;
+  const { current, previous, deltas } = comparison;
+
+  const metrics = [
+    { key: 'medianTcpn', label: t(locale, 'admin_pricing_runs_cmpMedianTcpn'), prefix: '$' },
+    { key: 'avgPercentile', label: t(locale, 'admin_pricing_runs_cmpPercentile'), prefix: 'P' },
+    { key: 'compsActive', label: t(locale, 'admin_pricing_runs_cmpComps'), prefix: '' },
+    { key: 'avgRate', label: t(locale, 'admin_pricing_runs_cmpAvgRate'), prefix: '$' },
+    { key: 'listingCount', label: t(locale, 'admin_pricing_runs_cmpListings'), prefix: '' },
+  ];
+
+  return (
+    <div>
+      <p className="text-[10px] font-semibold text-coqui-900 mb-1.5">
+        {t(locale, 'admin_pricing_runs_comparison')} <span className="font-normal text-coqui-800/40">vs #{previous.runId}</span>
+      </p>
+      <div className="grid grid-cols-2 gap-1.5">
+        {metrics.map((m) => {
+          const cur = current[m.key];
+          const delta = deltas[m.key];
+          if (cur == null) return null;
+          const isGood = m.key === 'avgPercentile' || m.key === 'compsActive' || m.key === 'listingCount';
+          const deltaColor = delta > 0 ? (isGood ? 'text-emerald-600' : 'text-red-600') : delta < 0 ? (isGood ? 'text-red-600' : 'text-emerald-600') : 'text-coqui-800/40';
+          return (
+            <div key={m.key} className="bg-cafe-50 rounded-lg px-2.5 py-1.5">
+              <div className="text-[9px] text-coqui-800/50">{m.label}</div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xs font-semibold text-coqui-900">{m.prefix}{cur}</span>
+                {delta != null && delta !== 0 && (
+                  <span className={`text-[10px] font-medium ${deltaColor}`}>
+                    {delta > 0 ? '+' : ''}{m.prefix === '$' ? delta.toFixed(2) : delta}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ObservationsSection({ observations, obsTotal, obsTruncated, locale }) {
+  if (!observations || observations.length === 0) return null;
+
+  // Group by listing name
+  const grouped = {};
+  for (const o of observations) {
+    const key = o.listingName || o.airbnbId;
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(o);
+  }
+
+  return (
+    <details className="group">
+      <summary className="text-[10px] font-semibold text-coqui-800/60 cursor-pointer hover:text-coqui-800">
+        {t(locale, 'admin_pricing_runs_rawObservations')} ({obsTotal || observations.length})
+        {obsTruncated && (
+          <span className="ml-1 text-amber-600 font-normal">
+            — {t(locale, 'admin_pricing_runs_obsTruncated').replace('{n}', observations.length)}
+          </span>
+        )}
+      </summary>
+      <div className="mt-1.5 max-h-60 overflow-y-auto space-y-2">
+        {Object.entries(grouped).map(([name, obs]) => (
+          <div key={name}>
+            <p className="text-[9px] font-semibold text-coqui-900 mb-0.5 truncate">{name}</p>
+            <div className="grid grid-cols-4 gap-x-2 text-[9px] text-coqui-800/50 mb-0.5 px-1">
+              <span>{t(locale, 'admin_pricing_runs_obsDate')}</span><span>{t(locale, 'admin_pricing_runs_obsNights')}</span><span>{t(locale, 'admin_pricing_runs_obsRate')}</span><span>{t(locale, 'admin_pricing_runs_obsTcpn')}</span>
+            </div>
+            {obs.map((o, i) => (
+              <div key={i} className="grid grid-cols-4 gap-x-2 text-[10px] text-coqui-800/70 px-1">
+                <span>{o.checkDate}</span>
+                <span>{o.stayNights}n</span>
+                <span>${o.nightlyRate}</span>
+                <span>${o.tcpn}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function RunDetailPanel({ run, locale }) {
+  const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      const sourceParam = run.source === 'research' ? '?source=research' : '';
+      const res = await apiCall(`/api/pricing/runs/${run.id}${sourceParam}`);
+      if (!cancelled && res.success) setDetail(res.data);
+      if (!cancelled) setLoading(false);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [run.id, run.source]);
+
+  if (loading) {
+    return <div className="px-4 py-3 animate-pulse"><div className="h-16 bg-cafe-100 rounded" /></div>;
+  }
+  if (!detail) return null;
+
+  const { warnings, configSnapshot, recsByUnit, marketSummary, listingsSummary, observations, obsTotal, obsTruncated, comparison, calendarSummary, calendarWindow } = detail;
+  const units = Object.keys(recsByUnit);
+
+  return (
+    <div className="px-4 pb-4 space-y-3 border-t border-cafe-100 pt-3">
+      {/* Research run banner */}
+      {run.source === 'research' && (
+        <div className="text-[10px] bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1.5 text-violet-800">
+          {t(locale, 'admin_pricing_runs_researchNote')}
+        </div>
+      )}
+
+      {/* Phase timing */}
+      <PhaseBar phaseDurations={run.phaseDurations} locale={locale} />
+
+      {/* Per-unit verdict breakdown */}
+      {units.map((uid) => {
+        const verdicts = recsByUnit[uid];
+        if (!verdicts || verdicts.length === 0) return null;
+        return (
+          <div key={uid}>
+            <p className="text-[10px] font-semibold text-coqui-900 mb-1">{uid}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {verdicts.map((v) => {
+                const colors = VERDICT_COLORS[v.verdict] || VERDICT_COLORS.no_rate;
+                return (
+                  <span key={v.verdict} className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>
+                    {verdictLabel(v.verdict, locale)} <span className="font-bold">{v.count}</span>
+                    {v.avg_rate && <span className="text-[9px] opacity-70">${v.avg_rate}</span>}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Market summary */}
+      {marketSummary && marketSummary.length > 0 && (
+        <div className="text-xs text-coqui-800/70 space-y-0.5">
+          {marketSummary.map((m) => (
+            <div key={m.unitId} className="flex gap-3">
+              <span className="font-medium">{m.unitId}:</span>
+              <span>{m.datesCovered} dates</span>
+              {m.avgMedianTcpn && <span>TCPN ${m.avgMedianTcpn}</span>}
+              {m.avgCompsAvailable && <span>{m.avgCompsAvailable} comps avg</span>}
+              {m.avgPercentile != null && <span>P{m.avgPercentile}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Legacy run notice — no lineage data */}
+      {(!listingsSummary || listingsSummary.length === 0) && (!observations || observations.length === 0) && run.status === 'completed' && (
+        <p className="text-[10px] italic text-coqui-800/40">{t(locale, 'admin_pricing_runs_noLineage')}</p>
+      )}
+
+      {/* Listings observed (NEW) */}
+      <ListingsSection listings={listingsSummary} locale={locale} />
+
+      {/* Calendar availability (research runs with calendar capture) */}
+      <CalendarSection calendarSummary={calendarSummary} calendarWindow={calendarWindow} locale={locale} />
+
+      {/* Run comparison (NEW — autopilot only) */}
+      {run.source !== 'research' && <ComparisonSection comparison={comparison} locale={locale} />}
+
+      {/* Warnings */}
+      {warnings && warnings.length > 0 && (
+        <div>
+          <p className="text-[10px] font-semibold text-amber-800 mb-1">
+            {t(locale, 'admin_pricing_runs_warnings')}
+          </p>
+          <div className="space-y-1">
+            {warnings.map((w, i) => (
+              <div key={i} className="text-[10px] bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 text-amber-900">
+                <span className="font-semibold">[{w.code}]</span> {w.unit && `${w.unit}: `}{w.message}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Raw observations (NEW, collapsible) */}
+      <ObservationsSection observations={observations} obsTotal={obsTotal} obsTruncated={obsTruncated} locale={locale} />
+
+      {/* Config snapshot */}
+      {configSnapshot && (
+        <details className="group">
+          <summary className="text-[10px] font-semibold text-coqui-800/60 cursor-pointer hover:text-coqui-800">
+            {t(locale, 'admin_pricing_runs_configSnapshot')}
+          </summary>
+          <pre className="mt-1 text-[10px] bg-cafe-50 rounded-lg p-2 overflow-x-auto text-coqui-800/70 max-h-40">
+            {JSON.stringify(configSnapshot, null, 2)}
+          </pre>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function RunsTab({ locale }) {
+  const [runs, setRuns] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const [expandedId, setExpandedId] = useState(null);
+  const limit = 20;
+
+  const fetchRuns = useCallback(async (off = 0) => {
+    setLoading(true);
+    const res = await apiCall(`/api/pricing/runs?limit=${limit}&offset=${off}`);
+    if (res.success) {
+      if (off === 0) {
+        setRuns(res.data.runs);
+      } else {
+        setRuns(prev => [...prev, ...res.data.runs]);
+      }
+      setTotal(res.data.total);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchRuns(0); }, [fetchRuns]);
+
+  const loadMore = () => {
+    const newOffset = offset + limit;
+    setOffset(newOffset);
+    fetchRuns(newOffset);
+  };
+
+  if (loading && runs.length === 0) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-white rounded-2xl border border-cafe-200 p-4 animate-pulse">
+            <div className="h-4 bg-cafe-100 rounded w-2/3 mb-2" />
+            <div className="h-3 bg-cafe-100 rounded w-1/2" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (runs.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border border-cafe-200 p-8 text-center">
+        <p className="text-sm text-coqui-800/60">{t(locale, 'admin_pricing_runs_empty')}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <h2 className="text-sm font-bold text-coqui-900">{t(locale, 'admin_pricing_runs_title')}</h2>
+
+      {runs.map((run) => {
+        const runKey = `${run.source}-${run.id}`;
+        const isExpanded = expandedId === runKey;
+        const statusColor = run.status === 'completed' ? 'bg-emerald-400' : run.status === 'failed' ? 'bg-red-400' : 'bg-amber-400';
+        const triggerLabel = t(locale, `admin_pricing_runs_trigger_${run.trigger}`) || run.trigger;
+        const triggerIcon = TRIGGER_ICONS[run.trigger] || '';
+        const isResearch = run.source === 'research';
+
+        return (
+          <div key={runKey} className="bg-white rounded-2xl border border-cafe-200 shadow-brand overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setExpandedId(isExpanded ? null : runKey)}
+              className="w-full px-4 py-3 text-left hover:bg-cafe-50/30 transition"
+            >
+              <div className="flex items-center gap-2">
+                {/* Status dot */}
+                <span className={`w-2 h-2 rounded-full shrink-0 ${statusColor}`} />
+
+                {/* Trigger + time */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs">{triggerIcon}</span>
+                    <span className="text-xs font-semibold text-coqui-900">{triggerLabel}</span>
+                    {isResearch && (
+                      <span className="text-[9px] font-semibold bg-violet-100 text-violet-700 border border-violet-200 px-1.5 py-0 rounded-full">
+                        {t(locale, 'admin_pricing_runs_research')}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-coqui-800/40">#{run.id}</span>
+                    <span className="text-[10px] text-coqui-800/50 ml-auto">{relativeTime(run.startedAt)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    {!isResearch && (
+                      <span className="text-[10px] text-coqui-800/60">
+                        {run.runType === 'full' ? t(locale, 'admin_pricing_runs_full') : t(locale, 'admin_pricing_runs_analysis')}
+                      </span>
+                    )}
+                    {run.durationMs && (
+                      <span className="text-[10px] text-coqui-800/40">{formatDuration(run.durationMs)}</span>
+                    )}
+                    {run.listingCount > 0 && (
+                      <span className="text-[10px] text-coqui-800/50">{run.listingCount} {t(locale, 'admin_pricing_runs_listings')}</span>
+                    )}
+                    {run.obsCount > 0 && (
+                      <span className="text-[10px] text-coqui-800/50">{run.obsCount} {t(locale, 'admin_pricing_runs_observations')}</span>
+                    )}
+                    {run.analysisOk > 0 && (
+                      <span className="text-[10px] text-coqui-800/50">{run.analysisOk} {t(locale, 'admin_pricing_runs_recs')}</span>
+                    )}
+                    {run.compsActive > 0 && !isResearch && (
+                      <span className="text-[10px] text-coqui-800/50">{run.compsActive} {t(locale, 'admin_pricing_runs_comps')}</span>
+                    )}
+                    {run.warningCount > 0 && (
+                      <span className="text-[10px] font-medium text-amber-600">{run.warningCount} {t(locale, 'admin_pricing_runs_warnings').toLowerCase()}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Expand chevron */}
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"
+                  className={`w-3.5 h-3.5 text-coqui-800/30 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                  <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                </svg>
+              </div>
+
+              {/* Error log for failed runs */}
+              {run.status === 'failed' && run.errorLog && (
+                <p className="text-[10px] text-red-600 mt-1 truncate">{run.errorLog}</p>
+              )}
+            </button>
+
+            {isExpanded && <RunDetailPanel run={run} locale={locale} />}
+          </div>
+        );
+      })}
+
+      {/* Load more */}
+      {runs.length < total && (
+        <button
+          onClick={loadMore}
+          disabled={loading}
+          className="w-full text-xs font-semibold text-coqui-600 hover:text-coqui-800 py-3 transition"
+        >
+          {loading ? '...' : t(locale, 'admin_pricing_runs_loadMore')}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page (5-tab layout)
+// ---------------------------------------------------------------------------
+
+const TABS = ['recommendations', 'trends', 'competitors', 'research', 'runs'];
 
 export default function PricingPage() {
   const { locale } = useLocale();
@@ -1634,13 +2739,19 @@ export default function PricingPage() {
 
       {/* Tab content */}
       {activeTab === 'recommendations' && (
-        <AutopilotTab activeUnit={activeUnit} locale={locale} />
+        <AutopilotTab activeUnit={activeUnit} locale={locale} onViewRuns={() => setActiveTab('runs')} />
+      )}
+      {activeTab === 'trends' && (
+        <TrendsTab activeUnit={activeUnit} locale={locale} />
       )}
       {activeTab === 'competitors' && (
         <CompetitorsTab activeUnit={activeUnit} locale={locale} />
       )}
       {activeTab === 'research' && (
         <ResearchTab activeUnit={activeUnit} locale={locale} />
+      )}
+      {activeTab === 'runs' && (
+        <RunsTab locale={locale} />
       )}
     </div>
   );

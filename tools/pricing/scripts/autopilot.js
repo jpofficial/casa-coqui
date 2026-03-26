@@ -3,7 +3,7 @@
 /**
  * Smart Pricing Autopilot — orchestrator CLI.
  *
- * Runs the full pipeline: scrape → analyze → report.
+ * Runs the full pipeline: scrape → analyze → archive → update run.
  *
  * Usage:
  *   node tools/pricing/scripts/autopilot.js                  # all units
@@ -16,9 +16,9 @@
 
 const path = require('path');
 const fs = require('fs');
-const { getDb, closeDb, getCompetitorsForUnit, getLatestAutopilotRun, DB_PATH, purgeUnitSnapshots } = require('../lib/db');
+const { getDb, closeDb, getCompetitorsForUnit, DB_PATH, purgeUnitSnapshots, archiveMarketData, saveRunObservations } = require('../lib/db');
 const { generateDateRange } = require('../lib/dates');
-const { analyzeDateMultiStay, STAY_LENGTHS } = require('../lib/multi-stay');
+const { analyzeDateMultiStay } = require('../lib/multi-stay');
 const { saveRecommendationV2 } = require('../lib/db');
 const { getDayOfWeek } = require('../lib/dates');
 
@@ -34,13 +34,15 @@ const DRY_RUN = args.includes('--dry-run');
 const HEADFUL = args.includes('--headful');
 const DAYS = parseInt(getArg('days') || '30');
 
-const PUBLIC_JSON = path.join(__dirname, '..', '..', '..', 'public', 'data', 'pricing-report.json');
+// Trigger detection: env var (set by launchd/dashboard), or heuristic
+const TRIGGER = process.env.AUTOPILOT_TRIGGER ||
+  (process.ppid === 1 ? 'scheduled' : 'terminal');
 
 // DB setup
 const db = getDb();
 const schemaPath = path.join(__dirname, '..', 'schema.sql');
 db.exec(fs.readFileSync(schemaPath, 'utf8'));
-for (const mig of ['migrate-v3.sql', 'migrate-v4.sql', 'migrate-v5.sql']) {
+for (const mig of ['migrate-v3.sql', 'migrate-v4.sql', 'migrate-v5.sql', 'migrate-v6.sql', 'migrate-v7.sql', 'migrate-v8.sql', 'migrate-v9.sql']) {
   const migPath = path.join(__dirname, '..', mig);
   try {
     const sql = fs.readFileSync(migPath, 'utf8');
@@ -62,25 +64,44 @@ async function main() {
   console.log(`  Units:       ${unitIds.join(', ')}`);
   console.log(`  Days:        ${DAYS}`);
   console.log(`  Skip scrape: ${SKIP_SCRAPE}`);
+  console.log(`  Trigger:     ${TRIGGER}`);
   console.log(`  Database:    ${DB_PATH}`);
   if (DRY_RUN) console.log('  *** DRY RUN ***');
   console.log();
+
+  // Build config snapshot
+  const configSnapshot = { units: unitIds, days: DAYS, skipScrape: SKIP_SCRAPE };
+  for (const uid of unitIds) {
+    const rc = db.prepare('SELECT * FROM research_config WHERE comp_unit = ?').get(uid);
+    if (rc) configSnapshot[uid] = { location: rc.location, minBedrooms: rc.min_bedrooms, maxBedrooms: rc.max_bedrooms, maxResults: rc.max_results };
+    const compCount = db.prepare('SELECT COUNT(*) as n FROM competitors WHERE comp_unit = ? AND active = 1').get(uid);
+    if (compCount) configSnapshot[`${uid}_comps`] = compCount.n;
+  }
+
+  // Warnings collector
+  const warnings = [];
 
   // 1. Log run
   let runId = null;
   if (!DRY_RUN) {
     const result = db.prepare(
-      `INSERT INTO autopilot_runs (run_type, units_processed, status) VALUES (?, ?, 'running')`
-    ).run(SKIP_SCRAPE ? 'analysis' : 'full', unitIds.join(','));
+      `INSERT INTO autopilot_runs (run_type, units_processed, status, trigger, config_snapshot) VALUES (?, ?, 'running', ?, ?)`
+    ).run(SKIP_SCRAPE ? 'analysis' : 'full', unitIds.join(','), TRIGGER, JSON.stringify(configSnapshot));
     runId = result.lastInsertRowid;
   }
 
   let scrapeOk = 0, scrapeErrors = 0, analysisOk = 0;
+  let compsFound = 0, compsActive = 0;
+  let totalHistoryRows = 0, totalAvailRows = 0;
+  let scrapeStartMs = null, scrapeEndMs = null;
+  let analyzeStartMs = null, analyzeEndMs = null;
+  let archiveStartMs = null, archiveEndMs = null;
 
   try {
     // 2. SCRAPE phase (unless --skip-scrape)
     if (!SKIP_SCRAPE) {
       console.log('--- SCRAPE PHASE ---\n');
+      scrapeStartMs = Date.now();
 
       // Dynamically load market-research (has playwright dependency)
       const { launchBrowser, createContext, computeDateRangesV2, scrapeSearchResults, scrapeListingDetails } = require('../lib/market-research');
@@ -94,6 +115,7 @@ async function main() {
         const config = db.prepare('SELECT * FROM research_config WHERE comp_unit = ?').get(unitId);
         if (!config) {
           console.log(`  ${unitId}: No research config — skipping scrape.`);
+          warnings.push({ code: 'no_config', unit: unitId, message: 'No research config found' });
           continue;
         }
 
@@ -103,13 +125,20 @@ async function main() {
           console.log(`  ${unitId}: Purged ${purged} stale v2 snapshots.`);
         }
 
+        // Accumulate observations for Layer 2 append-only capture
+        const unitObservations = [];
+
         console.log(`  ${unitId}: Searching Airbnb...`);
 
         try {
           const listings = await scrapeSearchResults(page, config, (msg) => console.log(`    ${msg}`));
           console.log(`  ${unitId}: Found ${listings.length} listings.`);
+          compsFound += listings.length;
 
-          if (listings.length === 0) continue;
+          if (listings.length === 0) {
+            warnings.push({ code: 'no_listings', unit: unitId, message: 'Scrape found 0 results' });
+            continue;
+          }
 
           const dateRanges = computeDateRangesV2(config.start_date);
 
@@ -136,12 +165,13 @@ async function main() {
           `);
 
           const insertSnapshotV2 = db.prepare(`
-            INSERT INTO snapshots_v2 (competitor_id, check_date, stay_nights, day_type, nightly_rate, cleaning_fee, total_cost, tcpn, available)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+            INSERT INTO snapshots_v2 (competitor_id, check_date, stay_nights, day_type, nightly_rate, cleaning_fee, total_cost, tcpn, available, run_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
             ON CONFLICT(competitor_id, check_date, stay_nights) DO UPDATE SET
               day_type=excluded.day_type, nightly_rate=excluded.nightly_rate,
               cleaning_fee=excluded.cleaning_fee, total_cost=excluded.total_cost,
               tcpn=excluded.tcpn, available=excluded.available,
+              run_id=excluded.run_id,
               captured_at=datetime('now')
           `);
 
@@ -193,8 +223,26 @@ async function main() {
                       insertSnapshotV2.run(
                         comp.id, range.checkin, range.nights,
                         getDayOfWeek(range.checkin),
-                        price.nightly_rate, fee, total, tcpn
+                        price.nightly_rate, fee, total, tcpn,
+                        runId
                       );
+
+                      // Accumulate for Layer 2 raw capture
+                      if (runId) {
+                        unitObservations.push({
+                          runId, runSource: 'autopilot', compUnit: unitId,
+                          competitorId: comp.id, airbnbId: details.airbnb_id,
+                          listingName: details.name || listing.name || null,
+                          listingUrl: details.url || null,
+                          bedrooms: details.bedrooms || null, bathrooms: details.bathrooms || null,
+                          rating: details.rating || listing.rating || null,
+                          reviewCount: details.review_count || listing.review_count || null,
+                          superhost: details.superhost || false,
+                          checkDate: range.checkin, stayNights: range.nights,
+                          nightlyRate: price.nightly_rate, cleaningFee: fee,
+                          totalCost: total, tcpn, available: 1,
+                        });
+                      }
                     }
                   }
                 }
@@ -207,21 +255,43 @@ async function main() {
               scrapeErrors++;
             }
           }
+          // Flush Layer 2 observations for this unit
+          if (unitObservations.length > 0) {
+            saveRunObservations(db, unitObservations);
+            console.log(`  ${unitId}: Saved ${unitObservations.length} raw observations.`);
+          }
         } catch (err) {
           console.log(`  ${unitId}: Scrape failed — ${err.message}`);
           scrapeErrors++;
         }
       }
 
+      // Check for scrape majority failure
+      if (scrapeErrors > scrapeOk && (scrapeOk + scrapeErrors) > 0) {
+        warnings.push({ code: 'scrape_majority_fail', unit: null, message: `${scrapeErrors} errors vs ${scrapeOk} OK` });
+      }
+
       await context.close();
       await browser.close();
+      scrapeEndMs = Date.now();
       console.log();
+    }
+
+    // Count active comps after scrape
+    for (const uid of unitIds) {
+      const count = db.prepare('SELECT COUNT(*) as n FROM competitors WHERE comp_unit = ? AND active = 1').get(uid);
+      compsActive += count.n;
+      if (count.n < 5) {
+        warnings.push({ code: 'thin_data', unit: uid, message: `Only ${count.n} active comps` });
+      }
     }
 
     // 3. ANALYZE phase
     console.log('--- ANALYZE PHASE ---\n');
+    analyzeStartMs = Date.now();
     const today = new Date().toISOString().split('T')[0];
     const dates = generateDateRange(today, DAYS);
+    let insufficientCount = 0;
 
     for (const unitId of unitIds) {
       console.log(`  ${unitId}: Analyzing ${dates.length} dates...`);
@@ -246,8 +316,10 @@ async function main() {
               reasoning: rec.reasoning, confidence: rec.confidence,
               compCount: rec.compCount, demandSignal: rec.demandSignal,
               holidayAdjusted: rec.holidayAdjusted,
-            });
+            }, runId);
             unitOk++;
+          } else if (rec.verdict === 'insufficient_data') {
+            insufficientCount++;
           }
 
           if (DRY_RUN && rec.recNightlyRate) {
@@ -261,65 +333,55 @@ async function main() {
       analysisOk += unitOk;
       console.log(`  ${unitId}: ${unitOk} recommendations saved.`);
     }
+
+    // Check for low confidence
+    const totalDates = dates.length * unitIds.length;
+    if (totalDates > 0 && insufficientCount / totalDates > 0.3) {
+      warnings.push({ code: 'low_confidence', unit: null, message: `${insufficientCount}/${totalDates} dates had insufficient data` });
+    }
+
+    analyzeEndMs = Date.now();
     console.log();
 
-    // 4. REPORT phase — generate pricing-report.json with v2 data
-    if (!DRY_RUN) {
-      console.log('--- REPORT PHASE ---');
-      const { getRecommendationsV2 } = require('../lib/db');
-
-      const reportUnits = {};
+    // 4. ARCHIVE phase — persist market data to history tables
+    if (!DRY_RUN && runId) {
+      console.log('--- ARCHIVE PHASE ---\n');
+      archiveStartMs = Date.now();
+      const scrapedAt = new Date().toISOString();
       for (const unitId of unitIds) {
-        const recs = getRecommendationsV2(db, unitId, DAYS);
-        reportUnits[unitId] = {
-          name: unitId === 'unit-a' ? 'Unit A' : 'Unit B',
-          autopilot: recs.map(r => ({
-            date: r.check_date,
-            dayType: r.day_type,
-            season: r.season,
-            recNightlyRate: r.rec_nightly_rate,
-            recWeeklyPct: r.rec_weekly_pct,
-            recMonthlyPct: r.rec_monthly_pct,
-            floor: r.floor_price,
-            target: r.target_price,
-            stretch: r.stretch_price,
-            yourRate: r.your_rate,
-            verdict: r.verdict,
-            confidence: r.confidence,
-            compCount: r.comp_count,
-            demandSignal: r.demand_signal,
-            holidayAdjusted: r.holiday_adjusted === 1,
-          })),
-        };
+        const { historyRows, availRows } = archiveMarketData(db, unitId, runId, scrapedAt);
+        totalHistoryRows += historyRows;
+        totalAvailRows += availRows;
+        console.log(`  ${unitId}: Archived ${historyRows} history rows, ${availRows} availability rows.`);
       }
-
-      // Read existing report, merge autopilot data
-      let existing = { units: {} };
-      try {
-        existing = JSON.parse(fs.readFileSync(PUBLIC_JSON, 'utf8'));
-      } catch { /* no existing report */ }
-
-      for (const uid of unitIds) {
-        if (!existing.units[uid]) existing.units[uid] = {};
-        existing.units[uid].autopilot = reportUnits[uid].autopilot;
-      }
-      existing.autopilotGeneratedAt = new Date().toISOString();
-
-      fs.mkdirSync(path.dirname(PUBLIC_JSON), { recursive: true });
-      fs.writeFileSync(PUBLIC_JSON, JSON.stringify(existing, null, 2));
-      console.log(`  Report: ${PUBLIC_JSON}`);
+      archiveEndMs = Date.now();
       console.log();
     }
 
-    // 5. Update run log
+    // 5. Update run log with enriched metadata
     if (!DRY_RUN && runId) {
       db.prepare(`
         UPDATE autopilot_runs SET
           status = 'completed', scrape_ok = ?, scrape_errors = ?,
-          analysis_ok = ?, report_written = 1,
-          duration_ms = ?, completed_at = datetime('now')
+          analysis_ok = ?, report_written = 0,
+          duration_ms = ?, completed_at = datetime('now'),
+          comps_found = ?, comps_active = ?,
+          recs_written = ?, history_rows = ?, avail_rows = ?,
+          warnings = ?,
+          scrape_start_ms = ?, scrape_end_ms = ?,
+          analyze_start_ms = ?, analyze_end_ms = ?,
+          archive_start_ms = ?, archive_end_ms = ?
         WHERE id = ?
-      `).run(scrapeOk, scrapeErrors, analysisOk, Date.now() - startTime, runId);
+      `).run(
+        scrapeOk, scrapeErrors, analysisOk, Date.now() - startTime,
+        compsFound, compsActive,
+        analysisOk, totalHistoryRows, totalAvailRows,
+        warnings.length > 0 ? JSON.stringify(warnings) : null,
+        scrapeStartMs, scrapeEndMs,
+        analyzeStartMs, analyzeEndMs,
+        archiveStartMs, archiveEndMs,
+        runId
+      );
     }
 
   } catch (err) {
@@ -330,9 +392,24 @@ async function main() {
         UPDATE autopilot_runs SET
           status = 'failed', scrape_ok = ?, scrape_errors = ?,
           analysis_ok = ?, error_log = ?,
-          duration_ms = ?, completed_at = datetime('now')
+          duration_ms = ?, completed_at = datetime('now'),
+          comps_found = ?, comps_active = ?,
+          recs_written = ?, history_rows = ?, avail_rows = ?,
+          warnings = ?,
+          scrape_start_ms = ?, scrape_end_ms = ?,
+          analyze_start_ms = ?, analyze_end_ms = ?,
+          archive_start_ms = ?, archive_end_ms = ?
         WHERE id = ?
-      `).run(scrapeOk, scrapeErrors, analysisOk, err.message, Date.now() - startTime, runId);
+      `).run(
+        scrapeOk, scrapeErrors, analysisOk, err.message, Date.now() - startTime,
+        compsFound, compsActive,
+        analysisOk, totalHistoryRows, totalAvailRows,
+        warnings.length > 0 ? JSON.stringify(warnings) : null,
+        scrapeStartMs, scrapeEndMs,
+        analyzeStartMs, analyzeEndMs,
+        archiveStartMs, archiveEndMs,
+        runId
+      );
     }
     closeDb();
     process.exit(1);
@@ -341,10 +418,16 @@ async function main() {
   // Summary
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log('=== Summary ===');
+  console.log(`  Trigger:   ${TRIGGER}`);
   console.log(`  Scrape:    ${scrapeOk} OK, ${scrapeErrors} errors`);
   console.log(`  Analysis:  ${analysisOk} recommendations`);
+  console.log(`  Comps:     ${compsFound} found, ${compsActive} active`);
   console.log(`  Duration:  ${duration}s`);
   console.log(`  Run ID:    ${runId || 'N/A (dry-run)'}`);
+  if (warnings.length > 0) {
+    console.log(`  Warnings:  ${warnings.length}`);
+    for (const w of warnings) console.log(`    - [${w.code}] ${w.unit ? w.unit + ': ' : ''}${w.message}`);
+  }
 
   // Print top recommendations
   if (!DRY_RUN) {

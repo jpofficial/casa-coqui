@@ -1,0 +1,11 @@
+{
+  "unit_id": "unit-a",
+  "cleaning_fee": 40,
+  "min_nights": 2,
+  "rates": [
+    { "date": "2026-04-04", "rate": 65 },
+    { "date": "2026-04-05", "rate": 70 },
+    { "date": "2026-04-08", "rate": 55, "booked": true },
+    { "date": "2026-04-18", "rate": 85, "note": "Easter weekend" }
+  ]
+}

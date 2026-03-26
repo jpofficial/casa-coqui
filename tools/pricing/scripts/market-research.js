@@ -13,13 +13,14 @@
  *   node tools/pricing/scripts/market-research.js --unit unit-a --headful
  */
 
-const { getDb, closeDb, DB_PATH, purgeUnitSnapshots } = require('../lib/db');
+const { getDb, closeDb, DB_PATH, purgeUnitSnapshots, saveRunObservations, saveCalendarAvailability } = require('../lib/db');
 const {
   launchBrowser,
   createContext,
   computeDateRanges,
   scrapeSearchResults,
   scrapeListingDetails,
+  getRelevantMonths,
 } = require('../lib/market-research');
 const { computeTcpn } = require('../lib/normalize');
 const fs = require('fs');
@@ -34,12 +35,16 @@ const unitIdx = args.indexOf('--unit');
 const unit = unitIdx !== -1 ? args[unitIdx + 1] : null;
 const DRY_RUN = args.includes('--dry-run');
 const HEADFUL = args.includes('--headful');
+const CAPTURE_CALENDAR = args.includes('--capture-calendar') || args.includes('--dump-calendar');
+const DUMP_CALENDAR = args.includes('--dump-calendar');
 
 if (!unit) {
-  console.error('Usage: market-research.js --unit <unit-id> [--dry-run] [--headful]');
-  console.error('  --unit      Comp unit ID (e.g. unit-a)');
-  console.error('  --dry-run   Search only, do not save to DB');
-  console.error('  --headful   Show browser window (for CAPTCHA solving)');
+  console.error('Usage: market-research.js --unit <unit-id> [--dry-run] [--headful] [--capture-calendar] [--dump-calendar]');
+  console.error('  --unit              Comp unit ID (e.g. unit-a)');
+  console.error('  --dry-run           Search only, do not save to DB');
+  console.error('  --headful           Show browser window (for CAPTCHA solving)');
+  console.error('  --capture-calendar  Capture calendar availability to DB (filtered to search months)');
+  console.error('  --dump-calendar     Also dump full unfiltered calendar to logs/ JSON');
   process.exit(1);
 }
 
@@ -52,7 +57,7 @@ const db = getDb();
 // Run schema + migrations
 const schemaPath = path.join(__dirname, '..', 'schema.sql');
 db.exec(fs.readFileSync(schemaPath, 'utf8'));
-for (const mig of ['migrate-v3.sql', 'migrate-v4.sql', 'migrate-v5.sql']) {
+for (const mig of ['migrate-v3.sql', 'migrate-v4.sql', 'migrate-v5.sql', 'migrate-v6.sql', 'migrate-v7.sql', 'migrate-v8.sql', 'migrate-v9.sql']) {
   const migPath = path.join(__dirname, '..', mig);
   try {
     const sql = fs.readFileSync(migPath, 'utf8');
@@ -110,6 +115,11 @@ async function main() {
   console.log(`  Database:   ${DB_PATH}`);
   if (DRY_RUN) console.log('  *** DRY RUN — no DB writes ***');
   if (HEADFUL) console.log('  *** HEADFUL — browser visible ***');
+  if (CAPTURE_CALENDAR) {
+    const relevantMonths = getRelevantMonths(dateRanges[0].checkin, dateRanges[0].checkout);
+    console.log(`  Calendar:   capturing months ${[...relevantMonths].join(', ')}`);
+    if (DUMP_CALENDAR) console.log('  Dump:       full unfiltered calendar to logs/');
+  }
   console.log();
 
   // 3. Create research_runs record
@@ -175,6 +185,16 @@ async function main() {
     // 5. Scrape details for each listing (one visit per listing using configured dates)
     console.log('Scraping listing details...\n');
 
+    // Accumulate observations for Layer 2 append-only capture
+    const observations = [];
+
+    // Calendar availability accumulation
+    const calendarRows = [];
+    const calendarDumpAll = []; // full unfiltered (for --dump-calendar)
+    const relevantMonths = CAPTURE_CALENDAR
+      ? getRelevantMonths(dateRanges[0].checkin, dateRanges[0].checkout)
+      : null;
+
     // Prepared statements for DB writes
     const upsertComp = db.prepare(`
       INSERT INTO competitors (airbnb_id, name, url, host_name, neighborhood, bedrooms, bathrooms, max_guests, amenities, rating, review_count, superhost, min_nights, cleaning_fee, base_rate, source, comp_unit, active)
@@ -212,7 +232,7 @@ async function main() {
       console.log(`[${i + 1}/${listings.length}] ${listing.name || listing.airbnb_id}`);
 
       try {
-        const details = await scrapeListingDetails(page, listing.airbnb_id, dateRanges, (msg) => console.log(msg));
+        const details = await scrapeListingDetails(page, listing.airbnb_id, dateRanges, (msg) => console.log(msg), { captureCalendar: CAPTURE_CALENDAR });
 
         // Skip listings that exceed the bedroom ceiling
         if (config.max_bedrooms && details.bedrooms && details.bedrooms > config.max_bedrooms) {
@@ -259,8 +279,54 @@ async function main() {
                 price.nightly_rate, cleaningFee, total, tcpn
               );
               snapshotsSaved++;
+
+              // Accumulate for Layer 2 raw capture
+              if (runId) {
+                observations.push({
+                  runId, runSource: 'research', compUnit: unit,
+                  competitorId: comp.id, airbnbId: details.airbnb_id,
+                  listingName: details.name || listing.name || null,
+                  listingUrl: details.url || null,
+                  bedrooms: details.bedrooms || null, bathrooms: details.bathrooms || null,
+                  rating: details.rating || listing.rating || null,
+                  reviewCount: details.review_count || listing.review_count || null,
+                  superhost: details.superhost || false,
+                  checkDate: range.checkin, stayNights: range.nights,
+                  nightlyRate: price.nightly_rate, cleaningFee,
+                  totalCost: total, tcpn, available: 1,
+                });
+              }
             }
           }
+        }
+
+        // Accumulate calendar availability rows (filtered to relevant months)
+        if (CAPTURE_CALENDAR && comp && details.calendarRaw && details.calendarRaw.length > 0) {
+          if (DUMP_CALENDAR) {
+            calendarDumpAll.push({
+              airbnbId: details.airbnb_id,
+              listingName: details.name || listing.name || null,
+              days: details.calendarRaw,
+            });
+          }
+
+          const filtered = details.calendarRaw.filter(d => relevantMonths.has(d.date.slice(0, 7)));
+          for (const day of filtered) {
+            calendarRows.push({
+              runId, runSource: 'research',
+              competitorId: comp.id, airbnbId: details.airbnb_id,
+              listingName: details.name || listing.name || null,
+              listingUrl: details.url || null,
+              date: day.date,
+              rawStatus: day.rawStatus,
+              displayStatus: day.displayStatus,
+              minNights: day.minNights,
+              maxNights: day.maxNights,
+              availableForCheckin: day.availableForCheckin,
+              availableForCheckout: day.availableForCheckout,
+            });
+          }
+          console.log(`  Calendar: ${filtered.length} days (filtered from ${details.calendarRaw.length})`);
         }
 
         console.log(`  ✓ Saved — $${compData.base_rate || '?'}/night, cleaning $${compData.cleaning_fee || '?'}`);
@@ -272,6 +338,39 @@ async function main() {
 
     await context.close();
     await browser.close();
+
+    // 5b. Flush Layer 2 observations
+    if (observations.length > 0) {
+      saveRunObservations(db, observations);
+      console.log(`\nSaved ${observations.length} raw observations.`);
+    }
+
+    // 5c. Flush calendar availability rows
+    if (calendarRows.length > 0) {
+      saveCalendarAvailability(db, calendarRows);
+      console.log(`Saved ${calendarRows.length} calendar availability rows.`);
+
+      // Compute capture window and update research_runs
+      if (runId) {
+        const dates = calendarRows.map(r => r.date).sort();
+        const calStart = dates[0];
+        const calEnd = dates[dates.length - 1];
+        db.prepare(
+          'UPDATE research_runs SET calendar_start_date = ?, calendar_end_date = ? WHERE id = ?'
+        ).run(calStart, calEnd, runId);
+        console.log(`Calendar window: ${calStart} → ${calEnd}`);
+      }
+    }
+
+    // 5d. Dump full unfiltered calendar to logs/ (--dump-calendar only)
+    if (DUMP_CALENDAR && calendarDumpAll.length > 0) {
+      const logsDir = path.join(__dirname, '..', 'logs');
+      if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const dumpPath = path.join(logsDir, `calendar-spike-${timestamp}.json`);
+      fs.writeFileSync(dumpPath, JSON.stringify(calendarDumpAll, null, 2));
+      console.log(`Calendar dump: ${dumpPath}`);
+    }
 
     // 6. Update research_runs record
     if (runId) {
@@ -314,6 +413,9 @@ async function main() {
   console.log(`  Listings found:    ${listingsFound}`);
   console.log(`  Competitors saved: ${listingsSaved}`);
   console.log(`  Snapshots saved:   ${snapshotsSaved}`);
+  if (CAPTURE_CALENDAR) {
+    console.log(`  Calendar rows:     ${calendarRows.length}`);
+  }
   console.log(`  Errors:            ${errors}`);
   console.log(`  Duration:          ${duration}s`);
   console.log(`  Run ID:            ${runId || 'N/A'}`);
