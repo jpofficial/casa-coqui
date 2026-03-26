@@ -1126,21 +1126,324 @@ function SeasonBadge({ season, locale }) {
 // AI Advisor Card — Claude-powered pricing recommendations
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Confidence-adaptive styling helpers
+// ---------------------------------------------------------------------------
+
+const CONFIDENCE_STYLES = {
+  high: { border: 'border-l-emerald-500', badge: 'bg-emerald-100 text-emerald-800 border-emerald-300', rateClass: 'text-coqui-900' },
+  medium: { border: 'border-l-amber-400', badge: 'bg-amber-100 text-amber-800 border-amber-300', rateClass: 'text-coqui-900' },
+  low: { border: 'border-l-gray-300', badge: 'bg-gray-100 text-gray-500 border-gray-300', rateClass: 'text-coqui-800/60' },
+};
+
+const ACTION_COLORS = {
+  raise: 'text-amber-700',
+  hold: 'text-emerald-700',
+  lower: 'text-blue-700',
+};
+
+function getActionLabel(action, confidence, locale) {
+  if (confidence === 'low') return t(locale, 'admin_pricing_advisor_action_review');
+  if (confidence === 'medium') return t(locale, `admin_pricing_advisor_action_${action}_soft`);
+  return t(locale, `admin_pricing_advisor_action_${action}`);
+}
+
+function TrendPill({ trend, locale }) {
+  if (!trend || trend === 'unknown') return null;
+  const colors = trend === 'strengthening' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    : trend === 'softening' ? 'bg-red-50 text-red-700 border-red-200'
+    : 'bg-gray-50 text-gray-600 border-gray-200';
+  return (
+    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${colors}`}>
+      {t(locale, `admin_pricing_advisor_trend_${trend}`)}
+    </span>
+  );
+}
+
+function AvailPill({ signal, locale }) {
+  if (!signal || signal === 'unknown') return null;
+  const colors = signal === 'tight' ? 'bg-orange-50 text-orange-700 border-orange-200'
+    : signal === 'open' ? 'bg-sky-50 text-sky-700 border-sky-200'
+    : 'bg-gray-50 text-gray-600 border-gray-200';
+  return (
+    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${colors}`}>
+      {t(locale, `admin_pricing_advisor_avail_${signal}`)}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Price Ladder — horizontal bar with floor/target/stretch + current rate marker
+// ---------------------------------------------------------------------------
+
+function PriceLadder({ floor, target, stretch, currentRate, suggestedRate, locale }) {
+  if (!floor || !stretch) return null;
+  const range = stretch - floor;
+  if (range <= 0) return null;
+
+  const pct = (v) => Math.max(0, Math.min(100, ((v - floor) / range) * 100));
+  const targetPct = pct(target);
+  const currentPct = currentRate ? pct(currentRate) : null;
+  const suggestedPct = suggestedRate ? pct(suggestedRate) : null;
+
+  return (
+    <div className="px-1">
+      {/* Bar */}
+      <div className="relative h-3 rounded-full bg-gradient-to-r from-blue-100 via-emerald-100 to-amber-100 border border-cafe-200">
+        {/* Target marker */}
+        <div className="absolute top-0 bottom-0 w-px bg-emerald-500" style={{ left: `${targetPct}%` }} />
+        {/* Current rate marker */}
+        {currentPct != null && (
+          <div
+            className="absolute -top-0.5 w-3 h-4 rounded-sm bg-coqui-700 border border-white shadow-sm"
+            style={{ left: `calc(${currentPct}% - 6px)` }}
+            title={`${t(locale, 'admin_pricing_advisor_ladder_current')}: $${currentRate}`}
+          />
+        )}
+        {/* Suggested rate marker */}
+        {suggestedPct != null && suggestedRate !== currentRate && (
+          <div
+            className="absolute -top-0.5 w-3 h-4 rounded-sm bg-amber-500 border border-white shadow-sm opacity-70"
+            style={{ left: `calc(${suggestedPct}% - 6px)` }}
+            title={`Suggested: $${suggestedRate}`}
+          />
+        )}
+      </div>
+      {/* Labels */}
+      <div className="flex justify-between mt-1">
+        <div className="text-[9px] text-coqui-800/40">
+          <div>{t(locale, 'admin_pricing_advisor_ladder_floor')}</div>
+          <div className="font-semibold">${floor}</div>
+        </div>
+        <div className="text-[9px] text-emerald-700 text-center">
+          <div>{t(locale, 'admin_pricing_advisor_ladder_target')}</div>
+          <div className="font-semibold">${target}</div>
+        </div>
+        <div className="text-[9px] text-coqui-800/40 text-right">
+          <div>{t(locale, 'admin_pricing_advisor_ladder_stretch')}</div>
+          <div className="font-semibold">${stretch}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ConfidenceBreakdown — 6-factor confidence model (Zone 4)
+// ---------------------------------------------------------------------------
+
+const CONFIDENCE_FACTOR_KEYS = ['compCount', 'freshness', 'spread', 'trendDepth', 'signalAgreement', 'proximity'];
+
+function ConfidenceBreakdown({ factors, locale }) {
+  if (!factors) return null;
+  return (
+    <div>
+      <h4 className="text-[10px] font-bold text-coqui-800/50 uppercase mb-1.5">
+        {t(locale, 'admin_pricing_advisor_confidence_breakdown')}
+      </h4>
+      <div className="space-y-1">
+        {CONFIDENCE_FACTOR_KEYS.map((key) => {
+          const score = factors[key];
+          if (score == null) return null;
+          const barColor = score >= 70 ? 'bg-emerald-500' : score >= 40 ? 'bg-amber-400' : 'bg-gray-300';
+          return (
+            <div key={key} className="flex items-center gap-2">
+              <span className="text-[10px] text-coqui-800/60 w-24 shrink-0 truncate">
+                {t(locale, `admin_pricing_advisor_factor_${key}`)}
+              </span>
+              <div className="flex-1 h-1.5 bg-cafe-100 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.min(100, Math.max(0, score))}%` }} />
+              </div>
+              <span className="text-[10px] text-coqui-800/40 w-6 text-right">{score}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// MultiplierStack — waterfall from base rate to suggested rate (Zone 4)
+// ---------------------------------------------------------------------------
+
+const MULTIPLIER_KEYS = ['weekday', 'leadTime', 'trend', 'holiday', 'demand'];
+
+function MultiplierStack({ data, locale }) {
+  if (!data || !data.baseRate || !data.multipliers) return null;
+
+  const { baseRate, multipliers, finalRate } = data;
+  const activeMultipliers = MULTIPLIER_KEYS.filter(k => multipliers[k] != null && multipliers[k] !== 1.0);
+
+  let running = baseRate;
+  const rows = activeMultipliers.map((key) => {
+    const mult = multipliers[key];
+    running = Math.round(running * mult);
+    const colorClass = mult > 1.0 ? 'text-emerald-700' : mult < 1.0 ? 'text-blue-700' : 'text-coqui-800/40';
+    return { key, mult, running, colorClass };
+  });
+
+  return (
+    <div>
+      <h4 className="text-[10px] font-bold text-coqui-800/50 uppercase mb-1.5">
+        {t(locale, 'admin_pricing_advisor_rate_breakdown')}
+      </h4>
+      <div className="bg-cafe-50 rounded-lg overflow-hidden text-[11px]">
+        {/* Base rate */}
+        <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-cafe-100">
+          <span className="text-coqui-800/60">{t(locale, 'admin_pricing_advisor_mult_base')}</span>
+          <span className="font-semibold text-coqui-900">${baseRate}</span>
+        </div>
+        {/* Multiplier rows */}
+        {rows.map(({ key, mult, running: runningVal, colorClass }) => (
+          <div key={key} className="flex items-center justify-between px-2.5 py-1.5 border-b border-cafe-100">
+            <span className="text-coqui-800/60">{t(locale, `admin_pricing_advisor_mult_${key}`)}</span>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] font-medium ${colorClass}`}>
+                ×{mult.toFixed(2)}
+              </span>
+              <span className="text-coqui-800/50">${runningVal}</span>
+            </div>
+          </div>
+        ))}
+        {activeMultipliers.length === 0 && (
+          <div className="px-2.5 py-1.5 border-b border-cafe-100 text-coqui-800/40 italic text-center">
+            {t(locale, 'admin_pricing_advisor_mult_neutral')}
+          </div>
+        )}
+        {/* Final suggested rate */}
+        <div className="flex items-center justify-between px-2.5 py-1.5 bg-cafe-100/50">
+          <span className="font-semibold text-coqui-900">{t(locale, 'admin_pricing_advisor_mult_suggested')}</span>
+          <span className="font-bold text-coqui-900">${finalRate}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// MarketMovementPanel — competitor price + availability evidence (Zone 4)
+// ---------------------------------------------------------------------------
+
+function MarketMovementPanel({ evidence, locale }) {
+  if (!evidence) return null;
+  const pm = evidence.priceMovement;
+  const av = evidence.availabilityEvidence;
+  const rel = evidence.compReliability;
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-[10px] font-bold text-coqui-800/50 uppercase">
+        {t(locale, 'admin_pricing_advisor_market_movement')}
+      </h4>
+
+      {/* Price Movement Grid */}
+      {pm && (pm.raised > 0 || pm.lowered > 0 || pm.unchanged > 0) && (
+        <div className="grid grid-cols-3 gap-1.5">
+          <div className="bg-amber-50 border border-amber-100 rounded-lg p-2 text-center">
+            <div className="text-base font-bold text-amber-800">{pm.raised}</div>
+            <div className="text-[9px] text-amber-700/70 uppercase">{t(locale, 'admin_pricing_advisor_comps_raised')}</div>
+          </div>
+          <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2 text-center">
+            <div className="text-base font-bold text-emerald-800">{pm.unchanged}</div>
+            <div className="text-[9px] text-emerald-700/70 uppercase">{t(locale, 'admin_pricing_advisor_comps_held')}</div>
+          </div>
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-2 text-center">
+            <div className="text-base font-bold text-blue-800">{pm.lowered}</div>
+            <div className="text-[9px] text-blue-700/70 uppercase">{t(locale, 'admin_pricing_advisor_comps_lowered')}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Top Movers */}
+      {pm?.topMovers?.length > 0 && (
+        <div>
+          <div className="text-[10px] font-semibold text-coqui-800/50 mb-1">
+            {t(locale, 'admin_pricing_advisor_top_movers')}
+          </div>
+          <div className="space-y-1">
+            {pm.topMovers.map((m, i) => (
+              <div key={i} className="flex items-center justify-between text-[11px] px-2 py-1 bg-cafe-50 rounded-lg">
+                <a
+                  href={m.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-coqui-700 hover:underline truncate max-w-[60%]"
+                  title={m.name}
+                >
+                  {m.name}
+                </a>
+                <span className={`font-semibold ${m.direction === 'raised' ? 'text-amber-700' : 'text-blue-700'}`}>
+                  {m.direction === 'raised' ? '+' : ''}{m.delta} ({m.pctChange > 0 ? '+' : ''}{m.pctChange}%)
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Availability Signal */}
+      {av && (av.becameUnavailable > 0 || av.becameAvailable > 0) && (
+        <div className="flex items-center gap-2 text-[11px] px-2.5 py-1.5 bg-cafe-50 rounded-lg">
+          <span className={`font-semibold ${
+            av.signal === 'tightening' ? 'text-amber-700'
+            : av.signal === 'loosening' ? 'text-blue-700'
+            : 'text-coqui-800'
+          }`}>
+            {av.signal === 'tightening' ? t(locale, 'admin_pricing_advisor_avail_tightening')
+             : av.signal === 'loosening' ? t(locale, 'admin_pricing_advisor_avail_loosening')
+             : t(locale, 'admin_pricing_advisor_avail_stable')}
+          </span>
+          <span className="text-coqui-800/50">
+            {av.becameUnavailable > 0 && `${av.becameUnavailable} ${t(locale, 'admin_pricing_advisor_became_unavailable').toLowerCase()}`}
+            {av.becameUnavailable > 0 && av.becameAvailable > 0 && ', '}
+            {av.becameAvailable > 0 && `${av.becameAvailable} ${t(locale, 'admin_pricing_advisor_became_available').toLowerCase()}`}
+          </span>
+        </div>
+      )}
+
+      {/* Comp Reliability */}
+      {rel && rel.totalComps > 0 && (
+        <div className="text-[10px] text-coqui-800/40">
+          {t(locale, 'admin_pricing_advisor_comp_reliability')
+            .replace('{n}', rel.repeatComps)
+            .replace('{total}', rel.totalComps)}
+          {rel.pctRepeat < 50 && (
+            <span className="ml-1 text-amber-600 font-medium">
+              — {t(locale, 'admin_pricing_advisor_comp_unstable')}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AdvisorCard — 4-zone layout with confidence-adaptive display
+// ---------------------------------------------------------------------------
+
 function AdvisorCard({ activeUnit, locale }) {
   const [advice, setAdvice] = useState(null);
+  const [evidence, setEvidence] = useState(null);
+  const [confidenceFactors, setConfidenceFactors] = useState(null);
+  const [multiplierData, setMultiplierData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   // Chat state
-  const [chatContext, setChatContext] = useState(null); // { dataMessage, toolUseId, initialAdvice }
-  const [chatMessages, setChatMessages] = useState([]); // [{ role, content }]
+  const [chatContext, setChatContext] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [chatSending, setChatSending] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const handleGetAdvice = async () => {
     setLoading(true);
     setError(null);
     setChatMessages([]);
     setChatContext(null);
+    setDetailsOpen(false);
     try {
       const res = await apiCall('/api/pricing/advisor', {
         method: 'POST',
@@ -1148,11 +1451,16 @@ function AdvisorCard({ activeUnit, locale }) {
       });
       if (res.success) {
         setAdvice(res.data.advice);
+        setEvidence(res.data.evidence || null);
+        setConfidenceFactors(res.data.confidenceFactors || null);
+        setMultiplierData(res.data.multiplierData || null);
         setChatContext({
           dataMessage: res.data.dataMessage,
           toolUseId: res.data.toolUseId,
           initialAdvice: res.data.advice,
         });
+        // Auto-expand details for low confidence
+        if (res.data.advice?.confidence === 'low') setDetailsOpen(true);
       } else {
         setError(res.error || t(locale, 'admin_pricing_advisor_error'));
       }
@@ -1164,14 +1472,13 @@ function AdvisorCard({ activeUnit, locale }) {
   };
 
   const handleSendChat = async (e) => {
-    e.preventDefault();
-    const msg = chatInput.trim();
+    if (typeof e !== 'string') e.preventDefault();
+    const msg = typeof e === 'string' ? e : chatInput.trim();
     if (!msg || !chatContext || chatSending) return;
 
     setChatInput('');
     setChatSending(true);
-    const newMessages = [...chatMessages, { role: 'user', content: msg }];
-    setChatMessages(newMessages);
+    setChatMessages(prev => [...prev, { role: 'user', content: msg }]);
 
     try {
       const res = await apiCall('/api/pricing/advisor', {
@@ -1186,20 +1493,8 @@ function AdvisorCard({ activeUnit, locale }) {
         }),
       });
       if (res.success) {
-        const { text, updatedAdvice, newToolUseId } = res.data;
-        if (text) {
-          setChatMessages(prev => [...prev, { role: 'assistant', content: text }]);
-        }
-        if (updatedAdvice) {
-          setAdvice(updatedAdvice);
-          setChatContext(prev => ({
-            ...prev,
-            initialAdvice: prev.initialAdvice, // keep original for context
-            toolUseId: newToolUseId || prev.toolUseId,
-          }));
-          if (!text) {
-            setChatMessages(prev => [...prev, { role: 'assistant', content: t(locale, 'admin_pricing_advisor_updated') }]);
-          }
+        if (res.data.text) {
+          setChatMessages(prev => [...prev, { role: 'assistant', content: res.data.text }]);
         }
       } else {
         setChatMessages(prev => [...prev, { role: 'assistant', content: res.error || 'Error' }]);
@@ -1211,16 +1506,35 @@ function AdvisorCard({ activeUnit, locale }) {
     }
   };
 
-  // Reset when unit changes
+  const handleChipClick = (chip) => {
+    handleSendChat(chip);
+  };
+
+  const handleCopyRate = () => {
+    if (advice?.suggestedRate) {
+      navigator.clipboard?.writeText(String(advice.suggestedRate));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   useEffect(() => {
     setAdvice(null);
+    setEvidence(null);
+    setConfidenceFactors(null);
+    setMultiplierData(null);
     setError(null);
     setChatMessages([]);
     setChatContext(null);
+    setDetailsOpen(false);
   }, [activeUnit]);
 
+  const conf = advice?.confidence || 'medium';
+  const styles = CONFIDENCE_STYLES[conf] || CONFIDENCE_STYLES.medium;
+
   return (
-    <div className="bg-white rounded-2xl border border-cafe-200 shadow-brand overflow-hidden">
+    <div className={`bg-white rounded-2xl border border-cafe-200 shadow-brand overflow-hidden ${advice ? `border-l-4 ${styles.border}` : ''}`}>
+      {/* Header */}
       <div className="px-4 py-3 border-b border-cafe-100 flex items-center justify-between">
         <h2 className="text-sm font-bold text-coqui-900 flex items-center gap-1.5">
           <span className="text-base">✦</span>
@@ -1240,9 +1554,7 @@ function AdvisorCard({ activeUnit, locale }) {
       </div>
 
       {error && (
-        <div className="px-4 py-3 bg-red-50 text-sm text-red-800 border-b border-red-100">
-          {error}
-        </div>
+        <div className="px-4 py-3 bg-red-50 text-sm text-red-800 border-b border-red-100">{error}</div>
       )}
 
       {!advice && !loading && !error && (
@@ -1259,156 +1571,279 @@ function AdvisorCard({ activeUnit, locale }) {
       )}
 
       {advice && (
-        <div className="p-4 space-y-4">
-          {/* Summary */}
-          <div className="bg-coqui-50 border border-coqui-200 rounded-xl px-3 py-2.5 text-sm text-coqui-900 leading-relaxed">
-            {advice.summary}
+        <div className="space-y-0">
+          {/* Low confidence caveat banner */}
+          {conf === 'low' && (
+            <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 text-xs text-amber-800">
+              {t(locale, 'admin_pricing_advisor_low_confidence_banner')}
+            </div>
+          )}
+
+          {/* ── ZONE 1: Action Header ── */}
+          <div className="px-4 pt-4 pb-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                {/* Action verb */}
+                <div className={`text-lg font-bold ${ACTION_COLORS[advice.action] || 'text-coqui-900'} ${conf === 'low' ? 'opacity-60' : ''}`}>
+                  {getActionLabel(advice.action, conf, locale)}
+                </div>
+                {/* Rate delta */}
+                {advice.suggestedRate && (
+                  <div className="flex items-baseline gap-2 mt-1">
+                    {advice.currentRate ? (
+                      <>
+                        <span className="text-sm text-coqui-800/50 line-through">${advice.currentRate}</span>
+                        <span className="text-sm text-coqui-800/50">&rarr;</span>
+                        <span className={`text-2xl font-bold ${styles.rateClass}`}>${advice.suggestedRate}</span>
+                      </>
+                    ) : (
+                      <span className={`text-2xl font-bold ${styles.rateClass}`}>${advice.suggestedRate}{t(locale, 'admin_pricing_advisor_per_night')}</span>
+                    )}
+                    {advice.delta != null && advice.delta !== 0 && (
+                      <span className={`text-xs font-medium ${advice.delta > 0 ? 'text-amber-600' : 'text-blue-600'}`}>
+                        ({advice.delta > 0 ? '+' : ''}${advice.delta})
+                      </span>
+                    )}
+                  </div>
+                )}
+                {!advice.suggestedRate && (
+                  <div className="text-sm text-coqui-800/50 mt-1">{t(locale, 'admin_pricing_advisor_no_rate')}</div>
+                )}
+                {/* Trend + Availability pills */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  <TrendPill trend={advice.marketTrend} locale={locale} />
+                  <AvailPill signal={advice.availabilitySignal} locale={locale} />
+                </div>
+              </div>
+              {/* Confidence badge */}
+              <span className={`shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full border ${styles.badge}`}>
+                {t(locale, `admin_pricing_advisor_confidence_${conf}`)}
+              </span>
+            </div>
+
+            {/* Discount row */}
+            {(advice.weeklyDiscount || advice.monthlyDiscount) && (
+              <div className="flex gap-3 mt-2.5">
+                {advice.weeklyDiscount && (
+                  <span className="text-[10px] text-coqui-800/50">
+                    {t(locale, 'admin_pricing_advisor_discount_weekly')}: <span className="font-semibold text-coqui-800">{advice.weeklyDiscount}%</span>
+                  </span>
+                )}
+                {advice.monthlyDiscount && (
+                  <span className="text-[10px] text-coqui-800/50">
+                    {t(locale, 'admin_pricing_advisor_discount_monthly')}: <span className="font-semibold text-coqui-800">{advice.monthlyDiscount}%</span>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Rate grid */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-cafe-50 rounded-xl p-3 text-center">
-              <div className="text-[10px] uppercase text-coqui-800/50 mb-1">
-                {t(locale, 'admin_pricing_advisor_weekday')}
-              </div>
-              <div className="text-2xl font-bold text-coqui-900">${advice.weekdayRate}</div>
+          {/* ── ZONE 2: Price Ladder ── */}
+          {advice.floor && advice.stretch && (
+            <div className="px-4 pb-3">
+              <PriceLadder
+                floor={advice.floor}
+                target={advice.target}
+                stretch={advice.stretch}
+                currentRate={advice.currentRate}
+                suggestedRate={advice.suggestedRate}
+                locale={locale}
+              />
             </div>
-            <div className="bg-cafe-50 rounded-xl p-3 text-center">
-              <div className="text-[10px] uppercase text-coqui-800/50 mb-1">
-                {t(locale, 'admin_pricing_advisor_weekend')}
-              </div>
-              <div className="text-2xl font-bold text-coqui-900">${advice.weekendRate}</div>
+          )}
+
+          {/* ── ZONE 3: Explanation ── */}
+          {(advice.explanation || advice.summary) && (
+            <div className="mx-4 mb-3 bg-cafe-50 border border-cafe-200 rounded-xl px-3 py-2.5 text-[13px] text-coqui-900 leading-relaxed">
+              {advice.explanation || advice.summary}
             </div>
-            <div className="bg-cafe-50 rounded-xl p-3 text-center">
-              <div className="text-[10px] uppercase text-coqui-800/50 mb-1">
-                {t(locale, 'admin_pricing_advisor_weekly')}
-              </div>
-              <div className="text-2xl font-bold text-coqui-900">{advice.weeklyDiscount}%</div>
-            </div>
-            <div className="bg-cafe-50 rounded-xl p-3 text-center">
-              <div className="text-[10px] uppercase text-coqui-800/50 mb-1">
-                {t(locale, 'admin_pricing_advisor_monthly')}
-              </div>
-              <div className="text-2xl font-bold text-coqui-900">{advice.monthlyDiscount}%</div>
-            </div>
+          )}
+
+          {/* ── CTA Row ── */}
+          <div className="px-4 pb-3 flex gap-2">
+            {advice.suggestedRate && (
+              <button
+                onClick={handleCopyRate}
+                className="flex-1 text-xs font-semibold py-2 rounded-lg border border-cafe-200 bg-white text-coqui-800 hover:bg-cafe-50 transition"
+              >
+                {copied ? '✓' : t(locale, 'admin_pricing_advisor_copy_rate')} ${advice.suggestedRate}
+              </button>
+            )}
+            <a
+              href="https://www.airbnb.com/hosting/calendar"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 text-xs font-semibold py-2 rounded-lg bg-coqui-600 text-white hover:bg-coqui-700 transition text-center"
+            >
+              {t(locale, 'admin_pricing_advisor_open_airbnb')}
+            </a>
           </div>
 
-          {/* Daily rates */}
-          {advice.dailyRates?.length > 0 && (
-            <div>
-              <h4 className="text-xs font-bold text-coqui-900 mb-2">
-                {t(locale, 'admin_pricing_advisor_daily')}
-              </h4>
-              <div className="border border-cafe-200 rounded-xl overflow-hidden divide-y divide-cafe-50 max-h-72 overflow-y-auto">
-                {advice.dailyRates.map((day) => {
-                  const d = new Date(day.date + 'T12:00:00');
-                  const dayName = d.toLocaleDateString(locale === 'es' ? 'es-PR' : 'en-US', { weekday: 'short' });
-                  const dateStr = d.toLocaleDateString(locale === 'es' ? 'es-PR' : 'en-US', { month: 'short', day: 'numeric' });
-                  const isWeekend = d.getDay() === 5 || d.getDay() === 6;
-                  return (
-                    <div key={day.date} className={`px-3 py-2 flex items-center gap-2 ${isWeekend ? 'bg-coqui-50/50' : 'bg-white'}`}>
-                      <div className="w-16 shrink-0">
-                        <div className="text-xs font-semibold text-coqui-900">{dateStr}</div>
-                        <div className="text-[10px] text-coqui-800/50">{dayName}</div>
+          {/* ── ZONE 4: Expandable Details ── */}
+          {((advice.opportunities?.length > 0) || (advice.cautions?.length > 0) || (advice.warnings?.length > 0) || advice.compCount) && (
+            <div className="border-t border-cafe-100">
+              <button
+                type="button"
+                onClick={() => setDetailsOpen(!detailsOpen)}
+                className="w-full px-4 py-2 flex items-center justify-between text-xs text-coqui-800/60 hover:bg-cafe-50/50 transition"
+              >
+                <span>{t(locale, 'admin_pricing_advisor_evidence')}</span>
+                <svg className={`w-3.5 h-3.5 transition-transform ${detailsOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {detailsOpen && (
+                <div className="px-4 pb-4 space-y-3">
+                  {/* Evidence grid */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {advice.compCount != null && (
+                      <div className="bg-cafe-50 rounded-lg p-2 text-center">
+                        <div className="text-lg font-bold text-coqui-900">{advice.compCount}</div>
+                        <div className="text-[9px] text-coqui-800/50 uppercase">{t(locale, 'admin_pricing_advisor_comps')}</div>
                       </div>
-                      <div className="w-16 shrink-0 text-center">
-                        <span className="text-lg font-bold text-coqui-900">${day.rate}</span>
+                    )}
+                    {advice.avgPercentile != null && (
+                      <div className="bg-cafe-50 rounded-lg p-2 text-center">
+                        <div className="text-lg font-bold text-coqui-900">P{advice.avgPercentile}</div>
+                        <div className="text-[9px] text-coqui-800/50 uppercase">{t(locale, 'admin_pricing_advisor_price_gap')}</div>
                       </div>
-                      <div className="flex-1 text-[11px] text-coqui-800/60 truncate">
-                        {day.note}
+                    )}
+                  </div>
+
+                  {/* Market Movement Evidence */}
+                  {evidence && <MarketMovementPanel evidence={evidence} locale={locale} />}
+
+                  {/* Confidence Factor Breakdown */}
+                  {confidenceFactors && <ConfidenceBreakdown factors={confidenceFactors} locale={locale} />}
+
+                  {/* Multiplier Stack Breakdown */}
+                  {multiplierData && <MultiplierStack data={multiplierData} locale={locale} />}
+
+                  {/* Warnings */}
+                  {advice.warnings?.length > 0 && (
+                    <div className="space-y-1">
+                      {advice.warnings.map((w, i) => (
+                        <div key={i} className={`text-[11px] px-2.5 py-1.5 rounded-lg border ${
+                          w.severity === 'critical' ? 'bg-red-50 text-red-800 border-red-200'
+                          : w.severity === 'caution' ? 'bg-amber-50 text-amber-800 border-amber-200'
+                          : 'bg-gray-50 text-gray-600 border-gray-200'
+                        }`}>
+                          {w.message}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Opportunities */}
+                  {advice.opportunities?.length > 0 && (
+                    <div>
+                      <h4 className="text-[10px] font-bold text-coqui-800/50 uppercase mb-1.5">
+                        {t(locale, 'admin_pricing_advisor_opportunities')}
+                      </h4>
+                      <div className="space-y-1.5">
+                        {advice.opportunities.map((opp, i) => (
+                          <div key={i} className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-2">
+                            <div className="text-xs text-emerald-900">{opp.text || opp}</div>
+                            {opp.evidence && <div className="text-[10px] text-emerald-700/70 mt-0.5">{opp.evidence}</div>}
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+                  )}
 
-          {/* Actions */}
-          {advice.actions?.length > 0 && (
-            <div>
-              <h4 className="text-xs font-bold text-coqui-900 mb-2">
-                {t(locale, 'admin_pricing_advisor_actions')}
-              </h4>
-              <ul className="space-y-1.5">
-                {advice.actions.map((action, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs text-coqui-800">
-                    <span className="shrink-0 mt-0.5 w-4 h-4 rounded-full bg-coqui-100 text-coqui-700 flex items-center justify-center text-[10px] font-bold">
-                      {i + 1}
-                    </span>
-                    <span>{action}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+                  {/* Cautions */}
+                  {advice.cautions?.length > 0 && (
+                    <div>
+                      <h4 className="text-[10px] font-bold text-coqui-800/50 uppercase mb-1.5">
+                        {t(locale, 'admin_pricing_advisor_cautions')}
+                      </h4>
+                      <div className="space-y-1.5">
+                        {advice.cautions.map((caut, i) => (
+                          <div key={i} className="bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2">
+                            <div className="text-xs text-amber-900">{caut.text || caut}</div>
+                            {caut.evidence && <div className="text-[10px] text-amber-700/70 mt-0.5">{caut.evidence}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-          {/* Alerts */}
-          {advice.alerts?.length > 0 && (
-            <div>
-              <h4 className="text-xs font-bold text-coqui-900 mb-2">
-                {t(locale, 'admin_pricing_advisor_alerts')}
-              </h4>
-              <div className="space-y-1.5">
-                {advice.alerts.map((alert, i) => (
-                  <div
-                    key={i}
-                    className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-900"
-                  >
-                    {alert}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Confidence */}
-          <div className="text-[10px] text-coqui-800/40 text-right">
-            {t(locale, 'admin_pricing_advisor_confidence')}: {advice.confidence}
-          </div>
-
-          {/* Chat thread */}
-          {chatMessages.length > 0 && (
-            <div className="border-t border-cafe-100 pt-3 space-y-2 max-h-60 overflow-y-auto">
-              {chatMessages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`text-xs px-3 py-2 rounded-lg max-w-[85%] ${
-                    msg.role === 'user'
-                      ? 'bg-coqui-600 text-white ml-auto'
-                      : 'bg-cafe-50 text-coqui-900'
-                  }`}
-                >
-                  {msg.content}
-                </div>
-              ))}
-              {chatSending && (
-                <div className="bg-cafe-50 text-coqui-800/50 text-xs px-3 py-2 rounded-lg max-w-[85%] animate-pulse">
-                  {t(locale, 'admin_pricing_advisor_thinking')}
+                  {/* Data quality note from AI */}
+                  {advice.dataQualityNote && (
+                    <div className="text-[10px] text-coqui-800/40 italic">{advice.dataQualityNote}</div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* Chat input */}
+          {/* ── Chat ── */}
           {chatContext && (
-            <form onSubmit={handleSendChat} className="flex gap-2">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder={t(locale, 'admin_pricing_advisor_chat_placeholder')}
-                disabled={chatSending}
-                className="flex-1 text-xs border border-cafe-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-coqui-500 focus:border-coqui-500 disabled:opacity-50"
-              />
-              <button
-                type="submit"
-                disabled={chatSending || !chatInput.trim()}
-                className="text-xs font-semibold px-3 py-2 rounded-lg bg-coqui-600 text-white hover:bg-coqui-700 disabled:opacity-50 disabled:cursor-not-allowed transition shrink-0"
-              >
-                {t(locale, 'admin_pricing_advisor_send')}
-              </button>
-            </form>
+            <div className="border-t border-cafe-100 px-4 pt-3 pb-4 space-y-2">
+              {/* Suggestion chips */}
+              {chatMessages.length === 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    t(locale, 'admin_pricing_advisor_chip_why'),
+                    t(locale, 'admin_pricing_advisor_chip_whatif'),
+                    t(locale, 'admin_pricing_advisor_chip_comps'),
+                  ].map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => handleChipClick(chip)}
+                      disabled={chatSending}
+                      className="text-[11px] px-2.5 py-1 rounded-full border border-cafe-200 text-coqui-800/70 hover:bg-cafe-50 transition disabled:opacity-50"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Chat thread */}
+              {chatMessages.length > 0 && (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {chatMessages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`text-xs px-3 py-2 rounded-lg max-w-[85%] ${
+                        msg.role === 'user'
+                          ? 'bg-coqui-600 text-white ml-auto'
+                          : 'bg-cafe-50 text-coqui-900'
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
+                  ))}
+                  {chatSending && (
+                    <div className="bg-cafe-50 text-coqui-800/50 text-xs px-3 py-2 rounded-lg max-w-[85%] animate-pulse">
+                      {t(locale, 'admin_pricing_advisor_thinking')}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Chat input */}
+              <form onSubmit={handleSendChat} className="flex gap-2">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder={t(locale, 'admin_pricing_advisor_chat_placeholder')}
+                  disabled={chatSending}
+                  className="flex-1 text-xs border border-cafe-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-coqui-500 focus:border-coqui-500 disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={chatSending || !chatInput.trim()}
+                  className="text-xs font-semibold px-3 py-2 rounded-lg bg-coqui-600 text-white hover:bg-coqui-700 disabled:opacity-50 disabled:cursor-not-allowed transition shrink-0"
+                >
+                  {t(locale, 'admin_pricing_advisor_send')}
+                </button>
+              </form>
+            </div>
           )}
         </div>
       )}
@@ -2543,12 +2978,19 @@ function RunsTab({ locale }) {
   const [loading, setLoading] = useState(true);
   const [offset, setOffset] = useState(0);
   const [expandedId, setExpandedId] = useState(null);
+  const [togglingId, setTogglingId] = useState(null);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [coverageMode, setCoverageMode] = useState(false);
   const limit = 20;
 
-  const fetchRuns = useCallback(async (off = 0) => {
+  const fetchRuns = useCallback(async (off = 0, df = '', dt = '') => {
     setLoading(true);
-    const res = await apiCall(`/api/pricing/runs?limit=${limit}&offset=${off}`);
+    let url = `/api/pricing/runs?limit=${limit}&offset=${off}`;
+    if (df && dt) url += `&dateFrom=${df}&dateTo=${dt}`;
+    const res = await apiCall(url);
     if (res.success) {
+      setCoverageMode(!!res.data.coverageMode);
       if (off === 0) {
         setRuns(res.data.runs);
       } else {
@@ -2561,10 +3003,49 @@ function RunsTab({ locale }) {
 
   useEffect(() => { fetchRuns(0); }, [fetchRuns]);
 
+  // Debounced refetch when date range changes
+  useEffect(() => {
+    if (!dateFrom || !dateTo) {
+      if (coverageMode) {
+        setCoverageMode(false);
+        setOffset(0);
+        fetchRuns(0, '', '');
+      }
+      return;
+    }
+    const timer = setTimeout(() => {
+      setOffset(0);
+      fetchRuns(0, dateFrom, dateTo);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [dateFrom, dateTo]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleToggleExcluded = async (run, e) => {
+    e.stopPropagation();
+    const runKey = `${run.source}-${run.id}`;
+    setTogglingId(runKey);
+    const newExcluded = run.excluded ? 0 : 1;
+    const res = await apiCall(`/api/pricing/runs/${run.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ excluded: newExcluded, source: run.source }),
+    });
+    if (res.success) {
+      if (coverageMode && dateFrom && dateTo) {
+        // Refetch to recalculate recommended badges
+        fetchRuns(0, dateFrom, dateTo);
+      } else {
+        setRuns(prev => prev.map(r =>
+          r.id === run.id && r.source === run.source ? { ...r, excluded: newExcluded } : r
+        ));
+      }
+    }
+    setTogglingId(null);
+  };
+
   const loadMore = () => {
     const newOffset = offset + limit;
     setOffset(newOffset);
-    fetchRuns(newOffset);
+    fetchRuns(newOffset, dateFrom, dateTo);
   };
 
   if (loading && runs.length === 0) {
@@ -2580,7 +3061,7 @@ function RunsTab({ locale }) {
     );
   }
 
-  if (runs.length === 0) {
+  if (runs.length === 0 && !dateFrom && !dateTo) {
     return (
       <div className="bg-white rounded-2xl border border-cafe-200 p-8 text-center">
         <p className="text-sm text-coqui-800/60">{t(locale, 'admin_pricing_runs_empty')}</p>
@@ -2592,6 +3073,49 @@ function RunsTab({ locale }) {
     <div className="space-y-3">
       <h2 className="text-sm font-bold text-coqui-900">{t(locale, 'admin_pricing_runs_title')}</h2>
 
+      {/* Date coverage filter */}
+      <div className="bg-white rounded-2xl border border-cafe-200 p-3">
+        <p className="text-[10px] font-semibold text-coqui-800/60 mb-2">{t(locale, 'admin_pricing_runs_filterByDate')}</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[10px] text-coqui-800/50 mb-0.5">{t(locale, 'admin_pricing_runs_filterFrom')}</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-full border border-cafe-200 rounded-xl px-3 py-2 text-sm focus:border-coqui-500 focus:ring-1 focus:ring-coqui-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] text-coqui-800/50 mb-0.5">{t(locale, 'admin_pricing_runs_filterTo')}</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-full border border-cafe-200 rounded-xl px-3 py-2 text-sm focus:border-coqui-500 focus:ring-1 focus:ring-coqui-500 outline-none"
+            />
+          </div>
+        </div>
+        {coverageMode && (
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-[10px] text-coqui-800/50">{t(locale, 'admin_pricing_runs_filterHint')}</p>
+            <button
+              onClick={() => { setDateFrom(''); setDateTo(''); }}
+              className="text-[10px] font-semibold text-coqui-600 hover:text-coqui-800"
+            >
+              {t(locale, 'admin_pricing_runs_clearFilter')}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Empty state for date filter */}
+      {coverageMode && runs.length === 0 && !loading && (
+        <div className="bg-white rounded-2xl border border-cafe-200 p-8 text-center">
+          <p className="text-sm text-coqui-800/60">{t(locale, 'admin_pricing_runs_emptyDateRange')}</p>
+        </div>
+      )}
+
       {runs.map((run) => {
         const runKey = `${run.source}-${run.id}`;
         const isExpanded = expandedId === runKey;
@@ -2601,76 +3125,118 @@ function RunsTab({ locale }) {
         const isResearch = run.source === 'research';
 
         return (
-          <div key={runKey} className="bg-white rounded-2xl border border-cafe-200 shadow-brand overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setExpandedId(isExpanded ? null : runKey)}
-              className="w-full px-4 py-3 text-left hover:bg-cafe-50/30 transition"
-            >
-              <div className="flex items-center gap-2">
-                {/* Status dot */}
-                <span className={`w-2 h-2 rounded-full shrink-0 ${statusColor}`} />
+          <div key={runKey} className={`bg-white rounded-2xl border border-cafe-200 shadow-brand overflow-hidden ${run.excluded ? 'opacity-50' : ''}`}>
+            <div className="flex items-center">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setExpandedId(isExpanded ? null : runKey)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(isExpanded ? null : runKey); } }}
+                className="flex-1 min-w-0 px-4 py-3 text-left hover:bg-cafe-50/30 transition cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  {/* Status dot */}
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${statusColor}`} />
 
-                {/* Trigger + time */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs">{triggerIcon}</span>
-                    <span className="text-xs font-semibold text-coqui-900">{triggerLabel}</span>
-                    {isResearch && (
-                      <span className="text-[9px] font-semibold bg-violet-100 text-violet-700 border border-violet-200 px-1.5 py-0 rounded-full">
-                        {t(locale, 'admin_pricing_runs_research')}
-                      </span>
-                    )}
-                    <span className="text-[10px] text-coqui-800/40">#{run.id}</span>
-                    <span className="text-[10px] text-coqui-800/50 ml-auto">{relativeTime(run.startedAt)}</span>
+                  {/* Trigger + time */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs">{triggerIcon}</span>
+                      <span className="text-xs font-semibold text-coqui-900">{triggerLabel}</span>
+                      {isResearch && (
+                        <span className="text-[9px] font-semibold bg-violet-100 text-violet-700 border border-violet-200 px-1.5 py-0 rounded-full">
+                          {t(locale, 'admin_pricing_runs_research')}
+                        </span>
+                      )}
+                      {run.excluded === 1 && (
+                        <span className="text-[9px] font-semibold bg-gray-100 text-gray-500 border border-gray-200 px-1.5 py-0 rounded-full">
+                          {t(locale, 'admin_pricing_runs_excluded')}
+                        </span>
+                      )}
+                      {run.recommended && (
+                        <span className="text-[9px] font-semibold bg-coqui-100 text-coqui-700 border border-coqui-200 px-1.5 py-0 rounded-full">
+                          {t(locale, 'admin_pricing_runs_best')}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-coqui-800/40">#{run.id}</span>
+                      <span className="text-[10px] text-coqui-800/50 ml-auto">{relativeTime(run.startedAt)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      {!isResearch && (
+                        <span className="text-[10px] text-coqui-800/60">
+                          {run.runType === 'full' ? t(locale, 'admin_pricing_runs_full') : t(locale, 'admin_pricing_runs_analysis')}
+                        </span>
+                      )}
+                      {run.durationMs && (
+                        <span className="text-[10px] text-coqui-800/40">{formatDuration(run.durationMs)}</span>
+                      )}
+                      {run.listingCount > 0 && (
+                        <span className="text-[10px] text-coqui-800/50">{run.listingCount} {t(locale, 'admin_pricing_runs_listings')}</span>
+                      )}
+                      {run.obsCount > 0 && (
+                        <span className="text-[10px] text-coqui-800/50">{run.obsCount} {t(locale, 'admin_pricing_runs_observations')}</span>
+                      )}
+                      {run.analysisOk > 0 && (
+                        <span className="text-[10px] text-coqui-800/50">{run.analysisOk} {t(locale, 'admin_pricing_runs_recs')}</span>
+                      )}
+                      {run.compsActive > 0 && !isResearch && (
+                        <span className="text-[10px] text-coqui-800/50">{run.compsActive} {t(locale, 'admin_pricing_runs_comps')}</span>
+                      )}
+                      {run.warningCount > 0 && (
+                        <span className="text-[10px] font-medium text-amber-600">{run.warningCount} {t(locale, 'admin_pricing_runs_warnings').toLowerCase()}</span>
+                      )}
+                      {run.coverageStats && (
+                        <>
+                          <span className="text-[10px] font-medium text-coqui-700">{run.coverageStats.datesCovered}/{run.coverageStats.rangeDays} {t(locale, 'admin_pricing_runs_datesCovered')}</span>
+                          <span className="text-[10px] font-medium text-coqui-700">{run.coverageStats.uniqueComps} {t(locale, 'admin_pricing_runs_comps')}</span>
+                          <span className="text-[10px] font-medium text-coqui-700">{run.coverageStats.obsInRange} {t(locale, 'admin_pricing_runs_observations')}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    {!isResearch && (
-                      <span className="text-[10px] text-coqui-800/60">
-                        {run.runType === 'full' ? t(locale, 'admin_pricing_runs_full') : t(locale, 'admin_pricing_runs_analysis')}
-                      </span>
-                    )}
-                    {run.durationMs && (
-                      <span className="text-[10px] text-coqui-800/40">{formatDuration(run.durationMs)}</span>
-                    )}
-                    {run.listingCount > 0 && (
-                      <span className="text-[10px] text-coqui-800/50">{run.listingCount} {t(locale, 'admin_pricing_runs_listings')}</span>
-                    )}
-                    {run.obsCount > 0 && (
-                      <span className="text-[10px] text-coqui-800/50">{run.obsCount} {t(locale, 'admin_pricing_runs_observations')}</span>
-                    )}
-                    {run.analysisOk > 0 && (
-                      <span className="text-[10px] text-coqui-800/50">{run.analysisOk} {t(locale, 'admin_pricing_runs_recs')}</span>
-                    )}
-                    {run.compsActive > 0 && !isResearch && (
-                      <span className="text-[10px] text-coqui-800/50">{run.compsActive} {t(locale, 'admin_pricing_runs_comps')}</span>
-                    )}
-                    {run.warningCount > 0 && (
-                      <span className="text-[10px] font-medium text-amber-600">{run.warningCount} {t(locale, 'admin_pricing_runs_warnings').toLowerCase()}</span>
-                    )}
-                  </div>
+
+                  {/* Expand chevron */}
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"
+                    className={`w-3.5 h-3.5 text-coqui-800/30 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                    <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                  </svg>
                 </div>
 
-                {/* Expand chevron */}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"
-                  className={`w-3.5 h-3.5 text-coqui-800/30 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
-                  <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                </svg>
+                {/* Error log for failed runs */}
+                {run.status === 'failed' && run.errorLog && (
+                  <p className="text-[10px] text-red-600 mt-1 truncate">{run.errorLog}</p>
+                )}
               </div>
 
-              {/* Error log for failed runs */}
-              {run.status === 'failed' && run.errorLog && (
-                <p className="text-[10px] text-red-600 mt-1 truncate">{run.errorLog}</p>
-              )}
-            </button>
+              {/* Exclude/include toggle — outside the expand clickable area */}
+              <button
+                type="button"
+                onClick={() => handleToggleExcluded(run, { stopPropagation() {} })}
+                disabled={togglingId === runKey}
+                title={run.excluded ? t(locale, 'admin_pricing_runs_include') : t(locale, 'admin_pricing_runs_exclude')}
+                className="p-2 pr-3 rounded hover:bg-cafe-100 transition shrink-0 disabled:opacity-50 self-center"
+              >
+                {run.excluded ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-gray-400">
+                    <path d="M3.28 2.22a.75.75 0 0 0-1.06 1.06l10.5 10.5a.75.75 0 1 0 1.06-1.06l-1.527-1.527A7.048 7.048 0 0 0 14.88 8c-.997-2.837-3.675-4.88-6.88-4.88a6.99 6.99 0 0 0-2.677.535L3.28 2.22ZM8 5.12A2.88 2.88 0 0 1 10.88 8c0 .585-.175 1.13-.476 1.584L9.38 8.56A1.38 1.38 0 0 0 8 6.62l-1.024-1.024A2.87 2.87 0 0 1 8 5.12Z" />
+                    <path d="M1.12 8c.733-2.082 2.498-3.678 4.703-4.314L4.288 5.22A7.048 7.048 0 0 0 1.12 8Zm3.392 4.792L5.52 11.784A2.88 2.88 0 0 1 8 10.88c.215 0 .424-.024.627-.068l1.078 1.078A6.99 6.99 0 0 1 8 12.88c-2.507 0-4.691-1.363-5.862-3.382l.374-.498Z" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-coqui-800/30">
+                    <path d="M1.12 8C2.118 5.163 4.798 3.12 8 3.12s5.882 2.043 6.88 4.88c-.998 2.837-3.678 4.88-6.88 4.88S2.118 10.837 1.12 8ZM8 10.88a2.88 2.88 0 1 0 0-5.76 2.88 2.88 0 0 0 0 5.76Z" />
+                    <path d="M8 9.38a1.38 1.38 0 1 0 0-2.76 1.38 1.38 0 0 0 0 2.76Z" />
+                  </svg>
+                )}
+              </button>
+            </div>
 
             {isExpanded && <RunDetailPanel run={run} locale={locale} />}
           </div>
         );
       })}
 
-      {/* Load more */}
-      {runs.length < total && (
+      {/* Load more (hidden in coverage mode — all matching runs shown) */}
+      {!coverageMode && runs.length < total && (
         <button
           onClick={loadMore}
           disabled={loading}

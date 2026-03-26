@@ -191,11 +191,18 @@ function archiveMarketData(db, unitId, runId, scrapedAt) {
   const placeholders = compIds.map(() => '?').join(',');
 
   // 1. Archive availability_log from current snapshots_v2
+  // Use best available stay_nights (prefer 2n, fall back to shortest available)
+  const bestStay = db.prepare(`
+    SELECT MIN(stay_nights) as sn FROM snapshots_v2
+    WHERE competitor_id IN (${placeholders}) AND stay_nights IN (2, 4, 5, 7)
+  `).get(...compIds);
+  const archiveStayNights = bestStay?.sn || 2;
+
   const snapshots = db.prepare(`
     SELECT competitor_id, check_date, available, nightly_rate, tcpn
     FROM snapshots_v2
-    WHERE competitor_id IN (${placeholders}) AND stay_nights = 2
-  `).all(...compIds);
+    WHERE competitor_id IN (${placeholders}) AND stay_nights = ?
+  `).all(...compIds, archiveStayNights);
 
   const insertAvail = db.prepare(`
     INSERT INTO availability_log (competitor_id, check_date, scraped_at, run_id, available, nightly_rate, tcpn_2n)
@@ -560,6 +567,63 @@ function getCalendarSummary(db, runId, runSource) {
   `).all(runId, runSource);
 }
 
+/**
+ * Get coverage stats per (run_id, run_source) for a date range.
+ * Returns a Map keyed by "run_id:run_source" → { obsInRange, uniqueComps, datesCovered }.
+ */
+function getRunCoverageStats(db, dateFrom, dateTo) {
+  const map = new Map();
+
+  // run_observations: check_date BETWEEN dateFrom AND dateTo
+  const obsRows = db.prepare(`
+    SELECT run_id, run_source,
+      COUNT(*) as obs_in_range,
+      COUNT(DISTINCT competitor_id) as unique_comps,
+      COUNT(DISTINCT check_date) as dates_covered
+    FROM run_observations
+    WHERE check_date BETWEEN ? AND ?
+    GROUP BY run_id, run_source
+  `).all(dateFrom, dateTo);
+
+  for (const r of obsRows) {
+    map.set(`${r.run_id}:${r.run_source}`, {
+      obsInRange: r.obs_in_range,
+      uniqueComps: r.unique_comps,
+      datesCovered: r.dates_covered,
+    });
+  }
+
+  // calendar_availability: date BETWEEN dateFrom AND dateTo (research runs)
+  const calRows = db.prepare(`
+    SELECT run_id, run_source,
+      COUNT(*) as obs_in_range,
+      COUNT(DISTINCT competitor_id) as unique_comps,
+      COUNT(DISTINCT date) as dates_covered
+    FROM calendar_availability
+    WHERE date BETWEEN ? AND ?
+    GROUP BY run_id, run_source
+  `).all(dateFrom, dateTo);
+
+  for (const r of calRows) {
+    const key = `${r.run_id}:${r.run_source}`;
+    if (map.has(key)) {
+      // Merge — take the max of each stat
+      const existing = map.get(key);
+      existing.obsInRange += r.obs_in_range;
+      existing.uniqueComps = Math.max(existing.uniqueComps, r.unique_comps);
+      existing.datesCovered = Math.max(existing.datesCovered, r.dates_covered);
+    } else {
+      map.set(key, {
+        obsInRange: r.obs_in_range,
+        uniqueComps: r.unique_comps,
+        datesCovered: r.dates_covered,
+      });
+    }
+  }
+
+  return map;
+}
+
 /** Get paginated research runs */
 function getResearchRuns(db, { limit = 20, offset = 0, status = null } = {}) {
   let query = 'SELECT * FROM research_runs';
@@ -591,5 +655,5 @@ module.exports = {
   archiveMarketData, getMarketHistory, getAvailabilityHistory, getAutopilotRuns, recordRateHistory,
   getRunList, getRunById, getRunRecSummary, getRunMarketSummary,
   saveRunObservations, getRunObservations, getRunListingsSummary, getRunComparison, getResearchRuns,
-  saveCalendarAvailability, getCalendarSummary,
+  saveCalendarAvailability, getCalendarSummary, getRunCoverageStats,
 };

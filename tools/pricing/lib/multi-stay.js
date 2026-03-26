@@ -5,6 +5,9 @@
  * - Recommended nightly rate (anchored to 2-night TCPN)
  * - Weekly discount % (from 7n vs 2n comparison)
  * - Monthly discount % (extrapolated from weekly)
+ *
+ * V2: Now delegates verdict/action to decision-engine.js (Layer 2).
+ * The decision engine applies structured rules; the AI (Layer 3) explains.
  */
 
 const { percentile, trimOutliers, computePercentileRank, computeConfidence, coefficientOfVariation } = require('./stats');
@@ -12,6 +15,8 @@ const { computeTcpn, tcpnToNightlyRate } = require('./normalize');
 const { getCompSnapshotsV2 } = require('./db');
 const { getSeason, getLeadTimeAdjustment } = require('./seasons');
 const { getDayOfWeek, isHoliday } = require('./dates');
+const { classifyMarketTrend, makeDecision, summarizeDecisions } = require('./decision-engine');
+const { classifyAvailability } = require('./availability');
 
 const STAY_LENGTHS = [1, 2, 3, 4, 7];
 
@@ -25,9 +30,12 @@ const STAY_LENGTHS = [1, 2, 3, 4, 7];
  * @param {import('better-sqlite3').Database} db
  * @param {string} unitId
  * @param {string} date  YYYY-MM-DD
- * @returns {object}  Recommendation object
+ * @param {Object} [opts] Optional context to avoid repeated DB queries
+ * @param {Object} [opts.trend] Pre-computed market trend (from classifyMarketTrend)
+ * @param {number} [opts.runCount] Number of runs in last 30 days
+ * @returns {object}  Recommendation object (backward-compatible + new decision fields)
  */
-function analyzeDateMultiStay(db, unitId, date) {
+function analyzeDateMultiStay(db, unitId, date, opts = {}) {
   const dayOfWeek = getDayOfWeek(date);
   const holiday = isHoliday(date);
   const season = getSeason(db, date);
@@ -44,6 +52,7 @@ function analyzeDateMultiStay(db, unitId, date) {
   // 1. For each stay length, gather comp TCPN values from snapshots_v2
   const stayData = {};
   let totalComps = 0;
+  let newestCapturedAt = null;
 
   for (const nights of STAY_LENGTHS) {
     const snapshots = getCompSnapshotsV2(db, unitId, date, nights);
@@ -60,11 +69,26 @@ function analyzeDateMultiStay(db, unitId, date) {
     const trimmed = trimOutliers(tcpns);
     totalComps = Math.max(totalComps, trimmed.length);
 
+    // Track actual freshness from captured_at
+    for (const s of snapshots) {
+      if (s.captured_at) {
+        const cap = new Date(s.captured_at).getTime();
+        if (!newestCapturedAt || cap > newestCapturedAt) {
+          newestCapturedAt = cap;
+        }
+      }
+    }
+
     // Compute market TCPN at seasonal percentile
     const marketTcpn = trimmed.length > 0 ? percentile(trimmed, season.target_pctl) : null;
 
     stayData[nights] = { tcpns, trimmed, marketTcpn };
   }
+
+  // Compute actual data age (FIX: was hardcoded to 1)
+  const dataAgeDays = newestCapturedAt
+    ? (Date.now() - newestCapturedAt) / 86400000
+    : 999; // No data = treat as very stale
 
   // If no data at all, return insufficient_data result
   if (totalComps === 0) {
@@ -73,11 +97,11 @@ function analyzeDateMultiStay(db, unitId, date) {
       verdict: 'insufficient_data',
       reasoning: `No multi-stay competitor data for ${date}.`,
       confidence: 0, compCount: 0,
+      decision: null,
     });
   }
 
   // 2. Derive recommended nightly rate (anchored to 2-night TCPN)
-  // Prefer 2-night data; fall back to whatever stay length has data
   const anchorStay = stayData[2]?.marketTcpn ? 2
     : stayData[3]?.marketTcpn ? 3
     : stayData[1]?.marketTcpn ? 1
@@ -90,6 +114,7 @@ function analyzeDateMultiStay(db, unitId, date) {
       verdict: 'insufficient_data',
       reasoning: 'No usable TCPN data across any stay length.',
       confidence: 0, compCount: 0,
+      decision: null,
     });
   }
 
@@ -101,7 +126,7 @@ function analyzeDateMultiStay(db, unitId, date) {
   const target = anchorTcpn; // = percentile at season target
   const stretch = percentile(anchorData.trimmed, 75);
 
-  // Assume cleaning fee of $75 (typical for this market) if not known from my_rates
+  // Assume cleaning fee of $75 if not known from my_rates
   const cleaningFee = myRate?.cleaning_fee || 75;
 
   // rec_nightly = market_tcpn(anchor) - cleaning_fee / anchor_nights, rounded to nearest $5
@@ -114,14 +139,11 @@ function analyzeDateMultiStay(db, unitId, date) {
   // 4. Derive monthly discount %
   const monthlyPct = computeMonthlyDiscount(weeklyPct);
 
-  // 5. Apply overlays
-
-  // Lead-time adjustment (getLeadTimeAdjustment expects the season object)
+  // 5. Apply overlays (legacy — kept for backward-compat rec_nightly_rate)
   const leadAdj = getLeadTimeAdjustment(leadTimeDays, season);
   recNightly = Math.round((recNightly * leadAdj) / 5) * 5;
 
-  // Holiday multiplier — only apply when scraped data is old (>3 days),
-  // because fresh scrapes already reflect holiday-premium pricing in the market.
+  // Holiday multiplier — only when data is old
   let holidayAdjusted = false;
   if (holiday) {
     const anchorSnaps = getCompSnapshotsV2(db, unitId, date, anchorStay);
@@ -136,45 +158,52 @@ function analyzeDateMultiStay(db, unitId, date) {
     }
   }
 
-  // Demand signal removed — snapshots_v2 only tracks available=1 listings,
-  // so comp count vs snapshot count measures data completeness, not demand.
-  // Real demand tracking requires availability history (future phase).
-  const demandSignal = null;
-
-  // Confidence scoring
+  // 6. Confidence scoring (FIXED: actual data age, not hardcoded)
   const cv = anchorData.trimmed.length > 1 ? coefficientOfVariation(anchorData.trimmed) : 0;
-  const confidence = computeConfidence({
+
+  // Get market trend (use cached if provided, else compute)
+  const trend = opts.trend || classifyMarketTrend(db, unitId);
+  const runCount = opts.runCount || trend.runsAnalyzed || 1;
+
+  // Get availability signal
+  const availability = classifyAvailability(db, unitId, date);
+
+  // Compute confidence with new structured model
+  const confidenceResult = computeConfidence({
     compCount: anchorData.trimmed.length,
-    snapshotMaxAgeDays: 1, // fresh from scrape
-    isExactDate: true,
+    dataAgeDays,
     tcpnCV: cv,
+    runCount,
+    signalsAgree: true, // Will be updated by decision engine
+    leadTimeDays,
   });
 
-  // Verdict — simplified to 3 actionable signals: raise, keep, lower
-  let verdict = 'no_data';
-  let pctRank = null;
-  let reasoning = '';
+  // 7. Decision engine — Layer 2 structured decision
+  const decision = makeDecision({
+    marketData: {
+      anchorTcpn,
+      trimmedValues: anchorData.trimmed,
+      compCount: totalComps,
+    },
+    myRate,
+    season,
+    trend,
+    availability,
+    confidence: confidenceResult,
+    holiday,
+    dayOfWeek,
+    leadTimeDays,
+    dataAgeDays,
+    anchorNights: anchorStay,
+  });
 
-  if (myRate?.tcpn && confidence >= 25) {
-    pctRank = computePercentileRank(anchorData.trimmed, myRate.tcpn);
+  // 8. Backward-compatible verdict (from decision engine)
+  let verdict = decision.action;
+  if (verdict === 'suppress') verdict = 'insufficient_data';
+  if (verdict === 'hold') verdict = 'keep'; // Legacy compat: 'keep' = 'hold'
 
-    if (pctRank < 35) {
-      verdict = 'raise';
-      reasoning = `Your rate is at the ${pctRank}th percentile — below most competitors. Consider raising to $${recNightly}.`;
-    } else if (pctRank <= 70) {
-      verdict = 'keep';
-      reasoning = `Your rate is at the ${pctRank}th percentile — well-positioned vs competitors.`;
-    } else {
-      verdict = 'lower';
-      reasoning = `Your rate is at the ${pctRank}th percentile — above most competitors. Consider lowering toward $${recNightly}.`;
-    }
-  } else if (confidence < 25) {
-    verdict = 'insufficient_data';
-    reasoning = `Not enough data to produce a reliable recommendation.`;
-  } else {
-    reasoning = `No rate recorded. Recommended: $${recNightly}/night.`;
-  }
-
+  let pctRank = decision.percentile;
+  let reasoning = decision.decisionReason;
   reasoning += ` Based on ${totalComps} listings. Season: ${season.name} (P${season.target_pctl}).`;
   if (holidayAdjusted) reasoning += ` ${holiday.name} premium applied.`;
 
@@ -193,11 +222,14 @@ function analyzeDateMultiStay(db, unitId, date) {
     stretch: round2(stretch),
     verdict,
     reasoning: reasoning.trim(),
-    confidence,
+    confidence: confidenceResult.score,
     percentile: pctRank,
     compCount: totalComps,
-    demandSignal,
+    demandSignal: availability.signal,
     holidayAdjusted,
+    // New structured fields from decision engine
+    decision,
+    dataAgeDays: Math.round(dataAgeDays * 10) / 10,
   });
 }
 
@@ -238,6 +270,7 @@ function round2(v) {
 
 /**
  * Build a consistent multi-stay result object.
+ * Backward-compatible with existing consumers + new decision fields.
  */
 function buildMultiStayResult({
   date, dayOfWeek, holiday, season, leadTimeDays, myRate,
@@ -246,6 +279,7 @@ function buildMultiStayResult({
   floor = null, target = null, stretch = null,
   verdict = 'insufficient_data', reasoning = '', confidence = 0,
   percentile = null, compCount = 0, demandSignal = null, holidayAdjusted = false,
+  decision = null, dataAgeDays = null,
 }) {
   return {
     date,
@@ -275,6 +309,9 @@ function buildMultiStayResult({
     demandSignal,
     holidayAdjusted,
     isBooked: myRate?.is_booked === 1,
+    // New structured fields
+    decision,
+    dataAgeDays,
   };
 }
 

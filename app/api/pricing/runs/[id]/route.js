@@ -2,6 +2,33 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/api-auth';
 import { getDb, getPricingLib } from '@/lib/pricing-db';
 
+export async function PATCH(request, { params }) {
+  const authResult = await requireRole(request, ['admin']);
+  if (authResult.error) return authResult.error;
+
+  try {
+    const db = getDb();
+    const { id } = await params;
+    const body = await request.json();
+    const { excluded, source = 'autopilot' } = body;
+
+    if (excluded !== 0 && excluded !== 1) {
+      return NextResponse.json({ success: false, error: 'excluded must be 0 or 1' }, { status: 400 });
+    }
+
+    const table = source === 'research' ? 'research_runs' : 'autopilot_runs';
+    const result = db.prepare(`UPDATE ${table} SET excluded = ? WHERE id = ?`).run(excluded, Number(id));
+
+    if (result.changes === 0) {
+      return NextResponse.json({ success: false, error: 'Run not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, data: { id: Number(id), excluded } });
+  } catch (err) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
 export async function GET(request, { params }) {
   const authResult = await requireRole(request, ['admin', 'cohost']);
   if (authResult.error) return authResult.error;
