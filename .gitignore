@@ -34,7 +34,10 @@ yarn-error.log*
 
 # pricing tool (local SQLite + generated reports)
 tools/pricing/pricing.db
+tools/pricing/pricing.db-shm
+tools/pricing/pricing.db-wal
 tools/pricing/reports/
+tools/pricing/logs/
 
 # typescript
 *.tsbuildinfo
