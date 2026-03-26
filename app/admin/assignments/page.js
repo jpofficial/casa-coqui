@@ -59,7 +59,8 @@ const CATEGORY_STYLES = {
 // ---------------------------------------------------------------------------
 function formatDate(dateStr) {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
+  // Append T00:00 to date-only strings so they parse as local time, not UTC
+  const d = new Date(dateStr.length === 10 ? dateStr + 'T00:00' : dateStr);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
@@ -82,7 +83,7 @@ function isOverdue(dueDate, status) {
   if (!dueDate || status === 'completed' || status === 'cancelled') return false;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  return new Date(dueDate) < today;
+  return new Date(dueDate.length === 10 ? dueDate + 'T00:00' : dueDate) < today;
 }
 
 function formatMinutes(n) {
@@ -350,7 +351,7 @@ function SkeletonCard() {
 // ---------------------------------------------------------------------------
 // Assignment Card — redesigned for clarity
 // ---------------------------------------------------------------------------
-function AssignmentCard({ assignment, canManage, isAdmin, currentUid, staffMembers, bookingInfo, onPatch }) {
+function AssignmentCard({ assignment, canManage, isAdmin, currentUid, staffMembers, bookingInfo, onPatch, onEdit }) {
   const [completing, setCompleting] = useState(false);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -739,6 +740,19 @@ function AssignmentCard({ assignment, canManage, isAdmin, currentUid, staffMembe
                   {showRespond ? 'Cancel' : a.guestResponse ? 'Edit Response' : 'Respond'}
                 </button>
               )}
+
+              {/* Edit task */}
+              {canManage && onEdit && (
+                <button
+                  onClick={() => onEdit(a)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-gray-500 text-xs font-semibold active:bg-gray-50 min-h-[36px]"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                  Edit
+                </button>
+              )}
             </div>
           )}
 
@@ -825,7 +839,7 @@ function AssignmentCard({ assignment, canManage, isAdmin, currentUid, staffMembe
             </div>
           )}
 
-          {/* Reopen / Archive buttons for completed tasks */}
+          {/* Reopen / Archive / Edit buttons for completed tasks */}
           {canManage && a.status === 'completed' && (
             <div className="flex gap-2 pt-1">
               <button
@@ -842,6 +856,17 @@ function AssignmentCard({ assignment, canManage, isAdmin, currentUid, staffMembe
               >
                 Archive
               </button>
+              {onEdit && (
+                <button
+                  onClick={() => onEdit(a)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-2 rounded-lg active:bg-gray-50 min-h-[36px]"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                  Edit
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -877,16 +902,17 @@ function EmptyState({ tab, canManage }) {
 // ---------------------------------------------------------------------------
 // Create Assignment Modal
 // ---------------------------------------------------------------------------
-function CreateAssignmentModal({ user, staffMembers, settings, onClose }) {
+function CreateAssignmentModal({ user, staffMembers, settings, onClose, assignment }) {
+  const isEdit = !!assignment;
   const unitOptions = getUnitsWithShared(settings);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [assigneeId, setAssigneeId] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [priority, setPriority] = useState('medium');
-  const [unit, setUnit] = useState('');
-  const [photoUrl, setPhotoUrl] = useState('');
-  const [estMinutes, setEstMinutes] = useState(null);
+  const [title, setTitle] = useState(assignment?.title || '');
+  const [description, setDescription] = useState(assignment?.description || '');
+  const [assigneeId, setAssigneeId] = useState(assignment?.assigneeId || '');
+  const [dueDate, setDueDate] = useState(assignment?.dueDate || '');
+  const [priority, setPriority] = useState(assignment?.priority || 'medium');
+  const [unit, setUnit] = useState(assignment?.unit || '');
+  const [photoUrl, setPhotoUrl] = useState(assignment?.photoUrl || '');
+  const [estMinutes, setEstMinutes] = useState(assignment?.estimatedMinutes || null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -899,8 +925,9 @@ function CreateAssignmentModal({ user, staffMembers, settings, onClose }) {
 
     try {
       const idToken = await user.getIdToken();
-      const res = await fetch('/api/assignments', {
-        method: 'POST',
+      const url = isEdit ? `/api/assignments/${assignment.id}` : '/api/assignments';
+      const res = await fetch(url, {
+        method: isEdit ? 'PATCH' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${idToken}`,
@@ -923,7 +950,7 @@ function CreateAssignmentModal({ user, staffMembers, settings, onClose }) {
         setError(json.error);
       }
     } catch {
-      setError('Failed to create task.');
+      setError(isEdit ? 'Failed to save changes.' : 'Failed to create task.');
     } finally {
       setSaving(false);
     }
@@ -933,7 +960,7 @@ function CreateAssignmentModal({ user, staffMembers, settings, onClose }) {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
       <div className="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">New Task</h2>
+          <h2 className="text-lg font-bold text-gray-900">{isEdit ? 'Edit Task' : 'New Task'}</h2>
           <button onClick={onClose} className="text-gray-400 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -1042,7 +1069,7 @@ function CreateAssignmentModal({ user, staffMembers, settings, onClose }) {
             disabled={saving || !title.trim()}
             className="w-full bg-green-600 text-white font-medium py-3 rounded-lg active:bg-green-700 disabled:opacity-50"
           >
-            {saving ? 'Creating...' : 'Create Task'}
+            {saving ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create Task')}
           </button>
         </form>
       </div>
@@ -1063,6 +1090,7 @@ export default function AssignmentsPage() {
   const [bookingMap, setBookingMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [editAssignment, setEditAssignment] = useState(null);
   const [tab, setTab] = useState('active');
 
   // Real-time listener for assignments
@@ -1263,8 +1291,8 @@ export default function AssignmentsPage() {
               currentUid={user?.uid}
               staffMembers={staffMembers}
               bookingInfo={a.bookingCode ? bookingMap[a.bookingCode] : null}
-
               onPatch={patchAssignment}
+              onEdit={canManage ? setEditAssignment : undefined}
             />
           ))}
         </div>
@@ -1273,10 +1301,23 @@ export default function AssignmentsPage() {
       {/* Create modal */}
       {showCreate && (
         <CreateAssignmentModal
+          key="new"
           user={user}
           staffMembers={staffMembers}
           settings={settings}
           onClose={() => setShowCreate(false)}
+        />
+      )}
+
+      {/* Edit modal */}
+      {editAssignment && (
+        <CreateAssignmentModal
+          key={editAssignment.id}
+          user={user}
+          staffMembers={staffMembers}
+          settings={settings}
+          assignment={editAssignment}
+          onClose={() => setEditAssignment(null)}
         />
       )}
     </div>

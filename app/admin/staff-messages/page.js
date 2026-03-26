@@ -11,7 +11,8 @@ import {
   updateDoc,
   writeBatch,
 } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { db, auth, storage } from '@/lib/firebase';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
 
@@ -116,7 +117,7 @@ function ThreadItem({ thread, onSelect, locale }) {
         <div className="flex items-center gap-2 mt-0.5">
           <p className="text-xs text-gray-500 truncate flex-1">
             {last?.sender === 'host' ? t(locale, 'admin_msg_you') + ' ' : ''}
-            {last?.text || ''}
+            {last?.text || (last?.imageUrls?.length > 0 ? t(locale, 'admin_msg_photo') : '')}
           </p>
           {thread.unreadCount > 0 && (
             <span className="flex-shrink-0 bg-[#25D366] text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
@@ -134,7 +135,9 @@ function ChatView({ thread, allMessages, onBack }) {
   const { locale } = useLocale();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [pendingImages, setPendingImages] = useState([]); // { file, preview }
   const bottomRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const threadMessages = allMessages
     .filter((m) => m.staffId === thread.staffId)
@@ -158,14 +161,65 @@ function ChatView({ thread, allMessages, onBack }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [threadMessages.length]);
 
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      pendingImages.forEach((img) => URL.revokeObjectURL(img.preview));
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleFilesSelected(e) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const remaining = 3 - pendingImages.length;
+    const toAdd = files.slice(0, remaining).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setPendingImages((prev) => [...prev, ...toAdd]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  function removePending(idx) {
+    setPendingImages((prev) => {
+      URL.revokeObjectURL(prev[idx].preview);
+      return prev.filter((_, i) => i !== idx);
+    });
+  }
+
+  // Find latest jobId for storage path + Firestore doc
+  const latestJobId = [...threadMessages].reverse().find((m) => m.jobId)?.jobId || null;
+
+  async function uploadPendingImages() {
+    const results = [];
+    const storagePath = latestJobId ? `cleaning_jobs/${latestJobId}/chat` : `staff_messages/${thread.staffId}`;
+    for (const img of pendingImages) {
+      const ext = img.file.name.split('.').pop() || 'jpg';
+      const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+      const storageRef = ref(storage, `${storagePath}/${filename}`);
+      const snap = await uploadBytesResumable(storageRef, img.file);
+      const url = await getDownloadURL(snap.ref);
+      results.push(url);
+    }
+    return results;
+  }
+
+  const canSend = (text.trim() || pendingImages.length > 0) && !sending;
+
   const handleSend = useCallback(async () => {
-    const trimmed = text.trim();
-    if (!trimmed || sending) return;
+    if (!canSend) return;
     setSending(true);
+    const trimmed = text.trim();
     setText('');
     try {
-      // Find most recent jobId from thread so reply appears in cleaner's per-job chat
-      const latestJobId = [...threadMessages].reverse().find((m) => m.jobId)?.jobId || null;
+      // Upload pending images first
+      let imageUrls = [];
+      if (pendingImages.length > 0) {
+        imageUrls = await uploadPendingImages();
+      }
+
+      const notifyText = trimmed || t(locale, 'sentPhoto');
 
       await addDoc(collection(db, 'staff_messages'), {
         staffId: thread.staffId,
@@ -175,6 +229,7 @@ function ChatView({ thread, allMessages, onBack }) {
         read: false,
         createdAt: new Date().toISOString(),
         ...(latestJobId && { jobId: latestJobId }),
+        ...(imageUrls.length > 0 && { imageUrls }),
       });
 
       // Notify the staff member
@@ -183,16 +238,20 @@ function ChatView({ thread, allMessages, onBack }) {
         fetch('/api/staff-messages/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-          body: JSON.stringify({ staffId: thread.staffId, sender: 'host' }),
+          body: JSON.stringify({ staffId: thread.staffId, sender: 'host', text: notifyText }),
         }).catch(() => {});
       }
+
+      pendingImages.forEach((img) => URL.revokeObjectURL(img.preview));
+      setPendingImages([]);
     } catch (err) {
       console.error('Failed to send message:', err);
       setText(trimmed);
     } finally {
       setSending(false);
     }
-  }, [text, sending, thread.staffId, thread.staffName]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, sending, pendingImages, thread.staffId, thread.staffName, latestJobId, locale]);
 
   function handleKeyDown(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -249,7 +308,21 @@ function ChatView({ thread, allMessages, onBack }) {
                     : 'bg-white text-gray-800 rounded-bl-sm'
                 }`}
               >
-                <p>{msg.text}</p>
+                {msg.imageUrls?.length > 0 && (
+                  <div className={`flex gap-1 flex-wrap ${msg.text ? 'mb-1.5' : ''}`}>
+                    {msg.imageUrls.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                        <img
+                          src={url}
+                          alt=""
+                          className="rounded-lg max-w-[180px] max-h-[140px] object-cover"
+                          loading="lazy"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {msg.text && <p>{msg.text}</p>}
                 <p className={`text-[10px] mt-1 ${isHost ? 'text-green-200' : 'text-gray-400'} text-right`}>
                   {formatTime(msg.createdAt, locale)}
                 </p>
@@ -260,27 +333,72 @@ function ChatView({ thread, allMessages, onBack }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Reply input */}
-      <div className="bg-white border-t border-gray-100 px-4 py-3 flex items-end gap-2 flex-shrink-0">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={t(locale, 'admin_staffMsg_placeholder')}
-          rows={1}
-          className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#25D366]/50 focus:border-transparent resize-none max-h-32"
-          style={{ minHeight: '44px' }}
-        />
-        <button
-          onClick={handleSend}
-          disabled={!text.trim() || sending}
-          className="bg-[#25D366] text-white rounded-xl p-3 flex-shrink-0 disabled:opacity-50 active:bg-[#20bd5a] transition-colors"
-          aria-label={t(locale, 'admin_msg_send')}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-          </svg>
-        </button>
+      {/* Pending photo strip + Reply input */}
+      <div className="bg-white border-t border-gray-100 flex-shrink-0">
+        {pendingImages.length > 0 && (
+          <div className="px-4 pt-2 flex gap-2 overflow-x-auto">
+            {pendingImages.map((img, idx) => (
+              <div key={idx} className="relative flex-shrink-0">
+                <img src={img.preview} alt="" className="w-14 h-14 rounded-lg object-cover" />
+                <button
+                  onClick={() => removePending(idx)}
+                  className="absolute -top-1 -right-1 bg-gray-800/70 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                  aria-label={t(locale, 'removePhoto')}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+            {sending && (
+              <div className="flex items-center text-xs text-gray-400 pl-1">
+                {t(locale, 'uploadingPhoto')}
+              </div>
+            )}
+          </div>
+        )}
+        <div className="px-4 py-3 flex items-end gap-2">
+          {/* Attach photo button */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleFilesSelected}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={pendingImages.length >= 3 || sending}
+            className="text-gray-400 hover:text-[#25D366] disabled:text-gray-200 transition-colors flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label={t(locale, 'attachPhoto')}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5.5 h-5.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+            </svg>
+          </button>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={t(locale, 'admin_staffMsg_placeholder')}
+            rows={1}
+            className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#25D366]/50 focus:border-transparent resize-none max-h-32"
+            style={{ minHeight: '44px' }}
+          />
+          <button
+            onClick={handleSend}
+            disabled={!canSend}
+            className="bg-[#25D366] text-white rounded-xl p-3 flex-shrink-0 disabled:opacity-50 active:bg-[#20bd5a] transition-colors"
+            aria-label={t(locale, 'admin_msg_send')}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

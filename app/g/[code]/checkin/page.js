@@ -63,44 +63,63 @@ export default function CheckInPage({ params }) {
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
 
-  // Fetch booking to pre-populate
+  // ── Proactive claims: set bookingCode claim as soon as anonymous auth is ready.
+  // This must happen BEFORE any Firestore listener that requires the claim
+  // (e.g. checkins/{code} requires request.auth.token.bookingCode == code).
+  const [claimsReady, setClaimsReady] = useState(false);
+  const claimsSetRef = useRef(false);
+
+  useEffect(() => {
+    if (!user || claimsSetRef.current) return;
+    claimsSetRef.current = true;
+
+    (async () => {
+      try {
+        const tokenResult = await user.getIdTokenResult();
+        if (tokenResult.claims.bookingCode === code) {
+          setClaimsReady(true);
+          return;
+        }
+        const idToken = await user.getIdToken();
+        const res = await fetch('/api/guests/set-claims', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ bookingCode: code }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          await user.getIdToken(true); // refresh token with new claims
+          setClaimsReady(true);
+        }
+      } catch (err) {
+        console.error('[Checkin] Proactive claims error:', err);
+      }
+    })();
+  }, [user, code]);
+
+  // Fetch booking to pre-populate (bookings collection is readable by any authed user)
   const { data: bookings } = useCollection('bookings', [
     where('code', '==', code),
   ]);
   const booking = bookings?.[0] ?? null;
 
-  // Already checked in → set claims (if needed) and send straight to portal
-  const { data: existingCheckin } = useDocument('checkins', code);
+  // Only subscribe to checkins/{code} AFTER claims are set — Firestore rules
+  // require request.auth.token.bookingCode == code for this doc.
+  const { data: existingCheckin } = useDocument('checkins', claimsReady ? code : null);
   const redirecting = useRef(false);
 
+  // Already checked in → send straight to portal
   useEffect(() => {
     if (!existingCheckin?.checkedIn || !user || redirecting.current) return;
+    if (!booking || booking.status !== 'active') return;
     redirecting.current = true;
 
-    (async () => {
-      try {
-        // Ensure this user has proper claims for the booking code
-        // (handles session recovery where a new anonymous user was created)
-        const tokenResult = await user.getIdTokenResult();
-        if (tokenResult.claims.bookingCode !== code) {
-          const idToken = await user.getIdToken();
-          await fetch('/api/guests/set-claims', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${idToken}`,
-            },
-            body: JSON.stringify({ bookingCode: code }),
-          });
-          await user.getIdToken(true);
-        }
-      } catch (err) {
-        console.error('[Checkin] Claims auto-set error:', err);
-      }
-      localStorage.setItem('casa-coqui-guest-code', code);
-      router.replace(`/g/${code}`);
-    })();
-  }, [existingCheckin, user, router, code]);
+    localStorage.setItem('casa-coqui-guest-code', code);
+    router.replace(`/g/${code}`);
+  }, [existingCheckin, user, router, code, booking]);
 
   // Auto sign-in anonymously if not authenticated
   useEffect(() => {
@@ -222,6 +241,21 @@ export default function CheckInPage({ params }) {
         ) : (
           <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
         )}
+      </div>
+    );
+  }
+
+  // Booking is inactive (cancelled/expired) — show a clear message
+  if (booking && booking.status !== 'active') {
+    return (
+      <div className="px-4 pt-12 pb-4 text-center">
+        <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-8 h-8 text-gray-400">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+        </div>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">{t(locale, 'bookingInactive')}</h1>
+        <p className="text-sm text-gray-500">{t(locale, 'bookingInactiveDesc')}</p>
       </div>
     );
   }

@@ -181,13 +181,18 @@ function GuestLayoutInner({ children, code }) {
 
   // Sync locale to Firestore for server-side notification localization.
   // Writes to notification_prefs/{bookingCode}.locale whenever the guest
-  // toggles the language switch.
+  // toggles the language switch.  Gated on having the bookingCode claim —
+  // Firestore rules require request.auth.token.bookingCode == code.
   useEffect(() => {
-    if (!code || !locale) return;
-    setDoc(doc(db, 'notification_prefs', code), { locale }, { merge: true }).catch((err) => {
-      console.error('[GuestLayout] Locale sync error:', err.message);
-    });
-  }, [code, locale]);
+    if (!code || !locale || !user) return;
+    user.getIdTokenResult().then((result) => {
+      if (result.claims.bookingCode === code) {
+        setDoc(doc(db, 'notification_prefs', code), { locale }, { merge: true }).catch((err) => {
+          console.error('[GuestLayout] Locale sync error:', err.message);
+        });
+      }
+    }).catch(() => {});
+  }, [code, locale, user]);
 
   // Listen for NOTIFICATION_CLICK from the service worker so tapping a
   // notification while the app is already open navigates to the deep link.

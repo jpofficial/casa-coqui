@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useDocument } from '@/hooks/useFirestore';
 import ImageUpload from '@/components/ui/ImageUpload';
 import Parking from '@/components/guest/Parking';
-import { DEFAULT_UNITS } from '@/lib/units';
+import { getUnits } from '@/lib/units';
 
 const INPUT_CLASS =
   'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent';
@@ -111,9 +111,7 @@ export default function SettingsPage() {
             },
         houseRules: settings.houseRules || [],
         propertyPhotos: settings.propertyPhotos || [],
-        units: settings.units && Array.isArray(settings.units) && settings.units.length > 0
-          ? settings.units
-          : DEFAULT_UNITS,
+        units: getUnits(settings),
       });
     }
   }, [settings, form]);
@@ -132,11 +130,11 @@ export default function SettingsPage() {
     try {
       // Mirror unit-a check-in steps to flat checkInSteps for backward compat
       const unitASteps = form.unitCheckInSteps?.find((u) => u.unitId === 'unit-a')?.steps || [];
-      await updateDoc(doc(db, 'settings', 'property'), {
+      await setDoc(doc(db, 'settings', 'property'), {
         ...form,
         checkInSteps: unitASteps,
         updatedAt: new Date().toISOString(),
-      });
+      }, { merge: true });
       setToast('Settings saved!');
     } catch (err) {
       console.error('Save error:', err);
@@ -190,10 +188,10 @@ export default function SettingsPage() {
           onClick={async () => {
             setUnitsSaving(true);
             try {
-              await updateDoc(doc(db, 'settings', 'property'), {
+              await setDoc(doc(db, 'settings', 'property'), {
                 units: form.units,
                 updatedAt: new Date().toISOString(),
-              });
+              }, { merge: true });
               setToast('Unit names saved!');
             } catch (err) {
               console.error('Save units error:', err);
