@@ -92,7 +92,14 @@ async function seed() {
       ],
       propertyPhotos: [],
       emergencyContact: { name: '', phone: '' },
-      units: ['Unit A', 'Unit B'],
+      units: [
+        { id: 'unit-a', name: 'Unit A' },
+        { id: 'unit-b', name: 'Unit B' },
+      ],
+      unitWifi: [
+        { unitId: 'unit-a', ssid: '', password: '' },
+        { unitId: 'unit-b', ssid: '', password: '' },
+      ],
     },
     { merge: true }
   );
