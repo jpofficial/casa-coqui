@@ -32,6 +32,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# pricing tool (local SQLite + generated reports)
+tools/pricing/pricing.db
+tools/pricing/reports/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
