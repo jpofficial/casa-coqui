@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
 import { auth } from '@/lib/firebase';
@@ -3250,10 +3250,203 @@ function RunsTab({ locale }) {
 }
 
 // ---------------------------------------------------------------------------
-// Page (5-tab layout)
+// Tab: Chat (evidence-based Q&A)
 // ---------------------------------------------------------------------------
 
-const TABS = ['recommendations', 'trends', 'competitors', 'research', 'runs'];
+const SUGGESTED_QUESTIONS = [
+  'admin_pricing_chat_suggested_cheapest',
+  'admin_pricing_chat_suggested_booked',
+  'admin_pricing_chat_suggested_price',
+  'admin_pricing_chat_suggested_runs',
+  'admin_pricing_chat_suggested_compare',
+  'admin_pricing_chat_suggested_gaps',
+];
+
+function ChatTab({ activeUnit, locale }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState(null);
+  const scrollRef = useRef(null);
+  const prevUnitRef = useRef(activeUnit);
+
+  // Clear conversation when unit changes
+  useEffect(() => {
+    if (prevUnitRef.current !== activeUnit) {
+      setMessages([]);
+      setError(null);
+      prevUnitRef.current = activeUnit;
+    }
+  }, [activeUnit]);
+
+  // Auto-scroll on new messages
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, sending]);
+
+  const buildHistory = useCallback(() => {
+    const history = [];
+    for (let i = 0; i < messages.length - 1; i += 2) {
+      if (messages[i].role === 'user' && messages[i + 1]?.role === 'assistant') {
+        history.push({ query: messages[i].content, answer: messages[i + 1].content });
+      }
+    }
+    return history;
+  }, [messages]);
+
+  const sendQuery = useCallback(async (query) => {
+    if (!query.trim() || sending) return;
+
+    setError(null);
+    const userMsg = { role: 'user', content: query.trim() };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setSending(true);
+
+    try {
+      const history = buildHistory();
+      const res = await apiCall('/api/pricing/advisor', {
+        method: 'POST',
+        body: JSON.stringify({ query: query.trim(), unit: activeUnit, history }),
+      });
+
+      if (res.success && res.data) {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: res.data.answer,
+          intent: res.data.intent,
+        }]);
+      } else {
+        setError(res.error || t(locale, 'admin_pricing_chat_error'));
+      }
+    } catch {
+      setError(t(locale, 'admin_pricing_chat_error'));
+    } finally {
+      setSending(false);
+    }
+  }, [sending, activeUnit, buildHistory, locale]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    sendQuery(input);
+  };
+
+  /** Turn plain URLs and markdown links into clickable <a> tags. */
+  const linkify = (text) => {
+    // Match markdown links [text](url) or bare URLs
+    const pattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s),]+)/g;
+    const parts = [];
+    let last = 0;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      if (match.index > last) parts.push(text.slice(last, match.index));
+      const url = match[2] || match[3];
+      const label = match[1] || url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40);
+      parts.push(
+        <a key={match.index} href={url} target="_blank" rel="noopener noreferrer"
+          className="underline text-coqui-700 hover:text-coqui-900 break-all">{label}</a>
+      );
+      last = match.index + match[0].length;
+    }
+    if (last < text.length) parts.push(text.slice(last));
+    return parts.length > 1 ? parts : text;
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Empty state with suggested questions */}
+      {messages.length === 0 && !sending && (
+        <div className="text-center py-8">
+          <div className="text-4xl mb-3">💬</div>
+          <h3 className="text-sm font-semibold text-coqui-900 mb-1">
+            {t(locale, 'admin_pricing_chat_empty_title')}
+          </h3>
+          <p className="text-xs text-coqui-800/50 mb-5 max-w-xs mx-auto">
+            {t(locale, 'admin_pricing_chat_empty_subtitle')}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto">
+            {SUGGESTED_QUESTIONS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => sendQuery(t(locale, key))}
+                className="text-xs px-3 py-1.5 rounded-full border border-cafe-200 text-coqui-800/70 hover:bg-cafe-50 hover:border-cafe-300 transition"
+              >
+                {t(locale, key)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Message thread */}
+      {(messages.length > 0 || sending) && (
+        <div
+          ref={scrollRef}
+          className="space-y-3 max-h-[60vh] overflow-y-auto px-1 py-2"
+        >
+          {messages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`text-sm px-4 py-2.5 rounded-2xl max-w-[85%] whitespace-pre-wrap ${
+                  msg.role === 'user'
+                    ? 'bg-coqui-600 text-white rounded-br-md'
+                    : 'bg-cafe-50 text-coqui-900 rounded-bl-md'
+                }`}
+              >
+                {msg.role === 'assistant' ? linkify(msg.content) : msg.content}
+                {msg.intent && (
+                  <span className="block mt-1.5 text-[10px] opacity-50">
+                    {msg.intent}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+          {sending && (
+            <div className="flex justify-start">
+              <div className="bg-cafe-50 text-coqui-800/50 text-sm px-4 py-2.5 rounded-2xl rounded-bl-md animate-pulse">
+                {t(locale, 'admin_pricing_chat_thinking')}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <p className="text-xs text-red-600 text-center">{error}</p>
+      )}
+
+      {/* Input */}
+      <form onSubmit={handleSubmit} className="flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={t(locale, 'admin_pricing_chat_placeholder')}
+          disabled={sending}
+          className="flex-1 text-sm border border-cafe-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-coqui-500 focus:border-coqui-500 disabled:opacity-50"
+        />
+        <button
+          type="submit"
+          disabled={sending || !input.trim()}
+          className="text-sm font-semibold px-4 py-2.5 rounded-xl bg-coqui-600 text-white hover:bg-coqui-700 disabled:opacity-50 disabled:cursor-not-allowed transition shrink-0"
+        >
+          {t(locale, 'admin_pricing_chat_send')}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page (6-tab layout)
+// ---------------------------------------------------------------------------
+
+const TABS = ['recommendations', 'trends', 'competitors', 'chat', 'research', 'runs'];
 
 export default function PricingPage() {
   const { locale } = useLocale();
@@ -3312,6 +3505,9 @@ export default function PricingPage() {
       )}
       {activeTab === 'competitors' && (
         <CompetitorsTab activeUnit={activeUnit} locale={locale} />
+      )}
+      {activeTab === 'chat' && (
+        <ChatTab activeUnit={activeUnit} locale={locale} />
       )}
       {activeTab === 'research' && (
         <ResearchTab activeUnit={activeUnit} locale={locale} />

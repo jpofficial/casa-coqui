@@ -1,7 +1,171 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/api-auth';
 import { getDb, getPricingLib } from '@/lib/pricing-db';
-import { generatePricingAdvice, chatWithAdvisor } from '@/lib/pricing-ai';
+import { generatePricingAdvice, chatWithAdvisor, answerEvidenceQuestion } from '@/lib/pricing-ai';
+import {
+  gatherAvailabilityEvidence,
+  gatherCompetitorPricingEvidence,
+  gatherRunDetailEvidence,
+  gatherMarketTrendEvidence,
+  gatherDataCoverageEvidence,
+  gatherRunsForMonthEvidence,
+  gatherComparisonEvidence,
+  gatherCheapestByStayLength,
+  gatherBookedVsAvailableEvidence,
+} from '@/lib/pricing-evidence';
+
+// ---------------------------------------------------------------------------
+// Evidence intent detection (deterministic, no LLM call)
+//
+// Order matters: more specific patterns are checked first to avoid
+// broad patterns (e.g. "availability") swallowing compound queries
+// (e.g. "compare pricing and availability").
+// ---------------------------------------------------------------------------
+
+const EVIDENCE_INTENTS = [
+  { pattern: /\brun\s*#?\d+|run\s+id\s+\d+|specific\s+run|last\s+run|previous\s+run|latest\s+run/i, handler: 'runDetail' },
+  // runsForMonth requires explicit "run(s)" keyword — prevents "for april" from hijacking other intents
+  { pattern: /\bruns?\b.*\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{4}-\d{2})\b|\bruns?\s+(for|in|from|during)\b/i, handler: 'runsForMonth' },
+  { pattern: /\bcheapest|\bmost\s+affordable|\bbest\s+deal|\blowest\s+price|\bbudget/i, handler: 'cheapest' },
+  { pattern: /\bwho.*getting\s+booked|\bbooked\s+vs|\bwhy\s+not\s+booking|\bwho.*booking|\bactually.*booked/i, handler: 'bookedAnalysis' },
+  { pattern: /\bcompare|\bcomparison|\bvs\b|\bversus|\bagainst|\bcross.?comp|\brankings?\b/i, handler: 'comparison' },
+  { pattern: /\bcompet.*pric|\bprice.*compet|\brate.*compet|\bcompet.*rate|\bwho.*raised|\bwho.*lower|\bprice\s+mov/i, handler: 'competitorPricing' },
+  { pattern: /\bunavail|\bavailab|\bbooked|\boccupan/i, handler: 'availability' },
+  { pattern: /\btrend|\bmarket.*direction|\bmarket.*mov|\bhow.*market|\bstrength|\bsoften/i, handler: 'marketTrend' },
+  { pattern: /\bgap|\bcoverage|\bmissing|\bthin\s+data|\bdata\s+quality/i, handler: 'dataCoverage' },
+];
+
+function detectIntent(query) {
+  for (const intent of EVIDENCE_INTENTS) {
+    if (intent.pattern.test(query)) return intent;
+  }
+  return { handler: 'general' };
+}
+
+/** Extract a run ID from a query string, e.g. "run #42" or "run 7". */
+function extractRunId(query) {
+  const match = query.match(/run\s*#?(\d+)/i);
+  return match ? parseInt(match[1]) : null;
+}
+
+/**
+ * Extract a date range from a query string.
+ * Recognizes: "for April", "in March", "month of May", "2026-04".
+ * Returns { dateFrom, dateTo } or null if no month/date found.
+ */
+function extractDateRange(query) {
+  const month = extractMonth(query);
+  if (!month) return null;
+  const [y, m] = month.split('-').map(Number);
+  const dateFrom = `${month}-01`;
+  const nextMonth = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
+  return { dateFrom, dateTo: nextMonth };
+}
+
+/** Extract a stay length from a query string, e.g. "3-night", "for 7 nights". Default: 2. */
+function extractStayNights(query) {
+  const match = query.match(/(\d+)\s*-?\s*nights?/i);
+  return match ? parseInt(match[1]) : 2;
+}
+
+/** Extract a month from a query string, e.g. "April", "2026-04", "04", "4". */
+function extractMonth(query) {
+  const months = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+  // YYYY-MM format
+  const isoMatch = query.match(/\b(20\d{2}-\d{2})\b/);
+  if (isoMatch) return isoMatch[1];
+  // Month name (full or abbreviated)
+  const nameMatch = query.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i);
+  if (nameMatch) {
+    const key = nameMatch[1].substring(0, 3).toLowerCase();
+    const year = new Date().getFullYear();
+    return `${year}-${months[key]}`;
+  }
+  // Numeric month only, e.g. "04" or "4"
+  const numMatch = query.match(/\bmonth\s+(\d{1,2})\b/i) || query.match(/\b(\d{1,2})\b/);
+  if (numMatch) {
+    const m = parseInt(numMatch[1]);
+    if (m >= 1 && m <= 12) {
+      const year = new Date().getFullYear();
+      return `${year}-${String(m).padStart(2, '0')}`;
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Evidence query handler
+// ---------------------------------------------------------------------------
+
+async function handleEvidenceQuery(db, unit, query, history = []) {
+  const intent = detectIntent(query);
+
+  // Extract date range from query (e.g. "for April" → { dateFrom: '2026-04-01', dateTo: '2026-05-01' })
+  // Passed to gatherers that support date scoping
+  const dateRange = extractDateRange(query);
+
+  let evidence;
+  switch (intent.handler) {
+    case 'availability':
+      evidence = gatherAvailabilityEvidence(db, unit, dateRange);
+      break;
+    case 'competitorPricing':
+      evidence = gatherCompetitorPricingEvidence(db, unit, dateRange);
+      break;
+    case 'runDetail':
+      evidence = gatherRunDetailEvidence(db, unit, extractRunId(query));
+      break;
+    case 'runsForMonth':
+      evidence = gatherRunsForMonthEvidence(db, unit, extractMonth(query));
+      break;
+    case 'marketTrend':
+      evidence = gatherMarketTrendEvidence(db, unit, dateRange);
+      break;
+    case 'dataCoverage':
+      evidence = gatherDataCoverageEvidence(db, unit);
+      break;
+    case 'comparison':
+      evidence = gatherComparisonEvidence(db, unit, dateRange);
+      break;
+    case 'cheapest':
+      evidence = gatherCheapestByStayLength(db, unit, extractStayNights(query), dateRange);
+      break;
+    case 'bookedAnalysis':
+      evidence = gatherBookedVsAvailableEvidence(db, unit, dateRange);
+      break;
+    default:
+      // Broad context: availability + trend
+      evidence = {
+        unitScope: unit || 'all',
+        availability: gatherAvailabilityEvidence(db, unit, dateRange),
+        trend: gatherMarketTrendEvidence(db, unit, dateRange),
+      };
+  }
+
+  if (!evidence) {
+    return NextResponse.json({
+      success: false,
+      error: 'No data found for this query. Try running an analysis first.',
+    }, { status: 400 });
+  }
+
+  const result = await answerEvidenceQuestion({ query, evidence, intent: intent.handler, history });
+
+  return NextResponse.json({
+    success: true,
+    data: {
+      type: 'evidence',
+      intent: intent.handler,
+      query,
+      answer: result.answer,
+      evidence: result.evidence,
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// POST handler
+// ---------------------------------------------------------------------------
 
 export async function POST(request) {
   const authResult = await requireRole(request, ['admin']);
@@ -9,7 +173,16 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { unit = 'unit-a', message, context } = body;
+    const { unit, message, context, query, history } = body;
+
+    // Evidence query mode — unit is nullable (null = both units)
+    if (query) {
+      const db = getDb();
+      return handleEvidenceQuery(db, unit || null, query, history || []);
+    }
+
+    // Recommendation + chat flows default to unit-a when unspecified
+    const recUnit = unit || 'unit-a';
 
     // Follow-up chat message (locked down: text only, no tool regeneration)
     if (message && context) {
@@ -35,7 +208,7 @@ export async function POST(request) {
       WHERE unit_id = ? AND check_date >= ?
       ORDER BY check_date ASC
       LIMIT 30
-    `).all(unit, today);
+    `).all(recUnit, today);
 
     if (recommendations.length === 0) {
       return NextResponse.json({
@@ -46,13 +219,13 @@ export async function POST(request) {
 
     const competitors = db.prepare(
       'SELECT * FROM competitors WHERE comp_unit = ? AND active = 1'
-    ).all(unit);
+    ).all(recUnit);
 
     // Competitor timeline evidence (cross-run price movement + availability)
     const { compTimeline } = getPricingLib();
     let evidence = null;
     try {
-      evidence = compTimeline.getMarketMovementSummary(db, unit);
+      evidence = compTimeline.getMarketMovementSummary(db, recUnit);
     } catch { /* timeline data may not exist yet */ }
 
     // 2. Layer 1+2: Build decisions from pre-computed recommendations
@@ -60,7 +233,7 @@ export async function POST(request) {
     // floor/target/stretch, confidence, etc. We apply the decision matrix on
     // top rather than re-running analyzeDateMultiStay from sparse snapshots.
     const { stats, availability, decisionEngine, dates: dateUtils } = getPricingLib();
-    const trend = decisionEngine.classifyMarketTrend(db, unit);
+    const trend = decisionEngine.classifyMarketTrend(db, recUnit);
 
     // Count recent runs for confidence model
     const cutoff30d = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -87,7 +260,7 @@ export async function POST(request) {
         const dayOfWeek = rec.day_type || dateUtils.getDayOfWeek(rec.check_date);
 
         // Availability signal from calendar_availability (live query)
-        const availResult = availability.classifyAvailability(db, unit, rec.check_date);
+        const availResult = availability.classifyAvailability(db, recUnit, rec.check_date);
 
         // Confidence from pre-computed data + live factors
         const confidenceResult = stats.computeConfidence({
@@ -104,7 +277,7 @@ export async function POST(request) {
         const anchorNights = rec.tcpn_2n ? 2 : rec.tcpn_3n ? 3 : rec.tcpn_1n ? 1 : rec.tcpn_4n ? 4 : rec.tcpn_7n ? 7 : 2;
 
         // My rate from recommendation or my_rates table
-        const myRateRow = db.prepare('SELECT * FROM my_rates WHERE unit_id = ? AND check_date = ?').get(unit, rec.check_date);
+        const myRateRow = db.prepare('SELECT * FROM my_rates WHERE unit_id = ? AND check_date = ?').get(recUnit, rec.check_date);
         const currentRate = myRateRow?.nightly_rate || rec.your_rate || null;
         const isBooked = myRateRow?.is_booked === 1;
         const cleaningFee = myRateRow?.cleaning_fee || 75;
@@ -225,7 +398,7 @@ export async function POST(request) {
       summary,
       decisions,
       competitors,
-      unit,
+      unit: recUnit,
       evidence,
     });
 
@@ -248,7 +421,7 @@ export async function POST(request) {
         INSERT INTO advisor_log (unit_id, action, suggested_rate, current_rate, confidence, confidence_score, market_trend, availability_signal, percentile, comp_count)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        unit,
+        recUnit,
         summary.action,
         summary.suggestedRate || 0,
         summary.currentRate || 0,

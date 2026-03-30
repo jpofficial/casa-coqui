@@ -819,6 +819,225 @@ function getWeekendPremium(db, unitId, days = 60) {
   `).get(unitId, cutoff);
 }
 
+// ---------------------------------------------------------------------------
+// Cross-run evidence queries (for manual inspection + AI evidence retrieval)
+// ---------------------------------------------------------------------------
+
+/** Compute first day of the month AFTER the given YYYY-MM. */
+function _nextMonthStart(month) {
+  const [y, m] = month.split('-').map(Number);
+  const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+  return next + '-01';
+}
+
+/**
+ * Per-competitor availability summary across all runs for a unit.
+ * Historical by default: includes inactive competitors (they have valid past data).
+ * Options: { dateFrom, dateTo, activeOnly = false }
+ * Returns: [{ competitor_id, name, active, total_observations, unavailable_count,
+ *   unavailable_pct, runs_observed, avg_rate_when_available }]
+ */
+function getCompAvailabilitySummary(db, unitId, opts = {}) {
+  let query = `
+    SELECT al.competitor_id, c.name, c.url, c.comp_unit, c.active,
+      COUNT(*) AS total_observations,
+      SUM(CASE WHEN al.available = 0 THEN 1 ELSE 0 END) AS unavailable_count,
+      ROUND(100.0 * SUM(CASE WHEN al.available = 0 THEN 1 ELSE 0 END) / COUNT(*), 1) AS unavailable_pct,
+      COUNT(DISTINCT al.run_id) AS runs_observed,
+      ROUND(AVG(CASE WHEN al.available = 1 THEN al.nightly_rate END), 2) AS avg_rate_when_available
+    FROM availability_log al
+    JOIN competitors c ON al.competitor_id = c.id
+    WHERE c.comp_unit = ?
+  `;
+  const params = [unitId];
+  if (opts.activeOnly) { query += ' AND c.active = 1'; }
+  if (opts.dateFrom) { query += ' AND al.check_date >= ?'; params.push(opts.dateFrom); }
+  if (opts.dateTo) { query += ' AND al.check_date <= ?'; params.push(opts.dateTo); }
+  query += ' GROUP BY al.competitor_id ORDER BY unavailable_pct DESC';
+  return db.prepare(query).all(...params);
+}
+
+/**
+ * Per-run availability for a single competitor across all captured runs.
+ * Returns: [{ run_id, check_date, available, nightly_rate, tcpn_2n, scraped_at }]
+ * Options: { dateFrom, dateTo, limit }
+ */
+function getCompAvailabilityAcrossRuns(db, competitorId, opts = {}) {
+  let query = `
+    SELECT run_id, check_date, available, nightly_rate, tcpn_2n, scraped_at
+    FROM availability_log
+    WHERE competitor_id = ?
+  `;
+  const params = [competitorId];
+  if (opts.dateFrom) { query += ' AND check_date >= ?'; params.push(opts.dateFrom); }
+  if (opts.dateTo) { query += ' AND check_date <= ?'; params.push(opts.dateTo); }
+  query += ' ORDER BY check_date ASC, run_id ASC';
+  if (opts.limit) { query += ' LIMIT ?'; params.push(opts.limit); }
+  return db.prepare(query).all(...params);
+}
+
+/**
+ * All runs (autopilot + research) that cover a target month (YYYY-MM).
+ * A run "covers" a month if its observations include dates in that month.
+ * Options: { type: 'autopilot' | 'research' | null (both), unitId }
+ * Returns: [{ run_id, type, started_at, completed_at, status, obs_count, units_processed }]
+ */
+function getRunsForMonth(db, month, opts = {}) {
+  const monthStart = month + '-01';
+  const nextMonth = _nextMonthStart(month);
+  const parts = [];
+  const params = [];
+
+  if (!opts.type || opts.type === 'autopilot') {
+    let subWhere = 'ro.run_source = ? AND ro.check_date >= ? AND ro.check_date < ?';
+    const subParams = ['autopilot', monthStart, nextMonth];
+    if (opts.unitId) { subWhere += ' AND ro.comp_unit = ?'; subParams.push(opts.unitId); }
+    parts.push(`
+      SELECT ar.id AS run_id, 'autopilot' AS type, ar.started_at, ar.completed_at,
+        ar.status, ar.comps_found AS obs_count, ar.units_processed
+      FROM autopilot_runs ar
+      WHERE ar.status != 'error' AND EXISTS (
+        SELECT 1 FROM run_observations ro WHERE ro.run_id = ar.id AND ${subWhere}
+      )
+    `);
+    params.push(...subParams);
+  }
+
+  if (!opts.type || opts.type === 'research') {
+    let subWhere = 'ro.run_source = ? AND ro.check_date >= ? AND ro.check_date < ?';
+    const subParams = ['research', monthStart, nextMonth];
+    if (opts.unitId) { subWhere += ' AND ro.comp_unit = ?'; subParams.push(opts.unitId); }
+    parts.push(`
+      SELECT rr.id AS run_id, 'research' AS type, rr.started_at, rr.completed_at,
+        rr.status, rr.listings_saved AS obs_count, rr.comp_unit AS units_processed
+      FROM research_runs rr
+      WHERE rr.status != 'error' AND EXISTS (
+        SELECT 1 FROM run_observations ro WHERE ro.run_id = rr.id AND ${subWhere}
+      )
+    `);
+    params.push(...subParams);
+  }
+
+  if (parts.length === 0) return [];
+  const query = parts.join(' UNION ALL ') + ' ORDER BY started_at DESC';
+  return db.prepare(query).all(...params);
+}
+
+/**
+ * Cross-competitor pricing + availability snapshot for a unit.
+ * Historical by default: includes inactive competitors (they have valid past data).
+ * Options: { dateFrom, dateTo, stayNights = 2 (null = all), limit = 20, activeOnly = false }
+ * Returns: [{ competitor_id, name, url, active, bedrooms, rating, review_count, superhost,
+ *   obs_count, runs_observed, avg_tcpn, min_tcpn, max_tcpn,
+ *   unavailable_count, unavailable_pct, latest_rate, latest_captured }]
+ */
+function getCompPriceAndAvailComparison(db, unitId, opts = {}) {
+  const stayNights = opts.stayNights === null ? null : (opts.stayNights || 2);
+  const limit = opts.limit || 20;
+
+  // Build optional WHERE clauses and their params separately
+  let filters = '';
+  const filterParams = [];
+  if (opts.activeOnly) { filters += ' AND c.active = 1'; }
+  if (opts.dateFrom) { filters += ' AND ro.check_date >= ?'; filterParams.push(opts.dateFrom); }
+  if (opts.dateTo) { filters += ' AND ro.check_date <= ?'; filterParams.push(opts.dateTo); }
+
+  // When stayNights is null, aggregate across all stay lengths
+  const stayFilter = stayNights != null ? ' AND ro.stay_nights = ?' : '';
+  const subStayFilter = stayNights != null ? ' AND ro2.stay_nights = ?' : '';
+
+  const params = [];
+  if (stayNights != null) params.push(stayNights); // subquery
+  params.push(unitId);                              // main WHERE
+  if (stayNights != null) params.push(stayNights); // main WHERE
+  params.push(...filterParams);
+  params.push(limit);
+
+  return db.prepare(`
+    SELECT c.id AS competitor_id, c.name, c.url, c.active, c.bedrooms, c.rating, c.review_count,
+      c.superhost,
+      COUNT(*) AS obs_count,
+      COUNT(DISTINCT ro.run_id) AS runs_observed,
+      ROUND(AVG(ro.tcpn), 2) AS avg_tcpn,
+      ROUND(MIN(ro.tcpn), 2) AS min_tcpn,
+      ROUND(MAX(ro.tcpn), 2) AS max_tcpn,
+      SUM(CASE WHEN ro.available = 0 THEN 1 ELSE 0 END) AS unavailable_count,
+      ROUND(100.0 * SUM(CASE WHEN ro.available = 0 THEN 1 ELSE 0 END) / COUNT(*), 1) AS unavailable_pct,
+      (SELECT ro2.nightly_rate FROM run_observations ro2
+       WHERE ro2.competitor_id = c.id${subStayFilter} AND ro2.available = 1
+       ORDER BY ro2.captured_at DESC LIMIT 1) AS latest_rate,
+      MAX(ro.captured_at) AS latest_captured
+    FROM run_observations ro
+    JOIN competitors c ON ro.competitor_id = c.id
+    WHERE c.comp_unit = ?${stayFilter}
+      ${filters}
+    GROUP BY c.id
+    ORDER BY avg_tcpn ASC
+    LIMIT ?
+  `).all(...params);
+}
+
+/**
+ * Get a research run by ID.
+ */
+function getResearchRunById(db, id) {
+  return db.prepare('SELECT * FROM research_runs WHERE id = ?').get(id) || null;
+}
+
+/**
+ * Compact summary of observations in a run.
+ * Returns: { total_obs, unique_comps, unique_dates, stay_lengths, date_from, date_to, avg_rate, avg_tcpn }
+ */
+function getRunObservationsSummary(db, runId, runSource = 'autopilot') {
+  return db.prepare(`
+    SELECT COUNT(*) AS total_obs,
+      COUNT(DISTINCT competitor_id) AS unique_comps,
+      COUNT(DISTINCT check_date) AS unique_dates,
+      GROUP_CONCAT(DISTINCT stay_nights) AS stay_lengths,
+      MIN(check_date) AS date_from,
+      MAX(check_date) AS date_to,
+      ROUND(AVG(nightly_rate), 2) AS avg_rate,
+      ROUND(AVG(tcpn), 2) AS avg_tcpn
+    FROM run_observations
+    WHERE run_id = ? AND run_source = ?
+  `).get(runId, runSource);
+}
+
+/**
+ * Per-competitor booking summary from calendar_availability.
+ * Unlike run_observations (which only captures available listings with pricing),
+ * calendar_availability tracks the full calendar state including booked/blocked dates.
+ * This is the correct source for "who's getting booked?" questions.
+ *
+ * Returns: [{ competitor_id, name, url, comp_unit, active, total_dates, booked_dates,
+ *   booked_pct, available_dates, dates_tracked, listing_url }]
+ * Options: { dateFrom, dateTo, activeOnly, limit }
+ */
+function getCalendarBookingSummary(db, unitId, opts = {}) {
+  let filters = '';
+  const params = [unitId];
+  if (opts.activeOnly) { filters += ' AND c.active = 1'; }
+  if (opts.dateFrom) { filters += ' AND ca.date >= ?'; params.push(opts.dateFrom); }
+  if (opts.dateTo) { filters += ' AND ca.date <= ?'; params.push(opts.dateTo); }
+  const limit = opts.limit || 30;
+  params.push(limit);
+  return db.prepare(`
+    SELECT c.id AS competitor_id, c.name, c.url, c.comp_unit, c.active,
+      COUNT(*) AS total_dates,
+      SUM(CASE WHEN ca.display_status = 'not_available' THEN 1 ELSE 0 END) AS booked_dates,
+      ROUND(100.0 * SUM(CASE WHEN ca.display_status = 'not_available' THEN 1 ELSE 0 END) / COUNT(*), 1) AS booked_pct,
+      SUM(CASE WHEN ca.display_status = 'available' THEN 1 ELSE 0 END) AS available_dates,
+      COUNT(DISTINCT ca.date) AS dates_tracked,
+      MAX(ca.listing_url) AS listing_url
+    FROM calendar_availability ca
+    JOIN competitors c ON ca.competitor_id = c.id
+    WHERE c.comp_unit = ?${filters}
+    GROUP BY c.id
+    ORDER BY booked_pct DESC
+    LIMIT ?
+  `).all(...params);
+}
+
 module.exports = {
   getDb, initDb, closeDb, logAction, getCompetitor, getCompetitorsForUnit, getHoliday, DB_PATH,
   getCompSnapshotsV2, saveRecommendationV2, getSeasons, getLatestAutopilotRun, getRecommendationsV2,
@@ -831,4 +1050,8 @@ module.exports = {
   createCaptureBatch, updateCaptureBatch, getCaptureBatch, getCaptureBatches,
   // Historical analysis
   getCompPriceHistory, getPriceMovementsByTimeWindow, getCompOccupancyTrend, getMarketDataGaps, getWeekendPremium,
+  // Cross-run evidence queries
+  getCompAvailabilitySummary, getCompAvailabilityAcrossRuns, getRunsForMonth,
+  getCompPriceAndAvailComparison, getResearchRunById, getRunObservationsSummary,
+  getCalendarBookingSummary,
 };
