@@ -23,6 +23,7 @@ const {
   getRelevantMonths,
 } = require('../lib/market-research');
 const { computeTcpn } = require('../lib/normalize');
+const { classifyDayType } = require('../lib/dates');
 const fs = require('fs');
 const path = require('path');
 
@@ -57,7 +58,7 @@ const db = getDb();
 // Run schema + migrations
 const schemaPath = path.join(__dirname, '..', 'schema.sql');
 db.exec(fs.readFileSync(schemaPath, 'utf8'));
-for (const mig of ['migrate-v3.sql', 'migrate-v4.sql', 'migrate-v5.sql', 'migrate-v6.sql', 'migrate-v7.sql', 'migrate-v8.sql', 'migrate-v9.sql']) {
+for (const mig of ['migrate-v3.sql', 'migrate-v4.sql', 'migrate-v5.sql', 'migrate-v6.sql', 'migrate-v7.sql', 'migrate-v8.sql', 'migrate-v9.sql', 'migrate-v10.sql', 'migrate-v11.sql', 'migrate-v12.sql', 'migrate-v13.sql', 'migrate-v14.sql']) {
   const migPath = path.join(__dirname, '..', mig);
   try {
     const sql = fs.readFileSync(migPath, 'utf8');
@@ -188,6 +189,9 @@ async function main() {
     // Accumulate observations for Layer 2 append-only capture
     const observations = [];
 
+    // Accumulate scraped listing summaries for post-scrape table
+    const scrapedSummary = [];
+
     // Calendar availability accumulation
     const calendarRows = [];
     const calendarDumpAll = []; // full unfiltered (for --dump-calendar)
@@ -234,10 +238,18 @@ async function main() {
       try {
         const details = await scrapeListingDetails(page, listing.airbnb_id, dateRanges, (msg) => console.log(msg), { captureCalendar: CAPTURE_CALENDAR });
 
-        // Skip listings that exceed the bedroom ceiling
-        if (config.max_bedrooms && details.bedrooms && details.bedrooms > config.max_bedrooms) {
-          console.log(`  ✗ Skipped — ${details.bedrooms}BR exceeds max ${config.max_bedrooms}BR`);
-          continue;
+        // Skip listings that exceed the bedroom ceiling (null bedrooms = unknown, skip to be safe)
+        if (config.max_bedrooms) {
+          if (details.bedrooms == null) {
+            scrapedSummary.push({ name: details.name || listing.name || listing.airbnb_id, bedrooms: '?', rate: details.base_rate || listing.base_rate, rating: details.rating || listing.rating, status: 'skipped (BR unknown)' });
+            console.log(`  ✗ Skipped — bedrooms unknown, cannot verify ≤ ${config.max_bedrooms}BR ceiling`);
+            continue;
+          }
+          if (details.bedrooms > config.max_bedrooms) {
+            scrapedSummary.push({ name: details.name || listing.name || listing.airbnb_id, bedrooms: details.bedrooms, rate: details.base_rate || listing.base_rate, rating: details.rating || listing.rating, status: `skipped (${details.bedrooms}BR)` });
+            console.log(`  ✗ Skipped — ${details.bedrooms}BR exceeds max ${config.max_bedrooms}BR`);
+            continue;
+          }
         }
 
         // Upsert competitor
@@ -294,6 +306,7 @@ async function main() {
                   checkDate: range.checkin, stayNights: range.nights,
                   nightlyRate: price.nightly_rate, cleaningFee,
                   totalCost: total, tcpn, available: 1,
+                  dayType: classifyDayType(range.checkin),
                 });
               }
             }
@@ -329,10 +342,25 @@ async function main() {
           console.log(`  Calendar: ${filtered.length} days (filtered from ${details.calendarRaw.length})`);
         }
 
+        scrapedSummary.push({ name: compData.name, bedrooms: compData.bedrooms, rate: compData.base_rate, rating: compData.rating, status: 'saved' });
         console.log(`  ✓ Saved — $${compData.base_rate || '?'}/night, cleaning $${compData.cleaning_fee || '?'}`);
       } catch (err) {
         console.log(`  ✗ Error: ${err.message}`);
         errors++;
+      }
+    }
+
+    // Print scraped listings summary table
+    if (scrapedSummary.length > 0) {
+      console.log('\n--- Scraped Listings ---');
+      console.log('  Name                                        BR    $/night  Rating  Status');
+      console.log('  ' + '-'.repeat(74));
+      for (const s of scrapedSummary) {
+        const name = String(s.name).slice(0, 44).padEnd(44);
+        const br = String(s.bedrooms).padStart(2);
+        const rate = s.rate ? `$${s.rate}`.padStart(7) : '     —'.padStart(7);
+        const rating = s.rating ? String(s.rating).padStart(6) : '     —';
+        console.log(`  ${name}  ${br}  ${rate}  ${rating}  ${s.status}`);
       }
     }
 

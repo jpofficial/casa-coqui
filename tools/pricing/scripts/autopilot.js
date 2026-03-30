@@ -42,7 +42,7 @@ const TRIGGER = process.env.AUTOPILOT_TRIGGER ||
 const db = getDb();
 const schemaPath = path.join(__dirname, '..', 'schema.sql');
 db.exec(fs.readFileSync(schemaPath, 'utf8'));
-for (const mig of ['migrate-v3.sql', 'migrate-v4.sql', 'migrate-v5.sql', 'migrate-v6.sql', 'migrate-v7.sql', 'migrate-v8.sql', 'migrate-v9.sql']) {
+for (const mig of ['migrate-v3.sql', 'migrate-v4.sql', 'migrate-v5.sql', 'migrate-v6.sql', 'migrate-v7.sql', 'migrate-v8.sql', 'migrate-v9.sql', 'migrate-v10.sql', 'migrate-v11.sql', 'migrate-v12.sql', 'migrate-v13.sql', 'migrate-v14.sql']) {
   const migPath = path.join(__dirname, '..', mig);
   try {
     const sql = fs.readFileSync(migPath, 'utf8');
@@ -184,10 +184,16 @@ async function main() {
             try {
               const details = await scrapeListingDetails(page, listing.airbnb_id, dateRanges, (msg) => console.log(`      ${msg}`));
 
-              // Skip listings that exceed the bedroom ceiling
-              if (config.max_bedrooms && details.bedrooms && details.bedrooms > config.max_bedrooms) {
-                console.log(`      ✗ Skipped — ${details.bedrooms}BR exceeds max ${config.max_bedrooms}BR`);
-                continue;
+              // Skip listings that exceed the bedroom ceiling (null bedrooms = unknown, skip to be safe)
+              if (config.max_bedrooms) {
+                if (details.bedrooms == null) {
+                  console.log(`      ✗ Skipped — bedrooms unknown, cannot verify ≤ ${config.max_bedrooms}BR ceiling`);
+                  continue;
+                }
+                if (details.bedrooms > config.max_bedrooms) {
+                  console.log(`      ✗ Skipped — ${details.bedrooms}BR exceeds max ${config.max_bedrooms}BR`);
+                  continue;
+                }
               }
 
               if (!DRY_RUN) {
@@ -241,6 +247,7 @@ async function main() {
                           checkDate: range.checkin, stayNights: range.nights,
                           nightlyRate: price.nightly_rate, cleaningFee: fee,
                           totalCost: total, tcpn, available: 1,
+                          dayType: getDayOfWeek(range.checkin),
                         });
                       }
                     }

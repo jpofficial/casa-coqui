@@ -394,11 +394,12 @@ function saveRunObservations(db, observations) {
     INSERT INTO run_observations (
       run_id, run_source, comp_unit, competitor_id, airbnb_id,
       listing_name, listing_url, bedrooms, bathrooms, rating, review_count, superhost,
-      check_date, stay_nights, nightly_rate, cleaning_fee, total_cost, tcpn, available
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      check_date, stay_nights, nightly_rate, cleaning_fee, total_cost, tcpn, available, day_type
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(run_id, run_source, competitor_id, check_date, stay_nights) DO UPDATE SET
       nightly_rate=excluded.nightly_rate, cleaning_fee=excluded.cleaning_fee,
-      total_cost=excluded.total_cost, tcpn=excluded.tcpn, available=excluded.available
+      total_cost=excluded.total_cost, tcpn=excluded.tcpn, available=excluded.available,
+      day_type=excluded.day_type
   `);
 
   const insertMany = db.transaction((rows) => {
@@ -409,7 +410,8 @@ function saveRunObservations(db, observations) {
         o.bedrooms || null, o.bathrooms || null, o.rating || null,
         o.reviewCount || null, o.superhost ? 1 : 0,
         o.checkDate, o.stayNights, o.nightlyRate || null,
-        o.cleaningFee || 0, o.totalCost || null, o.tcpn || null, o.available != null ? o.available : 1
+        o.cleaningFee || 0, o.totalCost || null, o.tcpn || null, o.available != null ? o.available : 1,
+        o.dayType || null
       );
     }
   });
@@ -648,6 +650,175 @@ function getResearchRuns(db, { limit = 20, offset = 0, status = null } = {}) {
   return { runs, total };
 }
 
+// ---------------------------------------------------------------------------
+// Batch capture CRUD
+// ---------------------------------------------------------------------------
+
+/** Create a capture batch record. Returns the new batch ID. */
+function createCaptureBatch(db, opts) {
+  const result = db.prepare(`
+    INSERT INTO capture_batches (label, unit_id, month, anchor_dates, stay_lengths, runs_planned, config_snapshot)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    opts.label, opts.unitId, opts.month,
+    JSON.stringify(opts.anchorDates || []),
+    JSON.stringify(opts.stayLengths || []),
+    opts.runsPlanned,
+    opts.configSnapshot ? JSON.stringify(opts.configSnapshot) : null
+  );
+  return Number(result.lastInsertRowid);
+}
+
+/** Update a capture batch (progress, status, timing). */
+function updateCaptureBatch(db, batchId, updates) {
+  const allowed = ['runs_completed', 'runs_failed', 'status', 'completed_at', 'duration_ms'];
+  const sets = [];
+  const params = [];
+  for (const key of allowed) {
+    if (updates[key] !== undefined) {
+      sets.push(`${key} = ?`);
+      params.push(updates[key]);
+    }
+  }
+  if (sets.length === 0) return;
+  params.push(batchId);
+  db.prepare(`UPDATE capture_batches SET ${sets.join(', ')} WHERE id = ?`).run(...params);
+}
+
+/** Get a single capture batch by ID. */
+function getCaptureBatch(db, batchId) {
+  const row = db.prepare('SELECT * FROM capture_batches WHERE id = ?').get(batchId);
+  if (row) {
+    try { row.anchor_dates = JSON.parse(row.anchor_dates); } catch { row.anchor_dates = []; }
+    try { row.stay_lengths = JSON.parse(row.stay_lengths); } catch { row.stay_lengths = []; }
+    try { row.config_snapshot = JSON.parse(row.config_snapshot); } catch { row.config_snapshot = null; }
+  }
+  return row || null;
+}
+
+/** List capture batches with optional filters. */
+function getCaptureBatches(db, { unitId, month, status, limit = 20, offset = 0 } = {}) {
+  let query = 'SELECT * FROM capture_batches WHERE 1=1';
+  const params = [];
+  if (unitId) { query += ' AND unit_id = ?'; params.push(unitId); }
+  if (month) { query += ' AND month = ?'; params.push(month); }
+  if (status) { query += ' AND status = ?'; params.push(status); }
+  query += ' ORDER BY started_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+  return db.prepare(query).all(...params);
+}
+
+// ---------------------------------------------------------------------------
+// Historical analysis helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Get all historical prices for a competitor across runs.
+ * Options: { dateFrom, dateTo, stayNights }
+ */
+function getCompPriceHistory(db, competitorId, opts = {}) {
+  let query = `
+    SELECT ro.*, c.name, c.comp_unit
+    FROM run_observations ro
+    JOIN competitors c ON ro.competitor_id = c.id
+    WHERE ro.competitor_id = ?
+  `;
+  const params = [competitorId];
+  if (opts.dateFrom) { query += ' AND ro.check_date >= ?'; params.push(opts.dateFrom); }
+  if (opts.dateTo) { query += ' AND ro.check_date <= ?'; params.push(opts.dateTo); }
+  if (opts.stayNights) { query += ' AND ro.stay_nights = ?'; params.push(opts.stayNights); }
+  query += ' ORDER BY ro.check_date ASC, ro.captured_at ASC';
+  if (opts.limit) { query += ' LIMIT ?'; params.push(opts.limit); }
+  return db.prepare(query).all(...params);
+}
+
+/**
+ * Which competitors raised/lowered prices in a time window?
+ * Compares earliest vs latest observation per competitor within the window.
+ */
+function getPriceMovementsByTimeWindow(db, unitId, days = 14) {
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+  return db.prepare(`
+    WITH ranked AS (
+      SELECT competitor_id, check_date, stay_nights, tcpn, captured_at,
+        ROW_NUMBER() OVER (PARTITION BY competitor_id, check_date, stay_nights ORDER BY captured_at ASC) as rn_first,
+        ROW_NUMBER() OVER (PARTITION BY competitor_id, check_date, stay_nights ORDER BY captured_at DESC) as rn_last
+      FROM run_observations
+      WHERE comp_unit = ? AND captured_at >= ? AND stay_nights = 2
+    ),
+    movements AS (
+      SELECT
+        f.competitor_id, f.check_date,
+        f.tcpn as first_tcpn, l.tcpn as last_tcpn,
+        ROUND(l.tcpn - f.tcpn, 2) as delta
+      FROM ranked f
+      JOIN ranked l ON f.competitor_id = l.competitor_id
+        AND f.check_date = l.check_date AND f.stay_nights = l.stay_nights
+      WHERE f.rn_first = 1 AND l.rn_last = 1 AND f.captured_at != l.captured_at
+    )
+    SELECT m.competitor_id, c.name, m.check_date,
+      m.first_tcpn, m.last_tcpn, m.delta,
+      CASE WHEN m.delta > 0 THEN 'raised' WHEN m.delta < 0 THEN 'lowered' ELSE 'unchanged' END as direction
+    FROM movements m
+    JOIN competitors c ON m.competitor_id = c.id
+    WHERE m.delta != 0
+    ORDER BY ABS(m.delta) DESC
+  `).all(unitId, cutoff);
+}
+
+/**
+ * Per-competitor occupancy % over a time window.
+ */
+function getCompOccupancyTrend(db, competitorId, days = 30) {
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+  return db.prepare(`
+    SELECT check_date, available, nightly_rate, tcpn_2n, scraped_at
+    FROM availability_log
+    WHERE competitor_id = ? AND check_date >= ?
+    ORDER BY check_date ASC, scraped_at ASC
+  `).all(competitorId, cutoff);
+}
+
+/**
+ * Find dates with thin data coverage (few competitors captured).
+ * Options: { unitId, dateFrom, dateTo, minComps = 3 }
+ */
+function getMarketDataGaps(db, opts = {}) {
+  let query = `
+    SELECT check_date, stay_nights, comp_unit,
+      COUNT(DISTINCT competitor_id) AS unique_comps,
+      COUNT(*) AS obs_count,
+      MAX(captured_at) AS freshest
+    FROM run_observations
+    WHERE 1=1
+  `;
+  const params = [];
+  if (opts.unitId) { query += ' AND comp_unit = ?'; params.push(opts.unitId); }
+  if (opts.dateFrom) { query += ' AND check_date >= ?'; params.push(opts.dateFrom); }
+  if (opts.dateTo) { query += ' AND check_date <= ?'; params.push(opts.dateTo); }
+  query += ' GROUP BY check_date, stay_nights, comp_unit';
+  query += ' HAVING unique_comps < ?';
+  params.push(opts.minComps || 3);
+  query += ' ORDER BY check_date ASC';
+  return db.prepare(query).all(...params);
+}
+
+/**
+ * Weekend vs weekday median TCPN comparison from market_history.
+ */
+function getWeekendPremium(db, unitId, days = 60) {
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+  return db.prepare(`
+    SELECT
+      ROUND(AVG(CASE WHEN CAST(strftime('%w', check_date) AS INT) IN (5,6) THEN median_tcpn_2n END), 2) AS weekend_median,
+      ROUND(AVG(CASE WHEN CAST(strftime('%w', check_date) AS INT) BETWEEN 1 AND 4 THEN median_tcpn_2n END), 2) AS weekday_median,
+      COUNT(CASE WHEN CAST(strftime('%w', check_date) AS INT) IN (5,6) THEN 1 END) AS weekend_count,
+      COUNT(CASE WHEN CAST(strftime('%w', check_date) AS INT) BETWEEN 1 AND 4 THEN 1 END) AS weekday_count
+    FROM market_history
+    WHERE unit_id = ? AND check_date >= ?
+  `).get(unitId, cutoff);
+}
+
 module.exports = {
   getDb, initDb, closeDb, logAction, getCompetitor, getCompetitorsForUnit, getHoliday, DB_PATH,
   getCompSnapshotsV2, saveRecommendationV2, getSeasons, getLatestAutopilotRun, getRecommendationsV2,
@@ -656,4 +827,8 @@ module.exports = {
   getRunList, getRunById, getRunRecSummary, getRunMarketSummary,
   saveRunObservations, getRunObservations, getRunListingsSummary, getRunComparison, getResearchRuns,
   saveCalendarAvailability, getCalendarSummary, getRunCoverageStats,
+  // Batch capture
+  createCaptureBatch, updateCaptureBatch, getCaptureBatch, getCaptureBatches,
+  // Historical analysis
+  getCompPriceHistory, getPriceMovementsByTimeWindow, getCompOccupancyTrend, getMarketDataGaps, getWeekendPremium,
 };

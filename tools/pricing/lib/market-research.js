@@ -514,6 +514,33 @@ async function scrapeListingDetails(page, airbnbId, dateRanges, onProgress, opts
           extractFromDeferredState(deferredData, details);
         }
 
+        // DOM fallback for bedrooms/bathrooms/guests (overview section text)
+        if (details.bedrooms == null) {
+          const domOverview = await page.evaluate(() => {
+            const out = { bedrooms: null, bathrooms: null, max_guests: null };
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+            while (walker.nextNode()) {
+              const text = walker.currentNode.textContent.trim();
+              if (out.bedrooms == null) {
+                const m = text.match(/(\d+)\s*bedroom/i);
+                if (m) out.bedrooms = Number(m[1]);
+              }
+              if (out.bathrooms == null) {
+                const m = text.match(/([\d.]+)\s*bath/i);
+                if (m) out.bathrooms = Number(m[1]);
+              }
+              if (out.max_guests == null) {
+                const m = text.match(/(\d+)\s*guest/i);
+                if (m) out.max_guests = Number(m[1]);
+              }
+            }
+            return out;
+          });
+          if (domOverview.bedrooms != null) details.bedrooms = domOverview.bedrooms;
+          if (domOverview.bathrooms != null && details.bathrooms == null) details.bathrooms = domOverview.bathrooms;
+          if (domOverview.max_guests != null && details.max_guests == null) details.max_guests = domOverview.max_guests;
+        }
+
         // Resolve calendar interceptor on first page load
         if (calendarPromise) {
           const calJson = await calendarPromise;
