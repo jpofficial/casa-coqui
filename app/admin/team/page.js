@@ -166,16 +166,16 @@ export default function TeamPage() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-gray-900">Team Management</h1>
+      <h1 className="text-xl font-bold text-black">Team Management</h1>
 
       {/* Invite Form */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">
+        <h2 className="text-base font-bold text-black mb-4">
           Invite Team Member
         </h2>
         <form onSubmit={handleInvite} className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-1">
+            <label className="block text-sm font-semibold text-black mb-1">
               Display Name
             </label>
             <input
@@ -184,11 +184,11 @@ export default function TeamPage() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Maria Garcia"
-              className="w-full rounded-lg border border-gray-400 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-400 px-4 py-2.5 text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-1">
+            <label className="block text-sm font-semibold text-black mb-1">
               Email
             </label>
             <input
@@ -197,17 +197,17 @@ export default function TeamPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="maria@example.com"
-              className="w-full rounded-lg border border-gray-400 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-400 px-4 py-2.5 text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-1">
+            <label className="block text-sm font-semibold text-black mb-1">
               Role
             </label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full rounded-lg border border-gray-400 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-400 px-4 py-2.5 text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="cohost">Co-host</option>
               <option value="cleaner">Cleaner</option>
@@ -304,7 +304,7 @@ export default function TeamPage() {
 
       {/* Pending Invitations */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">
+        <h2 className="text-base font-bold text-black mb-4">
           Pending Invitations
         </h2>
         {loading ? (
@@ -319,7 +319,7 @@ export default function TeamPage() {
                 className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 gap-3"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-sm font-bold text-black truncate">
                     {member.displayName || member.email}
                   </p>
                   <p className="text-xs text-gray-500 truncate">{member.email}</p>
@@ -370,7 +370,7 @@ export default function TeamPage() {
 
       {/* Active Members */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">
+        <h2 className="text-base font-bold text-black mb-4">
           Active Members
         </h2>
         {loading ? (
@@ -389,7 +389,7 @@ export default function TeamPage() {
                   className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 gap-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-sm font-bold text-black truncate">
                       {member.displayName || member.email}
                     </p>
                     <p className="text-xs text-gray-500 truncate">{member.email}</p>
@@ -400,7 +400,7 @@ export default function TeamPage() {
                         value={member.role}
                         onChange={(e) => handleRoleChange(member.id, e.target.value)}
                         disabled={actionLoading === member.id}
-                        className="text-xs font-medium text-gray-900 border border-gray-400 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="text-sm font-semibold text-black border border-gray-400 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="cohost">Co-host</option>
                         <option value="cleaner">Cleaner</option>
