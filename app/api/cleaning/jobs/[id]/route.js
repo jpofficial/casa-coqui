@@ -7,11 +7,11 @@ import { nt } from '@/lib/notification-strings';
 // Valid state machine transitions
 const VALID_TRANSITIONS = {
   scheduled: ['acknowledged', 'declined'],
-  acknowledged: ['en_route'],
+  acknowledged: ['en_route', 'arrived'],  // 'arrived' = compound "Start Cleaning" (skips en_route UX)
   en_route: ['arrived'],
-  arrived: ['before_photos'],
+  arrived: ['before_photos', 'cleaning'],  // 'cleaning' = compound (skips before_photos UX after photo upload)
   before_photos: ['cleaning'],
-  cleaning: ['after_photos'],
+  cleaning: ['after_photos', 'laundry_check'],  // 'laundry_check' = compound (skips after_photos UX step)
   after_photos: ['laundry_check'],
   laundry_check: ['completed'],
 };
@@ -115,6 +115,18 @@ export async function PATCH(request, { params }) {
       if (tsField) {
         updates[tsField] = now;
       }
+
+      // Compound transition: acknowledged → arrived (skips en_route UX)
+      // Auto-set enRouteAt so the audit trail remains complete.
+      if (existing.status === 'acknowledged' && body.status === 'arrived') {
+        updates.enRouteAt = now;
+      }
+
+      // Compound transition: arrived → cleaning (skips before_photos UX after photo upload)
+      // Auto-set startedAt so the audit trail remains complete.
+      if (existing.status === 'arrived' && body.status === 'cleaning') {
+        updates.startedAt = now;
+      }
     }
 
     // Handle decline reason
@@ -146,17 +158,33 @@ export async function PATCH(request, { params }) {
 
     // Auto-create forum post for status transitions
     if (updates.status && updates.status !== 'deleted' && updates.status !== 'archived') {
-      const post = {
+      const postBase = {
         type: 'status',
         sender: isAdmin ? 'host' : 'cleaner',
         senderId: caller.uid,
         senderName: isAdmin ? (caller.displayName || caller.email) : (existing.assigneeName || 'Cleaner'),
         text: null,
         imageUrls: [],
-        newStatus: updates.status,
         laundryFound: null,
         createdAt: now,
       };
+
+      // Compound transition: acknowledged → arrived — create en_route post first
+      if (existing.status === 'acknowledged' && updates.status === 'arrived') {
+        await docRef.collection('posts').add({ ...postBase, newStatus: 'en_route' });
+      }
+
+      // Compound transition: arrived → cleaning — create before_photos post first
+      if (existing.status === 'arrived' && updates.status === 'cleaning') {
+        await docRef.collection('posts').add({ ...postBase, newStatus: 'before_photos' });
+      }
+
+      // Compound transition: cleaning → laundry_check — create after_photos post first
+      if (existing.status === 'cleaning' && updates.status === 'laundry_check') {
+        await docRef.collection('posts').add({ ...postBase, newStatus: 'after_photos' });
+      }
+
+      const post = { ...postBase, newStatus: updates.status };
       // Attach decline reason if present
       if (updates.status === 'declined' && updates.declineReason) {
         post.text = updates.declineReason;

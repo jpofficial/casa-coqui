@@ -130,6 +130,10 @@ function QuickActions({ job, locale, onAction, busy }) {
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState('');
   const [laundryNote, setLaundryNote] = useState('');
+  const [laundryPhotoFile, setLaundryPhotoFile] = useState(null);
+  const [laundryPhotoPreview, setLaundryPhotoPreview] = useState(null);
+  const [showLaundry, setShowLaundry] = useState(false);
+  const laundryFileRef = useRef(null);
   const fileInputId = useId();
   const fileRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -217,17 +221,15 @@ function QuickActions({ job, locale, onAction, busy }) {
     );
   }
 
-  // Single action buttons
+  // Single action buttons (Start Cleaning, Arrived)
   const singleActions = {
-    acknowledged: { label: 'forum_actionEnRoute', color: 'bg-indigo-600 active:bg-indigo-700' },
+    acknowledged: { label: 'forum_actionStartCleaning', color: 'bg-coqui-600 active:bg-coqui-700' },
     en_route: { label: 'forum_actionArrived', color: 'bg-purple-600 active:bg-purple-700' },
-    cleaning: { label: 'forum_actionDoneCleaning', color: 'bg-amber-600 active:bg-amber-700' },
   };
 
   const singleStatusMap = {
-    acknowledged: 'en_route',
+    acknowledged: 'arrived',   // compound transition: skips en_route
     en_route: 'arrived',
-    cleaning: 'after_photos',
   };
 
   if (singleActions[status]) {
@@ -246,10 +248,8 @@ function QuickActions({ job, locale, onAction, busy }) {
     );
   }
 
-  // Before / After photos
+  // ── Step 1: Before Photos (arrived / before_photos) ──
   if (status === 'arrived' || status === 'before_photos') {
-    const photoType = 'before';
-    const nextStatus = 'cleaning';
     return (
       <div className="flex justify-center">
         <input
@@ -259,7 +259,7 @@ function QuickActions({ job, locale, onAction, busy }) {
           accept="image/*"
           multiple
           className="hidden"
-          onChange={(e) => handlePhotoFiles(e, photoType, nextStatus)}
+          onChange={(e) => handlePhotoFiles(e, 'before', 'cleaning')}
         />
         <label
           htmlFor={fileInputId + '-before'}
@@ -278,8 +278,9 @@ function QuickActions({ job, locale, onAction, busy }) {
     );
   }
 
-  if (status === 'after_photos') {
-    const photoType = 'after';
+  // ── Step 2: After Photos (cleaning / after_photos) ──
+  // From `cleaning`, compound transition → laundry_check (skips after_photos UX step)
+  if (status === 'cleaning' || status === 'after_photos') {
     const nextStatus = 'laundry_check';
     return (
       <div className="flex justify-center">
@@ -290,7 +291,7 @@ function QuickActions({ job, locale, onAction, busy }) {
           accept="image/*"
           multiple
           className="hidden"
-          onChange={(e) => handlePhotoFiles(e, photoType, nextStatus)}
+          onChange={(e) => handlePhotoFiles(e, 'after', nextStatus)}
         />
         <label
           htmlFor={fileInputId + '-after'}
@@ -309,41 +310,128 @@ function QuickActions({ job, locale, onAction, busy }) {
     );
   }
 
-  // Laundry check
+  // ── Step 3: Laundry check + Complete (laundry_check) ──
+  // Must answer laundry question before completing.
   if (status === 'laundry_check') {
+    // Initial state: ask the laundry question
+    if (!showLaundry) {
+      return (
+        <div className="space-y-2.5">
+          <p className="text-xs font-bold text-coqui-800/70 text-center">
+            {t(locale, 'forum_almostDone')}
+          </p>
+          <p className="text-xs text-coqui-800/50 text-center -mt-1">
+            {t(locale, 'forum_laundryGate')}
+          </p>
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={() => setShowLaundry('yes')}
+              className="text-sm font-semibold px-6 py-2.5 rounded-full border border-amber-400 text-amber-700
+                bg-amber-50 active:bg-amber-100 transition-colors"
+            >
+              {t(locale, 'yes')}
+            </button>
+            <button
+              onClick={() => onAction({ status: 'completed', laundryFound: false })}
+              disabled={busy}
+              className="text-sm font-semibold px-6 py-2.5 rounded-full bg-coqui-600 text-white
+                active:bg-coqui-700 disabled:opacity-50 transition-colors"
+            >
+              {busy ? '...' : t(locale, 'forum_noAndComplete')}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Yes — describe what's in the washer/dryer
     return (
       <div className="space-y-2">
-        <p className="text-xs text-center text-coqui-800/50">{t(locale, 'forum_laundryQuestion')}</p>
-        <div className="flex gap-2 justify-center">
-          <button
-            onClick={() => onAction({ status: 'completed', laundryFound: false })}
-            disabled={busy}
-            className="text-sm font-semibold px-5 py-2.5 rounded-full bg-coqui-100 text-coqui-700
-              active:bg-coqui-200 disabled:opacity-50 transition-colors"
-          >
-            {t(locale, 'forum_actionLaundryNo')}
-          </button>
-          <button
-            onClick={() => onAction({
-              status: 'completed',
-              laundryFound: true,
-              laundryNote: laundryNote.trim() || undefined,
-            })}
-            disabled={busy}
-            className="text-sm font-semibold px-5 py-2.5 rounded-full bg-amber-100 text-amber-700
-              active:bg-amber-200 disabled:opacity-50 transition-colors"
-          >
-            {t(locale, 'forum_actionLaundryYes')}
-          </button>
-        </div>
+        <p className="text-xs font-medium text-coqui-800/60 text-center">
+          {t(locale, 'forum_laundryDescribe')}
+        </p>
         <input
           type="text"
           value={laundryNote}
           onChange={(e) => setLaundryNote(e.target.value)}
-          placeholder={t(locale, 'forum_laundryDescribe')}
-          className="w-full text-xs border border-gray-200 rounded-full px-4 py-2
-            focus:outline-none focus:ring-2 focus:ring-coqui-200 placeholder:text-gray-400"
+          placeholder={t(locale, 'forum_laundryPlaceholder')}
+          className="w-full text-sm border border-gray-200 rounded-full px-4 py-2.5
+            focus:outline-none focus:ring-2 focus:ring-amber-200 placeholder:text-gray-400"
+          autoFocus
         />
+        <div className="flex items-center gap-2">
+          <input
+            ref={laundryFileRef}
+            id={fileInputId + '-laundry'}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setLaundryPhotoFile(file);
+                setLaundryPhotoPreview(URL.createObjectURL(file));
+              }
+            }}
+          />
+          <label
+            htmlFor={fileInputId + '-laundry'}
+            className="text-xs text-coqui-800/40 cursor-pointer hover:text-coqui-800/60 transition-colors
+              flex items-center gap-1.5"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+            </svg>
+            {laundryPhotoPreview
+              ? (locale === 'es' ? 'Cambiar foto' : 'Change photo')
+              : (locale === 'es' ? 'Adjuntar foto' : 'Attach photo')}
+          </label>
+          {laundryPhotoPreview && (
+            <div className="relative">
+              <img src={laundryPhotoPreview} alt="" className="w-10 h-10 object-cover rounded-lg" />
+              <button
+                onClick={() => { setLaundryPhotoFile(null); setLaundryPhotoPreview(null); if (laundryFileRef.current) laundryFileRef.current.value = ''; }}
+                className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full
+                  flex items-center justify-center text-[9px] font-bold"
+              >
+                ×
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2 justify-center">
+          <button
+            onClick={async () => {
+              let photoUrl;
+              if (laundryPhotoFile) {
+                const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${laundryPhotoFile.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
+                const storageRef = ref(storage, `cleaning/${job.id}/laundry/${filename}`);
+                setUploading(true);
+                const snap = await uploadBytesResumable(storageRef, laundryPhotoFile);
+                photoUrl = await getDownloadURL(snap.ref);
+                setUploading(false);
+              }
+              onAction({
+                status: 'completed',
+                laundryFound: true,
+                laundryNote: laundryNote.trim() || undefined,
+                ...(photoUrl ? { laundryPhoto: photoUrl } : {}),
+              });
+            }}
+            disabled={busy || uploading || !laundryNote.trim()}
+            className="text-sm font-semibold px-6 py-2.5 rounded-full bg-coqui-600 text-white
+              active:bg-coqui-700 disabled:opacity-50 transition-colors"
+          >
+            {uploading ? '...' : t(locale, 'forum_actionComplete')}
+          </button>
+          <button
+            onClick={() => { setShowLaundry(false); setLaundryNote(''); setLaundryPhotoFile(null); setLaundryPhotoPreview(null); }}
+            className="text-sm text-gray-400 px-3 py-2"
+          >
+            {t(locale, 'back')}
+          </button>
+        </div>
       </div>
     );
   }
