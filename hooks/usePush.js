@@ -110,6 +110,11 @@ export default function usePush({ bookingCode, staffId } = {}) {
             vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
           });
           if (fcmToken) {
+            // Don't create orphan token docs without identity — the explicit
+            // requestPermission call (from layout) will handle registration
+            // once user/bookingCode is available.
+            if (!bookingCode && !staffId) return;
+
             const refreshData = {
               token: fcmToken,
               updatedAt: new Date().toISOString(),
