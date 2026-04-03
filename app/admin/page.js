@@ -430,9 +430,19 @@ function FullAdminDashboard() {
     loading: revenueLoading,
   } = useCollection('revenue');
 
+  // Defense-in-depth: filter out stays past checkout (Cloud Function updates status at 2 AM)
+  const today = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, []);
+
+  const currentActiveBookings = useMemo(() => {
+    return activeBookings.filter((b) => b.checkOutDate >= today);
+  }, [activeBookings, today]);
+
   const pendingCheckIns = useMemo(() => {
-    return activeBookings.filter((b) => !b.checkedIn);
-  }, [activeBookings]);
+    return currentActiveBookings.filter((b) => !b.checkedIn);
+  }, [currentActiveBookings]);
 
   const monthlyRevenue = useMemo(() => {
     const now = new Date();
@@ -447,10 +457,10 @@ function FullAdminDashboard() {
   }, [revenue]);
 
   const currentGuests = useMemo(() => {
-    return [...activeBookings].sort(
+    return [...currentActiveBookings].sort(
       (a, b) => new Date(a.checkInDate) - new Date(b.checkInDate)
     );
-  }, [activeBookings]);
+  }, [currentActiveBookings]);
 
   return (
     <div className="px-4 pt-5 pb-6 max-w-2xl mx-auto space-y-6">
@@ -466,7 +476,7 @@ function FullAdminDashboard() {
       <div className="grid grid-cols-2 gap-3">
         <StatsCard
           label={t(locale, 'admin_dash_activeBookings')}
-          value={activeBookings.length}
+          value={currentActiveBookings.length}
           accent="text-coqui-600"
           loading={bookingsLoading}
           bgTint="bg-coqui-50 border-coqui-100"

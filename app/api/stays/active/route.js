@@ -32,10 +32,29 @@ export async function GET(request) {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    const bookings = bookingsSnap.docs.map((doc) => ({
+    const allBookings = bookingsSnap.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
+
+    // Defense-in-depth: filter out stays past checkout (Cloud Function updates status at 2 AM)
+    const PROPERTY_TZ = 'America/Puerto_Rico';
+    const todayPR = new Intl.DateTimeFormat('en-CA', {
+      timeZone: PROPERTY_TZ,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date());
+
+    const stale = allBookings.filter(b => b.checkOutDate < todayPR);
+    if (stale.length > 0) {
+      console.warn(`[GET /api/stays/active] Filtered ${stale.length} stale booking(s) awaiting expireLinks:`,
+        stale.map(b => ({ code: b.code, checkOut: b.checkOutDate })));
+    }
+
+    const bookings = allBookings.filter(b => b.checkOutDate >= todayPR);
+
+    if (bookings.length === 0) {
+      return NextResponse.json({ success: true, data: [] });
+    }
 
     // 2. Fetch check-in details for each booking code
     const codes = bookings.map((b) => b.code).filter(Boolean);
