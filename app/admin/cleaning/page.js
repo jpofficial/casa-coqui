@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 import CleanerHome from '@/components/cleaner/CleanerHome';
@@ -77,6 +77,7 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
   const [confirm, setConfirm] = useState(null); // { jobId, action: 'archive' | 'delete' }
   const [actionBusy, setActionBusy] = useState(null); // jobId being acted on
   const [selectedJob, setSelectedJob] = useState(null); // job to view in forum
+  const [cleaners, setCleaners] = useState([]);
 
   useEffect(() => {
     const q = query(
@@ -94,6 +95,20 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
       }
     );
     return unsub;
+  }, []);
+
+  // Fetch active cleaners for reassignment
+  useEffect(() => {
+    async function fetchCleaners() {
+      try {
+        const q = query(collection(db, 'users'), where('role', '==', 'cleaner'), where('status', '==', 'active'));
+        const snap = await getDocs(q);
+        setCleaners(snap.docs.map((d) => ({ id: d.id, name: d.data().displayName || d.data().email })));
+      } catch (err) {
+        console.error('[cleaning] fetch cleaners error:', err);
+      }
+    }
+    fetchCleaners();
   }, []);
 
   async function patchJob(jobId, body) {
@@ -208,7 +223,34 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
                 <div className="flex items-center gap-4 text-xs text-gray-500">
                   <span>{job.scheduledDate}</span>
                   <span>{job.checkoutTime || '11:00 AM'}</span>
-                  {job.assigneeName && <span>{job.assigneeName}</span>}
+                </div>
+
+                {/* Assignee with reassign */}
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-gray-400">Assigned:</span>
+                  {isAdmin && cleaners.length > 0 ? (
+                    <select
+                      value={job.assigneeId || ''}
+                      onChange={async (e) => {
+                        if (!e.target.value || e.target.value === job.assigneeId) return;
+                        setActionBusy(job.id);
+                        await patchJob(job.id, { assigneeId: e.target.value }).catch(() => {});
+                        setActionBusy(null);
+                      }}
+                      disabled={isBusy}
+                      className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5
+                        focus:outline-none focus:ring-2 focus:ring-coqui-200 disabled:opacity-50"
+                    >
+                      {!cleaners.find((c) => c.id === job.assigneeId) && (
+                        <option value={job.assigneeId || ''}>{job.assigneeName || 'Unassigned'}</option>
+                      )}
+                      {cleaners.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="font-medium text-gray-700">{job.assigneeName || 'Unassigned'}</span>
+                  )}
                 </div>
 
                 {job.sameDayArrival && (

@@ -144,6 +144,20 @@ export async function PATCH(request, { params }) {
       if (body.notes !== undefined) updates.notes = body.notes;
       if (body.turnoverNotes !== undefined) updates.turnoverNotes = body.turnoverNotes;
       if (body.sameDayArrival !== undefined) updates.sameDayArrival = Boolean(body.sameDayArrival);
+
+      // Reassign cleaner
+      if (body.assigneeId !== undefined) {
+        const assigneeDoc = await adminDb.collection('users').doc(body.assigneeId).get();
+        if (!assigneeDoc.exists) {
+          return NextResponse.json(
+            { success: false, error: 'Assignee not found.' },
+            { status: 400 }
+          );
+        }
+        const assigneeData = assigneeDoc.data();
+        updates.assigneeId = body.assigneeId;
+        updates.assigneeName = assigneeData.displayName || assigneeData.email;
+      }
     }
 
     if (Object.keys(updates).length === 0) {
