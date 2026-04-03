@@ -6,9 +6,10 @@ import { nt } from '@/lib/notification-strings';
 
 // ---------------------------------------------------------------------------
 // PATCH /api/bookings/[id]
-// Cancels a booking (soft delete). Sets status to 'cancelled' and records
-// who cancelled it and when. The guest link becomes unusable because guest
-// verification checks status === 'active'.
+//
+// Updates a booking. Supports:
+//   1. Field edits: guestName, guestEmail, unit, unitId, checkInDate, checkOutDate
+//   2. Cancellation: { status: 'cancelled' }
 //
 // Requires admin role.
 // ---------------------------------------------------------------------------
@@ -29,74 +30,130 @@ export async function PATCH(request, { params }) {
     }
 
     const booking = doc.data();
+    const body = await request.json().catch(() => ({}));
 
-    if (booking.status === 'cancelled') {
-      return NextResponse.json(
-        { success: false, error: 'Booking is already cancelled.' },
-        { status: 400 }
-      );
-    }
+    // ── Cancellation flow ──────────────────────────────────────────────
+    if (body.status === 'cancelled') {
+      if (booking.status === 'cancelled') {
+        return NextResponse.json(
+          { success: false, error: 'Booking is already cancelled.' },
+          { status: 400 }
+        );
+      }
 
-    const now = new Date().toISOString();
-    await docRef.update({
-      status: 'cancelled',
-      cancelledAt: now,
-      cancelledBy: caller.uid,
-    });
-
-    // ── Cascade: cancel associated cleaning jobs ──
-    // Skip jobs that are physically in-progress (en_route through laundry_check)
-    const cascadeStatuses = ['scheduled', 'acknowledged', 'declined'];
-    const jobsSnap = await adminDb
-      .collection('cleaning_jobs')
-      .where('bookingId', '==', id)
-      .get();
-
-    const batch = adminDb.batch();
-    const affectedCleaners = new Map(); // assigneeId → [unit]
-
-    for (const jobDoc of jobsSnap.docs) {
-      const job = jobDoc.data();
-      if (!cascadeStatuses.includes(job.status)) continue;
-
-      batch.update(jobDoc.ref, {
+      const now = new Date().toISOString();
+      await docRef.update({
         status: 'cancelled',
         cancelledAt: now,
         cancelledBy: caller.uid,
       });
 
-      if (job.assigneeId) {
-        const units = affectedCleaners.get(job.assigneeId) || [];
-        units.push(job.unit);
-        affectedCleaners.set(job.assigneeId, units);
+      // Cascade: cancel associated cleaning jobs
+      const cascadeStatuses = ['scheduled', 'acknowledged', 'declined'];
+      const jobsSnap = await adminDb
+        .collection('cleaning_jobs')
+        .where('bookingId', '==', id)
+        .get();
+
+      const batch = adminDb.batch();
+      const affectedCleaners = new Map();
+
+      for (const jobDoc of jobsSnap.docs) {
+        const job = jobDoc.data();
+        if (!cascadeStatuses.includes(job.status)) continue;
+
+        batch.update(jobDoc.ref, {
+          status: 'cancelled',
+          cancelledAt: now,
+          cancelledBy: caller.uid,
+        });
+
+        if (job.assigneeId) {
+          const units = affectedCleaners.get(job.assigneeId) || [];
+          units.push(job.unit);
+          affectedCleaners.set(job.assigneeId, units);
+        }
+      }
+
+      if (affectedCleaners.size > 0) {
+        await batch.commit();
+
+        for (const [staffId, units] of affectedCleaners) {
+          const unitList = units.join(', ');
+          await notifyStaff({
+            staffIds: [staffId],
+            title: nt('en', 'cleaningCancelled_title'),
+            body: nt('en', 'cleaningCancelled_body', { unit: unitList }),
+            type: 'cleaning_update',
+            data: { targetPath: '/admin/cleaning' },
+            localizer: (locale) => ({
+              title: nt(locale, 'cleaningCancelled_title'),
+              body: nt(locale, 'cleaningCancelled_body', { unit: unitList }),
+            }),
+          }).catch((err) => console.error('[PATCH /api/bookings] Notify cleaner error:', err));
+        }
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    // ── Field edits ────────────────────────────────────────────────────
+    const updates = {};
+    const now = new Date().toISOString();
+
+    if (body.guestName !== undefined) updates.guestName = String(body.guestName).trim();
+    if (body.guestEmail !== undefined) updates.guestEmail = String(body.guestEmail).trim().toLowerCase();
+    if (body.unit !== undefined) updates.unit = String(body.unit).trim();
+    if (body.unitId !== undefined) updates.unitId = String(body.unitId).trim();
+    if (body.checkInDate !== undefined) updates.checkInDate = String(body.checkInDate).trim();
+    if (body.checkOutDate !== undefined) updates.checkOutDate = String(body.checkOutDate).trim();
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'No valid fields to update.' },
+        { status: 400 }
+      );
+    }
+
+    // Validate dates if either changed
+    const effectiveCheckIn = updates.checkInDate || booking.checkInDate;
+    const effectiveCheckOut = updates.checkOutDate || booking.checkOutDate;
+    if (effectiveCheckOut <= effectiveCheckIn) {
+      return NextResponse.json(
+        { success: false, error: 'Check-out date must be after check-in date.' },
+        { status: 400 }
+      );
+    }
+
+    // Overlap check if unit or dates changed
+    if (updates.unit || updates.checkInDate || updates.checkOutDate) {
+      const effectiveUnit = updates.unit || booking.unit;
+      const overlapSnap = await adminDb
+        .collection('bookings')
+        .where('unit', '==', effectiveUnit)
+        .where('status', '==', 'active')
+        .get();
+
+      for (const overlapDoc of overlapSnap.docs) {
+        if (overlapDoc.id === id) continue; // skip self
+        const other = overlapDoc.data();
+        if (effectiveCheckIn < other.checkOutDate && effectiveCheckOut > other.checkInDate) {
+          return NextResponse.json(
+            { success: false, error: `Dates overlap with an existing booking on ${effectiveUnit}.` },
+            { status: 400 }
+          );
+        }
       }
     }
 
-    if (affectedCleaners.size > 0) {
-      await batch.commit();
+    updates.updatedAt = now;
+    await docRef.update(updates);
 
-      // Notify each affected cleaner
-      for (const [staffId, units] of affectedCleaners) {
-        const unitList = units.join(', ');
-        await notifyStaff({
-          staffIds: [staffId],
-          title: nt('en', 'cleaningCancelled_title'),
-          body: nt('en', 'cleaningCancelled_body', { unit: unitList }),
-          type: 'cleaning_update',
-          data: { targetPath: '/admin/cleaning' },
-          localizer: (locale) => ({
-            title: nt(locale, 'cleaningCancelled_title'),
-            body: nt(locale, 'cleaningCancelled_body', { unit: unitList }),
-          }),
-        }).catch((err) => console.error('[PATCH /api/bookings] Notify cleaner error:', err));
-      }
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, data: { id, ...updates } });
   } catch (error) {
     console.error('[PATCH /api/bookings/[id]]', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to cancel booking.' },
+      { success: false, error: 'Failed to update booking.' },
       { status: 500 }
     );
   }

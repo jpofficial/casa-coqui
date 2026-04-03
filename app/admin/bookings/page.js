@@ -304,6 +304,141 @@ function BookingForm({ onCreated, onClose, user, settings }) {
 }
 
 // ---------------------------------------------------------------------------
+// Edit Booking Form
+// ---------------------------------------------------------------------------
+
+function EditBookingForm({ booking, onClose, user, settings }) {
+  const { locale } = useLocale();
+  const units = getUnits(settings);
+  const unitNames = units.map((u) => u.name);
+  const [form, setForm] = useState({
+    guestName: booking.guestName || '',
+    guestEmail: booking.guestEmail || '',
+    unit: booking.unit || unitNames[0] || '',
+    checkInDate: booking.checkInDate || '',
+    checkOutDate: booking.checkOutDate || '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const selectedUnitId = units.find((u) => u.name === form.unit)?.id || null;
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setError('');
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+
+    if (!form.checkInDate || !form.checkOutDate) {
+      setError(t(locale, 'admin_book_errDatesRequired'));
+      return;
+    }
+    if (form.checkOutDate <= form.checkInDate) {
+      setError(t(locale, 'admin_book_errCheckOutAfter'));
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch(`/api/bookings/${booking.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          unit: form.unit,
+          unitId: selectedUnitId,
+          guestName: form.guestName.trim(),
+          guestEmail: form.guestEmail.trim(),
+          checkInDate: form.checkInDate,
+          checkOutDate: form.checkOutDate,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!json.success) {
+        setError(json.error || 'Failed to update booking.');
+        return;
+      }
+
+      onClose();
+    } catch (err) {
+      setError('Failed to update booking.');
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const inputClass =
+    'w-full rounded-lg border border-cafe-200 px-3 py-2.5 text-sm text-coqui-900 focus:outline-none focus:ring-2 focus:ring-coqui-500 focus:border-transparent placeholder:text-cafe-400';
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+      <div className="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-4 border-b border-cafe-100 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-coqui-900">{t(locale, 'admin_book_editTitle')}</h2>
+          <button onClick={onClose} className="text-cafe-400 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-coqui-800 mb-1">{t(locale, 'admin_book_guestName')}</label>
+            <input type="text" name="guestName" value={form.guestName} onChange={handleChange} placeholder={t(locale, 'admin_book_guestNamePlaceholder')} className={inputClass} />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-coqui-800 mb-1">{t(locale, 'admin_book_guestEmail')}</label>
+            <input type="email" name="guestEmail" value={form.guestEmail} onChange={handleChange} placeholder={t(locale, 'admin_book_guestEmailPlaceholder')} className={inputClass} />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-coqui-800 mb-1">{t(locale, 'admin_book_unit')}</label>
+            <select name="unit" value={form.unit} onChange={handleChange} required className={inputClass}>
+              {unitNames.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-coqui-800 mb-1">{t(locale, 'admin_book_checkIn')}</label>
+              <input type="date" name="checkInDate" value={form.checkInDate} onChange={handleChange} required className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-coqui-800 mb-1">{t(locale, 'admin_book_checkOut')}</label>
+              <input type="date" name="checkOutDate" value={form.checkOutDate} onChange={handleChange} required min={form.checkInDate || undefined} className={inputClass} />
+            </div>
+          </div>
+
+          {error && <p className="text-sm text-flamboyan-600 bg-flamboyan-50 rounded-lg px-3 py-2">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-coqui-600 active:bg-coqui-700 text-white font-semibold rounded-lg px-4 py-3 text-sm transition-colors disabled:opacity-60 min-h-[48px]"
+          >
+            {submitting ? t(locale, 'saving') : t(locale, 'admin_book_saveChanges')}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Success Banner
 // ---------------------------------------------------------------------------
 
@@ -350,10 +485,11 @@ function SuccessBanner({ booking, onDismiss }) {
 // Booking Card
 // ---------------------------------------------------------------------------
 
-function BookingCard({ booking, onCancel }) {
+function BookingCard({ booking, onCancel, user, settings }) {
   const { locale } = useLocale();
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [editing, setEditing] = useState(false);
   const { data: checkin } = useDocument('checkins', booking.code || null);
   const unitColor = getUnitColor(booking.unit);
   const isActive = booking.status === 'active';
@@ -403,14 +539,22 @@ function BookingCard({ booking, onCancel }) {
           </div>
         )}
 
-        {/* Cancel action */}
+        {/* Edit + Cancel actions */}
         {isActive && !confirming && (
-          <button
-            onClick={() => setConfirming(true)}
-            className="text-xs text-flamboyan-500 font-medium py-1 transition-colors"
-          >
-            {t(locale, 'admin_book_cancelBooking')}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setEditing(true)}
+              className="text-xs text-caribe-600 font-medium py-1 transition-colors"
+            >
+              {t(locale, 'admin_book_editBooking')}
+            </button>
+            <button
+              onClick={() => setConfirming(true)}
+              className="text-xs text-flamboyan-500 font-medium py-1 transition-colors"
+            >
+              {t(locale, 'admin_book_cancelBooking')}
+            </button>
+          </div>
         )}
 
         {isActive && confirming && (
@@ -435,6 +579,16 @@ function BookingCard({ booking, onCancel }) {
               </button>
             </div>
           </div>
+        )}
+
+        {/* Edit modal */}
+        {editing && (
+          <EditBookingForm
+            booking={booking}
+            onClose={() => setEditing(false)}
+            user={user}
+            settings={settings}
+          />
         )}
       </div>
     </div>
@@ -588,7 +742,7 @@ export default function BookingsPage() {
       ) : (
         <div className="space-y-3">
           {displayList.map((booking) => (
-            <BookingCard key={booking.id} booking={booking} onCancel={handleCancel} />
+            <BookingCard key={booking.id} booking={booking} onCancel={handleCancel} user={user} settings={settings} />
           ))}
         </div>
       )}
