@@ -43,6 +43,7 @@ export default function GettingStartedPage() {
     try {
       await updateDoc(doc(db, 'users', user.uid), {
         onboardingComplete: true,
+        status: 'active',
       });
       setNeedsOnboarding(false);
     } catch (err) {

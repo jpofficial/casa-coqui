@@ -128,19 +128,24 @@ export async function POST(request) {
     });
 
     // Notify the assigned cleaner — must await on Vercel serverless.
-    const notifyTitle = nt('en', 'newCleaningAssignment_title');
-    const notifyBody = nt('en', 'cleaningAssignment_body', { unit, date: scheduledDate, time: job.checkoutTime });
-    await notifyStaff({
-      staffIds: [assigneeId],
-      title: notifyTitle,
-      body: notifyBody,
-      type: 'cleaning_assignment',
-      data: { jobId: docRef.id, unit, scheduledDate, targetPath: '/admin/cleaning' },
-      localizer: (locale) => ({
-        title: nt(locale, 'newCleaningAssignment_title'),
-        body: nt(locale, 'cleaningAssignment_body', { unit, date: scheduledDate, time: job.checkoutTime }),
-      }),
-    }).catch((err) => console.error('[POST /api/cleaning/jobs] Notify error:', err));
+    try {
+      const notifyTitle = nt('en', 'newCleaningAssignment_title');
+      const notifyBody = nt('en', 'cleaningAssignment_body', { unit, date: scheduledDate, time: job.checkoutTime });
+      const notifyResult = await notifyStaff({
+        staffIds: [assigneeId],
+        title: notifyTitle,
+        body: notifyBody,
+        type: 'cleaning_assignment',
+        data: { jobId: docRef.id, unit, scheduledDate, targetPath: '/admin/cleaning' },
+        localizer: (locale) => ({
+          title: nt(locale, 'newCleaningAssignment_title'),
+          body: nt(locale, 'cleaningAssignment_body', { unit, date: scheduledDate, time: job.checkoutTime }),
+        }),
+      });
+      console.log(`[POST /api/cleaning/jobs] Notify result:`, JSON.stringify(notifyResult));
+    } catch (err) {
+      console.error('[POST /api/cleaning/jobs] Notify error:', err);
+    }
 
     return NextResponse.json(
       { success: true, data: { id: docRef.id, ...job } },

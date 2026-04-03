@@ -106,31 +106,39 @@ export async function POST(request, { params }) {
     if (isAdmin) {
       // Admin posted → notify cleaner
       if (job.assigneeId) {
-        await notifyStaff({
-          staffIds: [job.assigneeId],
-          title: nt('en', 'forumReply_title'),
-          body: text ? text.slice(0, 100) : nt('en', 'sentPhoto'),
-          type: 'cleaning_update',
-          data: { jobId: id, unit, targetPath: '/admin/cleaning' },
-          localizer: (locale) => ({
-            title: nt(locale, 'forumReply_title'),
-            body: text ? text.slice(0, 100) : nt(locale, 'sentPhoto'),
-          }),
-        }).catch((err) => console.error('[posts] notify cleaner error:', err));
+        try {
+          await notifyStaff({
+            staffIds: [job.assigneeId],
+            title: nt('en', 'forumReply_title'),
+            body: text ? text.slice(0, 100) : nt('en', 'sentPhoto'),
+            type: 'cleaning_update',
+            data: { jobId: id, unit, targetPath: '/admin/cleaning' },
+            localizer: (locale) => ({
+              title: nt(locale, 'forumReply_title'),
+              body: text ? text.slice(0, 100) : nt(locale, 'sentPhoto'),
+            }),
+          });
+        } catch (err) {
+          console.error('[posts] notify cleaner error:', err);
+        }
       }
     } else {
       // Cleaner posted → notify admin/cohost
       const cleanerName = job.assigneeName || 'Cleaner';
-      await notifyAdminAndCohost({
-        title: nt('en', 'forumMessage_title', { name: cleanerName }),
-        body: text ? text.slice(0, 100) : nt('en', 'sentPhoto'),
-        type: 'cleaning_update',
-        data: { jobId: id, unit, targetPath: '/admin/cleaning' },
-        localizer: (locale) => ({
-          title: nt(locale, 'forumMessage_title', { name: cleanerName }),
-          body: text ? text.slice(0, 100) : nt(locale, 'sentPhoto'),
-        }),
-      }).catch((err) => console.error('[posts] notify admin error:', err));
+      try {
+        await notifyAdminAndCohost({
+          title: nt('en', 'forumMessage_title', { name: cleanerName }),
+          body: text ? text.slice(0, 100) : nt('en', 'sentPhoto'),
+          type: 'cleaning_update',
+          data: { jobId: id, unit, targetPath: '/admin/cleaning' },
+          localizer: (locale) => ({
+            title: nt(locale, 'forumMessage_title', { name: cleanerName }),
+            body: text ? text.slice(0, 100) : nt(locale, 'sentPhoto'),
+          }),
+        });
+      } catch (err) {
+        console.error('[posts] notify admin error:', err);
+      }
     }
 
     return NextResponse.json(

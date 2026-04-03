@@ -230,51 +230,66 @@ export async function PATCH(request, { params }) {
     // Must be awaited — Vercel freezes serverless functions after response.
     const cleanerName = existing.assigneeName || 'Cleaner';
     const unit = existing.unit;
-    let notification = null;
 
     if (updates.status === 'acknowledged') {
-      notification = notifyAdminAndCohost({
-        title: nt('en', 'cleaningAccepted_title'),
-        body: nt('en', 'cleaningAccepted_body', { name: cleanerName, unit }),
-        type: 'cleaning_update',
-        data: { jobId: id, status: 'acknowledged' },
-        localizer: (locale) => ({
-          title: nt(locale, 'cleaningAccepted_title'),
-          body: nt(locale, 'cleaningAccepted_body', { name: cleanerName, unit }),
-        }),
-      }).catch((err) => console.error('[PATCH /api/cleaning/jobs/[id]] Notify error:', err));
+      console.log(`[PATCH cleaning/jobs/${id}] Triggering notification for acknowledged, cleaner=${cleanerName}, unit=${unit}`);
+      try {
+        const result = await notifyAdminAndCohost({
+          title: nt('en', 'cleaningAccepted_title'),
+          body: nt('en', 'cleaningAccepted_body', { name: cleanerName, unit }),
+          type: 'cleaning_update',
+          data: { jobId: id, status: 'acknowledged', targetPath: '/admin/cleaning' },
+          localizer: (locale) => ({
+            title: nt(locale, 'cleaningAccepted_title'),
+            body: nt(locale, 'cleaningAccepted_body', { name: cleanerName, unit }),
+          }),
+        });
+        console.log(`[PATCH cleaning/jobs/${id}] Notification result:`, JSON.stringify(result));
+      } catch (err) {
+        console.error(`[PATCH cleaning/jobs/${id}] Notify error (acknowledged):`, err);
+      }
     }
 
     if (updates.status === 'declined') {
       const reason = updates.declineReason ? `: ${updates.declineReason}` : '';
-      notification = notifyAdminAndCohost({
-        title: nt('en', 'cleaningDeclined_title'),
-        body: nt('en', 'cleaningDeclined_body', { name: cleanerName, unit }) + reason,
-        type: 'cleaning_update',
-        data: { jobId: id, status: 'declined' },
-        localizer: (locale) => ({
-          title: nt(locale, 'cleaningDeclined_title'),
-          body: nt(locale, 'cleaningDeclined_body', { name: cleanerName, unit }) + reason,
-        }),
-      }).catch((err) => console.error('[PATCH /api/cleaning/jobs/[id]] Notify error:', err));
+      console.log(`[PATCH cleaning/jobs/${id}] Triggering notification for declined, cleaner=${cleanerName}, unit=${unit}`);
+      try {
+        const result = await notifyAdminAndCohost({
+          title: nt('en', 'cleaningDeclined_title'),
+          body: nt('en', 'cleaningDeclined_body', { name: cleanerName, unit }) + reason,
+          type: 'cleaning_update',
+          data: { jobId: id, status: 'declined', targetPath: '/admin/cleaning' },
+          localizer: (locale) => ({
+            title: nt(locale, 'cleaningDeclined_title'),
+            body: nt(locale, 'cleaningDeclined_body', { name: cleanerName, unit }) + reason,
+          }),
+        });
+        console.log(`[PATCH cleaning/jobs/${id}] Notification result:`, JSON.stringify(result));
+      } catch (err) {
+        console.error(`[PATCH cleaning/jobs/${id}] Notify error (declined):`, err);
+      }
     }
 
     if (updates.status === 'arrived' || updates.status === 'completed') {
       const titleKey = updates.status === 'arrived' ? 'cleaningArrived_title' : 'cleaningCompleted_title';
       const statusLabelKey = updates.status === 'arrived' ? 'cleaningStatusLabel_arrived' : 'cleaningStatusLabel_completed';
-      notification = notifyAdminAndCohost({
-        title: nt('en', titleKey),
-        body: nt('en', 'cleaningStatus_body', { name: cleanerName, status: nt('en', statusLabelKey), unit }),
-        type: 'cleaning_update',
-        data: { jobId: id, status: updates.status },
-        localizer: (locale) => ({
-          title: nt(locale, titleKey),
-          body: nt(locale, 'cleaningStatus_body', { name: cleanerName, status: nt(locale, statusLabelKey), unit }),
-        }),
-      }).catch((err) => console.error('[PATCH /api/cleaning/jobs/[id]] Notify error:', err));
+      console.log(`[PATCH cleaning/jobs/${id}] Triggering notification for ${updates.status}, cleaner=${cleanerName}, unit=${unit}`);
+      try {
+        const result = await notifyAdminAndCohost({
+          title: nt('en', titleKey),
+          body: nt('en', 'cleaningStatus_body', { name: cleanerName, status: nt('en', statusLabelKey), unit }),
+          type: 'cleaning_update',
+          data: { jobId: id, status: updates.status, targetPath: '/admin/cleaning' },
+          localizer: (locale) => ({
+            title: nt(locale, titleKey),
+            body: nt(locale, 'cleaningStatus_body', { name: cleanerName, status: nt(locale, statusLabelKey), unit }),
+          }),
+        });
+        console.log(`[PATCH cleaning/jobs/${id}] Notification result:`, JSON.stringify(result));
+      } catch (err) {
+        console.error(`[PATCH cleaning/jobs/${id}] Notify error (${updates.status}):`, err);
+      }
     }
-
-    if (notification) await notification;
 
     return NextResponse.json({ success: true, data: { id, ...updates } });
   } catch (error) {
