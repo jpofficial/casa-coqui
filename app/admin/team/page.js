@@ -155,10 +155,10 @@ export default function TeamPage() {
   }
 
   const roleBadgeColors = {
-    admin: 'bg-blue-100 text-blue-800',
-    cohost: 'bg-purple-100 text-purple-800',
-    cleaner: 'bg-yellow-100 text-yellow-800',
-    maintenance: 'bg-orange-100 text-orange-800',
+    admin: 'bg-blue-600 text-white',
+    cohost: 'bg-purple-600 text-white',
+    cleaner: 'bg-amber-500 text-white',
+    maintenance: 'bg-orange-500 text-white',
   };
 
   const pendingUsers = users.filter((m) => m.status === 'pending');
@@ -175,7 +175,7 @@ export default function TeamPage() {
         </h2>
         <form onSubmit={handleInvite} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-semibold text-gray-900 mb-1">
               Display Name
             </label>
             <input
@@ -184,11 +184,11 @@ export default function TeamPage() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Maria Garcia"
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-400 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-semibold text-gray-900 mb-1">
               Email
             </label>
             <input
@@ -197,17 +197,17 @@ export default function TeamPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="maria@example.com"
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-400 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-semibold text-gray-900 mb-1">
               Role
             </label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-400 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="cohost">Co-host</option>
               <option value="cleaner">Cleaner</option>
@@ -400,7 +400,7 @@ export default function TeamPage() {
                         value={member.role}
                         onChange={(e) => handleRoleChange(member.id, e.target.value)}
                         disabled={actionLoading === member.id}
-                        className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="text-xs font-medium text-gray-900 border border-gray-400 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="cohost">Co-host</option>
                         <option value="cleaner">Cleaner</option>
