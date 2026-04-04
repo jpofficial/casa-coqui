@@ -407,6 +407,42 @@ function CohostDashboard() {
   );
 }
 
+function DashboardBookingCard({ booking, index }) {
+  const { locale } = useLocale();
+  const { data: checkin } = useDocument('checkins', booking.code || null);
+  const isCheckedIn = booking.checkedIn || !!checkin?.checkedIn;
+  const unitColor = UNIT_COLORS[booking.unit] || { accent: 'bg-cafe-300', text: 'text-cafe-700' };
+
+  return (
+    <div className="animate-admin-in" style={{ animationDelay: `${index * 50}ms` }}>
+      <div className="bg-white rounded-xl shadow-brand overflow-hidden border border-cafe-100">
+        <div className={`h-1 ${unitColor.accent}`} />
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-semibold text-coqui-900 text-sm truncate">
+                {booking.guestName || t(locale, 'admin_dash_awaitingCheckin')}
+              </p>
+              <p className={`text-xs mt-0.5 font-medium ${unitColor.text}`}>
+                {booking.unit}
+              </p>
+            </div>
+            <StatusBadge status={isCheckedIn ? 'active' : 'pending'} />
+          </div>
+          <div className="mt-2 flex items-center gap-1 text-xs text-coqui-800/60">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span>
+              {formatDate(booking.checkInDate, locale)} — {formatDate(booking.checkOutDate, locale)}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FullAdminDashboard() {
   const { locale } = useLocale();
 
@@ -430,6 +466,19 @@ function FullAdminDashboard() {
     loading: revenueLoading,
   } = useCollection('revenue');
 
+  const {
+    data: checkins,
+    loading: checkinsLoading,
+  } = useCollection('checkins', [where('checkedIn', '==', true)]);
+
+  const checkedInCodes = useMemo(() => {
+    const set = new Set();
+    for (const c of checkins) {
+      if (c.bookingCode) set.add(c.bookingCode);
+    }
+    return set;
+  }, [checkins]);
+
   // Defense-in-depth: filter out stays past checkout (Cloud Function updates status at 2 AM)
   const today = useMemo(() => {
     const d = new Date();
@@ -441,8 +490,8 @@ function FullAdminDashboard() {
   }, [activeBookings, today]);
 
   const pendingCheckIns = useMemo(() => {
-    return currentActiveBookings.filter((b) => !b.checkedIn);
-  }, [currentActiveBookings]);
+    return currentActiveBookings.filter((b) => !b.checkedIn && !checkedInCodes.has(b.code));
+  }, [currentActiveBookings, checkedInCodes]);
 
   const monthlyRevenue = useMemo(() => {
     const now = new Date();
@@ -592,37 +641,9 @@ function FullAdminDashboard() {
           </div>
         ) : (
           <div className="space-y-3">
-            {currentGuests.map((booking, i) => {
-              const unitColor = UNIT_COLORS[booking.unit] || { accent: 'bg-cafe-300', text: 'text-cafe-700' };
-              return (
-                <div key={booking.id} className="animate-admin-in" style={{ animationDelay: `${i * 50}ms` }}>
-                  <div className="bg-white rounded-xl shadow-brand overflow-hidden border border-cafe-100">
-                    <div className={`h-1 ${unitColor.accent}`} />
-                    <div className="p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-coqui-900 text-sm truncate">
-                            {booking.guestName || t(locale, 'admin_dash_awaitingCheckin')}
-                          </p>
-                          <p className={`text-xs mt-0.5 font-medium ${unitColor.text}`}>
-                            {booking.unit}
-                          </p>
-                        </div>
-                        <StatusBadge status={booking.checkedIn ? 'active' : 'pending'} />
-                      </div>
-                      <div className="mt-2 flex items-center gap-1 text-xs text-coqui-800/60">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span>
-                          {formatDate(booking.checkInDate, locale)} — {formatDate(booking.checkOutDate, locale)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {currentGuests.map((booking, i) => (
+              <DashboardBookingCard key={booking.id} booking={booking} index={i} />
+            ))}
           </div>
         )}
       </div>

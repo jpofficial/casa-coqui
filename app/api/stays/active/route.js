@@ -98,7 +98,25 @@ export async function GET(request) {
       }
     }
 
-    // 5. Fetch booking members (primary + invited guests) per booking code
+    // 5. Fetch FCM push token counts per booking code
+    const pushCountMap = {};
+    if (codes.length > 0) {
+      for (let i = 0; i < codes.length; i += 30) {
+        const batch = codes.slice(i, i + 30);
+        const tokenSnap = await adminDb
+          .collection('fcm_tokens')
+          .where('bookingCode', 'in', batch)
+          .get();
+        for (const doc of tokenSnap.docs) {
+          const data = doc.data();
+          if (data.bookingCode) {
+            pushCountMap[data.bookingCode] = (pushCountMap[data.bookingCode] || 0) + 1;
+          }
+        }
+      }
+    }
+
+    // 6. Fetch booking members (primary + invited guests) per booking code
     const membersMap = {};
     if (codes.length > 0) {
       // Firestore 'in' supports max 30
@@ -115,6 +133,8 @@ export async function GET(request) {
             name: data.name || null,
             role: data.role || 'invited',
             status: data.status || 'pending',
+            checkedInAt: data.checkedInAt || null,
+            firstPortalVisitAt: data.firstPortalVisitAt || null,
           });
         }
       }
@@ -139,7 +159,8 @@ export async function GET(request) {
         checkInDate: b.checkInDate,
         checkOutDate: b.checkOutDate,
         status: b.status,
-        checkedIn: b.checkedIn || false,
+        checkedIn: b.checkedIn || !!checkinMap[code]?.checkedIn,
+        checkedInAt: b.checkedInAt || checkinMap[code]?.checkedInAt || null,
         nightCount,
         nightsRemaining,
         arrivalTime: checkin.arrivalTime || null,
@@ -148,6 +169,7 @@ export async function GET(request) {
         unreadMessageCount: unreadMap[code] || 0,
         openMaintenanceCount: maintMap[code] || 0,
         members: membersMap[code] || [],
+        pushTokenCount: pushCountMap[code] || 0,
       };
 
       // Admin-only fields

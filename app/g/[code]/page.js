@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
-import { where } from 'firebase/firestore';
+import { where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
-import { auth as firebaseAuth } from '@/lib/firebase';
+import { auth as firebaseAuth, db } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 import { isStandalone as checkStandalone } from '@/lib/platform';
 import useLocale from '@/hooks/useLocale';
@@ -227,6 +227,18 @@ export default function GuestHome({ params }) {
       } catch (err) { console.error('Backfill booking_members error:', err); }
     })();
   }, [membersLoading, members, user, bookings, code]);
+
+  // ── Track first portal visit ────────────────────────────────────────
+  const didTrackVisit = useRef(false);
+  useEffect(() => {
+    if (membersLoading || !user || didTrackVisit.current) return;
+    const myMember = members.find((m) => m.uid === user.uid);
+    if (!myMember || myMember.firstPortalVisitAt) return;
+    didTrackVisit.current = true;
+    updateDoc(doc(db, 'booking_members', myMember.id), {
+      firstPortalVisitAt: serverTimestamp(),
+    }).catch((err) => console.error('[GuestHome] Track first visit failed:', err));
+  }, [membersLoading, members, user]);
 
   const isPrimary = members.some((m) => m.role === 'primary' && m.uid === user?.uid);
 

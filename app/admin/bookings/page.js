@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import { orderBy } from 'firebase/firestore';
+import { orderBy, where } from 'firebase/firestore';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
 import useAuth from '@/hooks/useAuth';
 import { getUnitNames, getUnits } from '@/lib/units';
@@ -491,8 +491,13 @@ function BookingCard({ booking, onCancel, user, settings }) {
   const [cancelling, setCancelling] = useState(false);
   const [editing, setEditing] = useState(false);
   const { data: checkin } = useDocument('checkins', booking.code || null);
+  const { data: members } = useCollection('booking_members', [
+    where('bookingCode', '==', booking.code || '__none__'),
+  ]);
   const unitColor = getUnitColor(booking.unit);
   const isActive = booking.status === 'active';
+  const primaryMember = members.find((m) => m.role === 'primary');
+  const hasPortalVisit = !!primaryMember?.firstPortalVisitAt;
 
   async function handleCancel() {
     setCancelling(true);
@@ -523,6 +528,44 @@ function BookingCard({ booking, onCancel, user, settings }) {
           </svg>
           <span>{formatDate(booking.checkInDate, locale)} — {formatDate(booking.checkOutDate, locale)}</span>
         </div>
+
+        {/* Guest funnel status */}
+        {isActive && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            {/* Check-in status */}
+            <span className={`inline-flex items-center gap-1 ${checkin?.checkedIn ? 'text-coqui-700' : 'text-atardecer-600'}`}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                {checkin?.checkedIn ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                )}
+              </svg>
+              {checkin?.checkedIn
+                ? `${t(locale, 'admin_book_checkedIn')}${checkin.checkedInAt ? ` · ${formatDate(checkin.checkedInAt, locale)}` : ''}`
+                : t(locale, 'admin_book_awaitingCheckin')}
+            </span>
+            {/* Portal visit */}
+            {checkin?.checkedIn && (
+              <span className={`inline-flex items-center gap-1 ${hasPortalVisit ? 'text-coqui-700' : 'text-coqui-800/40'}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                {hasPortalVisit ? t(locale, 'admin_book_portalActive') : t(locale, 'admin_book_portalNotVisited')}
+              </span>
+            )}
+            {/* Group members count */}
+            {members.length > 1 && (
+              <span className="inline-flex items-center gap-1 text-coqui-800/50">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {members.length} {t(locale, 'admin_book_members')}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Vehicle */}
         {checkin && (checkin.hasVehicle === 'yes' || checkin.hasVehicle === 'no') && (

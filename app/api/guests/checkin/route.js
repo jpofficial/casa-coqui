@@ -73,6 +73,16 @@ export async function POST(request) {
       checkedInAt: now,
     });
 
+    // Update the bookings doc so admin dashboard reflects check-in
+    const bookingSnap = await adminDb
+      .collection('bookings')
+      .where('code', '==', bookingCode)
+      .limit(1)
+      .get();
+    if (!bookingSnap.empty) {
+      await bookingSnap.docs[0].ref.update({ checkedIn: true, checkedInAt: now });
+    }
+
     // Link booking_members
     const memberSnap = await adminDb
       .collection('booking_members')
@@ -92,6 +102,7 @@ export async function POST(request) {
         status: 'verified',
         invitedBy: null,
         createdAt: now,
+        checkedInAt: now,
       });
     } else {
       await memberSnap.docs[0].ref.update({
@@ -100,6 +111,7 @@ export async function POST(request) {
         name: fullName,
         email,
         status: 'verified',
+        checkedInAt: now,
       });
     }
 

@@ -376,6 +376,10 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
     match /booking_members/{memberId} {
       allow read: if isAuthenticated();
+      // Guests can stamp firstPortalVisitAt on their own member doc
+      allow update: if isAuthenticated()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstPortalVisitAt']);
       allow create, update, delete: if isAdmin();
     }
 
