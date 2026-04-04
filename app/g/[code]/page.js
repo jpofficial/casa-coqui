@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
 import { where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
@@ -133,6 +133,14 @@ function QuickLink({ href, icon, label, external }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function GuestHome({ params }) {
+  return (
+    <Suspense fallback={<FullPageLoader />}>
+      <GuestHomeContent params={params} />
+    </Suspense>
+  );
+}
+
+function GuestHomeContent({ params }) {
   const code = params.code;
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -144,9 +152,12 @@ export default function GuestHome({ params }) {
   const { data: settings } = useDocument('settings', 'property');
   const { data: checkinData } = useDocument('checkins', code);
 
-  // ── Session auto-recovery ──────────────────────────────────────────
+  // ── Session auto-recovery (supports ?t= signed token) ──────────────
+  const searchParams = useSearchParams();
+  const accessToken = searchParams.get('t');
   const recovering = useRef(false);
   const [showRecoveryLoader, setShowRecoveryLoader] = useState(false);
+  const [tokenInvalid, setTokenInvalid] = useState(false);
 
   useEffect(() => {
     if (authLoading || user || recovering.current) return;
@@ -157,6 +168,8 @@ export default function GuestHome({ params }) {
       try {
         const { user: anonUser } = await signInAnonymously(firebaseAuth);
         const tokenResult = await anonUser.getIdTokenResult();
+
+        // If existing session already has the right bookingCode, reuse it
         if (tokenResult.claims.bookingCode === code) {
           localStorage.setItem('casa-coqui-guest-code', code);
           setShowRecoveryLoader(false);
@@ -165,6 +178,31 @@ export default function GuestHome({ params }) {
         }
 
         const idToken = await anonUser.getIdToken();
+
+        // Try signed access token first (new flow)
+        if (accessToken) {
+          const res = await fetch('/api/guests/validate-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify({ code, accessToken }),
+          });
+          const json = await res.json();
+          if (json.success) {
+            await anonUser.getIdToken(true);
+            localStorage.setItem('casa-coqui-guest-code', code);
+            setShowRecoveryLoader(false);
+            recovering.current = false;
+            return;
+          }
+          // Token invalid — show Tier 0 landing
+          console.warn('[GuestHome] Access token validation failed:', json.error);
+          setTokenInvalid(true);
+          setShowRecoveryLoader(false);
+          recovering.current = false;
+          return;
+        }
+
+        // Fallback: legacy set-claims flow (for existing guests with old-format links)
         const res = await fetch('/api/guests/set-claims', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
@@ -172,7 +210,7 @@ export default function GuestHome({ params }) {
         });
         const json = await res.json();
         if (!json.success) {
-          router.replace(`/g/${code}/checkin`);
+          setTokenInvalid(true);
           setShowRecoveryLoader(false);
           recovering.current = false;
           return;
@@ -184,25 +222,21 @@ export default function GuestHome({ params }) {
         recovering.current = false;
       } catch (err) {
         console.error('[GuestHome] Session recovery failed:', err);
-        router.replace(`/g/${code}/checkin`);
+        setTokenInvalid(true);
         setShowRecoveryLoader(false);
         recovering.current = false;
       }
     })();
-  }, [authLoading, user, code, router]);
+  }, [authLoading, user, code, router, accessToken]);
 
-  // ── Install banner + setup redirect ──────────────────────────────
+  // ── Install banner (setup wizard no longer forces redirect) ──────
   const [installGuideSeen, setInstallGuideSeen] = useState(true);
   useEffect(() => {
     if (authLoading || showRecoveryLoader) return;
     const standalone = checkStandalone();
     if (standalone) { setInstallGuideSeen(true); return; }
     setInstallGuideSeen(!!localStorage.getItem(`install_guide_seen_${code}`));
-    if (!user) return;
-    if (!localStorage.getItem(`setup_complete_${code}`) && !localStorage.getItem(`getstarted_seen_${code}`)) {
-      router.push(`/g/${code}/setup`);
-    }
-  }, [code, router, authLoading, showRecoveryLoader, user]);
+  }, [code, authLoading, showRecoveryLoader]);
 
   // ── Primary guest check ────────────────────────────────────────────
   const { data: members, loading: membersLoading } = useCollection('booking_members', [
@@ -242,7 +276,30 @@ export default function GuestHome({ params }) {
 
   const isPrimary = members.some((m) => m.role === 'primary' && m.uid === user?.uid);
 
-  if (authLoading || showRecoveryLoader || !user) return <FullPageLoader />;
+  if (authLoading || showRecoveryLoader) return <FullPageLoader />;
+
+  // ── Tier 0: invalid/missing token ──────────────────────────────────
+  if (tokenInvalid || (!user && !showRecoveryLoader)) {
+    return (
+      <div className="px-4 pt-16 pb-4 text-center max-w-sm mx-auto">
+        <div className="w-16 h-16 bg-coqui-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-8 h-8 text-coqui-500">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+        </div>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">{t(locale, 'portalLocked')}</h1>
+        <p className="text-sm text-gray-500 mb-6">{t(locale, 'portalLockedDesc')}</p>
+        <a
+          href="https://www.airbnb.com/guest/messages"
+          className="inline-block bg-coqui-600 text-white font-semibold text-sm px-6 py-3 rounded-xl hover:bg-coqui-700 transition-colors"
+        >
+          {t(locale, 'messageHostCta')}
+        </a>
+      </div>
+    );
+  }
+
+  if (!user) return <FullPageLoader />;
 
   const booking = bookings?.[0] ?? null;
   const hasCheckedIn = !!checkinData?.checkedIn;
@@ -450,14 +507,12 @@ export default function GuestHome({ params }) {
             />
           )}
 
-          {/* Report Parking */}
-          {hasCheckedIn && (
-            <QuickLink
-              href={`/g/${code}/community?type=parking`}
-              label={t(locale, 'reportParkingCta')}
-              icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-5 h-5 text-amber-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>}
-            />
-          )}
+          {/* Report Parking — visible at Tier 1, Firestore gates writes at Tier 2 */}
+          <QuickLink
+            href={`/g/${code}/community?type=parking`}
+            label={t(locale, 'reportParkingCta')}
+            icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-5 h-5 text-amber-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>}
+          />
 
           {/* Message Host */}
           <QuickLink
@@ -478,13 +533,11 @@ export default function GuestHome({ params }) {
         </div>
       </section>
 
-      {/* ── 6. Live status — laundry + community (post-check-in) ──────────── */}
-      {hasCheckedIn && (
-        <section className="mb-5 flex flex-col gap-3">
-          <LaundryQuickStatus code={code} />
-          <CommunityPreview code={code} dateFrom={booking?.checkInDate} dateTo={booking?.checkOutDate} />
-        </section>
-      )}
+      {/* ── 6. Live status — laundry + community ──────────────────────── */}
+      <section className="mb-5 flex flex-col gap-3">
+        <LaundryQuickStatus code={code} />
+        <CommunityPreview code={code} dateFrom={booking?.checkInDate} dateTo={booking?.checkOutDate} />
+      </section>
 
       {/* ── 7. Footer ────────────────────────────────────────────────────── */}
       <footer className="pt-2 pb-2 text-center">
