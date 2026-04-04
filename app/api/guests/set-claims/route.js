@@ -52,9 +52,14 @@ export async function POST(request) {
     const staffRoles = ['admin', 'cohost', 'cleaner', 'maintenance'];
     const isStaff = staffRoles.includes(existingClaims.role);
 
+    // Preserve existing tier if already set (e.g. tier:2 from check-in)
+    const existingTier = existingClaims.tier || 0;
+    const tier = existingClaims.bookingCode === bookingCode ? Math.max(existingTier, 1) : 1;
+
     await adminAuth.setCustomUserClaims(decoded.uid, {
       bookingCode,
       role: isStaff ? existingClaims.role : 'guest',
+      tier,
     });
 
     return NextResponse.json({ success: true });

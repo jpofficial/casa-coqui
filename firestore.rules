@@ -32,6 +32,16 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == guestId;
     }
 
+    // Returns true if the caller has a valid bookingCode custom claim.
+    function hasAnyBookingCode() {
+      return isAuthenticated() && request.auth.token.bookingCode != null;
+    }
+
+    // Returns true if the caller has at least the given access tier.
+    function hasMinTier(minTier) {
+      return isAuthenticated() && request.auth.token.tier >= minTier;
+    }
+
     // -------------------------------------------------------------------------
     // users
     // Each authenticated user can read their own doc (needed for role lookup).
@@ -48,12 +58,12 @@ service cloud.firestore {
 
     // -------------------------------------------------------------------------
     // bookings
-    // Admin has full access. Any authenticated user can read bookings.
-    // Guest access is gated by phone verification (Firebase Phone Auth) and
-    // the booking code itself is a secret nanoid in the URL.
+    // Staff has full read. Guests can only read their own booking (matched
+    // by bookingCode custom claim). This prevents enumeration of all bookings.
     // -------------------------------------------------------------------------
     match /bookings/{bookingId} {
-      allow read: if isAuthenticated();
+      allow read: if isStaff() ||
+        (isAuthenticated() && resource.data.code == request.auth.token.bookingCode);
       allow write: if isAdmin();
     }
 
@@ -83,7 +93,7 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
     match /notifications/{notificationId} {
       allow read: if isStaff() ||
-        (isAuthenticated() && (
+        (hasAnyBookingCode() && (
           resource.data.broadcast == true ||
           resource.data.guestId == request.auth.uid ||
           resource.data.bookingCode == request.auth.token.bookingCode
@@ -104,7 +114,7 @@ service cloud.firestore {
       allow read: if isStaff() ||
         (isAuthenticated() && resource.data.bookingCode == request.auth.token.bookingCode);
       allow create: if isStaff() ||
-        (isAuthenticated() && request.resource.data.bookingCode == request.auth.token.bookingCode);
+        (hasMinTier(2) && request.resource.data.bookingCode == request.auth.token.bookingCode);
       allow update: if isStaff();
     }
 
@@ -115,7 +125,7 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
     match /parking_reports/{reportId} {
       allow read: if isAdmin();
-      allow create: if isAuthenticated();
+      allow create: if isStaff() || hasMinTier(2);
     }
 
     // -------------------------------------------------------------------------
@@ -155,7 +165,7 @@ service cloud.firestore {
     match /maintenance/{requestId} {
       allow read: if isStaff() ||
         (isAuthenticated() && resource.data.guestId == request.auth.uid);
-      allow create: if isAuthenticated() &&
+      allow create: if (isStaff() || hasMinTier(2)) &&
         request.resource.data.guestId == request.auth.uid;
       allow update: if isAdmin() || (
         isStaff() &&
@@ -176,17 +186,17 @@ service cloud.firestore {
     // concurrency control server-side.
     // -------------------------------------------------------------------------
     match /laundry/{machineId} {
-      allow read: if isAuthenticated();
+      allow read: if isStaff() || hasAnyBookingCode();
       allow write: if false;
     }
 
     // -------------------------------------------------------------------------
     // laundry_sessions
-    // Any authenticated user can read (needed for UI to show session info).
+    // Staff and guests with a booking claim can read session info.
     // No direct client writes — all mutations via API (Admin SDK).
     // -------------------------------------------------------------------------
     match /laundry_sessions/{sessionId} {
-      allow read: if isAuthenticated();
+      allow read: if isStaff() || hasAnyBookingCode();
       allow write: if false;
     }
 
@@ -253,17 +263,17 @@ service cloud.firestore {
 
     // -------------------------------------------------------------------------
     // community
-    // Any authenticated user can read. Admin can write.
-    // Guests can create posts.
+    // Guests with a booking claim can read. Creating posts/replies requires
+    // Tier 2 (check-in completed). Admin has full access.
     // -------------------------------------------------------------------------
     match /community/{postId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
+      allow read: if isStaff() || hasAnyBookingCode();
+      allow create: if isStaff() || hasMinTier(2);
       allow update, delete: if isAdmin();
 
       match /replies/{replyId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated();
+        allow read: if isStaff() || hasAnyBookingCode();
+        allow create: if isStaff() || hasMinTier(2);
         allow update, delete: if isAdmin();
       }
     }
@@ -370,12 +380,12 @@ service cloud.firestore {
 
     // -------------------------------------------------------------------------
     // booking_members
-    // Any authenticated user can read (same model as bookings — the booking
-    // code in the URL is the access gate). Any authenticated user can
-    // create/update. Only admin can delete.
+    // Staff has full read. Guests can only read members of their own booking
+    // (matched by bookingCode claim). Prevents cross-booking member enumeration.
     // -------------------------------------------------------------------------
     match /booking_members/{memberId} {
-      allow read: if isAuthenticated();
+      allow read: if isStaff() ||
+        (isAuthenticated() && resource.data.bookingCode == request.auth.token.bookingCode);
       // Guests can stamp firstPortalVisitAt on their own member doc
       allow update: if isAuthenticated()
         && resource.data.uid == request.auth.uid
@@ -392,12 +402,24 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
+    // guest_access_log
+    // Staff can read guest lifecycle data. All writes are server-side only
+    // (Admin SDK) to prevent tampering.
+    // -------------------------------------------------------------------------
+    match /guest_access_log/{code} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
     // settings
-    // Admin can read and write. Any authenticated user can read (guests need
-    // WiFi password, property name, etc.).
+    // Staff has full read. Guests with a valid booking claim can read the
+    // 'property' doc (WiFi, property name, etc.). Prevents exposure to
+    // unauthenticated or unlinked anonymous users.
     // -------------------------------------------------------------------------
     match /settings/{settingId} {
-      allow read: if isAuthenticated();
+      allow read: if isStaff() ||
+        (hasAnyBookingCode() && settingId == 'property');
       allow write: if isAdmin();
     }
 

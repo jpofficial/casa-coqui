@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
+import { adminDb, adminAuth } from '@/lib/firebase-admin';
 import { requireAuth } from '@/lib/api-auth';
 
 // ---------------------------------------------------------------------------
@@ -113,6 +113,17 @@ export async function POST(request) {
         status: 'verified',
         checkedInAt: now,
       });
+    }
+
+    // Upgrade to Tier 2 — check-in form completion is the step-up verification
+    try {
+      const existingUser = await adminAuth.getUser(guestId);
+      const claims = existingUser.customClaims || {};
+      if ((claims.tier || 0) < 2) {
+        await adminAuth.setCustomUserClaims(guestId, { ...claims, tier: 2 });
+      }
+    } catch (tierErr) {
+      console.error('[POST /api/guests/checkin] Tier upgrade failed:', tierErr);
     }
 
     return NextResponse.json({ success: true });
