@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { orderBy, where } from 'firebase/firestore';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
+import { auth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 import { getUnitNames, getUnits } from '@/lib/units';
 import useLocale from '@/hooks/useLocale';
@@ -83,15 +84,13 @@ function VehicleInfo({ hasVehicle, vehicle }) {
 // CopyButton
 // ---------------------------------------------------------------------------
 
-function CopyButton({ text, className = '' }) {
+function CopyButton({ text, className = '', bookingCode }) {
   const { locale } = useLocale();
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     } catch {
       const el = document.createElement('textarea');
       el.value = text;
@@ -101,8 +100,19 @@ function CopyButton({ text, className = '' }) {
       el.select();
       document.execCommand('copy');
       document.body.removeChild(el);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+
+    // Track linkCopiedAt in guest_access_log (fire-and-forget)
+    if (bookingCode) {
+      auth.currentUser?.getIdToken().then((idToken) => {
+        fetch('/api/guests/track-copy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+          body: JSON.stringify({ bookingCode }),
+        }).catch(() => {});
+      }).catch(() => {});
     }
   }
 
@@ -482,6 +492,65 @@ function SuccessBanner({ booking, onDismiss }) {
 }
 
 // ---------------------------------------------------------------------------
+// Guest Lifecycle Badge
+// ---------------------------------------------------------------------------
+const LIFECYCLE_STYLES = {
+  created: { color: 'text-coqui-800/40', bg: '', label: 'admin_book_statusCreated' },
+  link_copied: { color: 'text-caribe-600', bg: '', label: 'admin_book_statusLinkCopied' },
+  link_opened: { color: 'text-atardecer-600', bg: '', label: 'admin_book_statusLinkOpened' },
+  viewing: { color: 'text-coqui-600', bg: '', label: 'admin_book_statusViewing' },
+  checked_in: { color: 'text-coqui-700', bg: '', label: 'admin_book_statusCheckedIn' },
+  expired: { color: 'text-coqui-800/40', bg: '', label: 'admin_book_statusExpired' },
+  revoked: { color: 'text-flamboyan-600', bg: '', label: 'admin_book_statusRevoked' },
+};
+
+function GuestLifecycleBadge({ status, accessLog, locale, members }) {
+  const style = LIFECYCLE_STYLES[status] || LIFECYCLE_STYLES.created;
+  const lastSeen = accessLog?.lastSeenAt;
+  const memberCount = members?.length || 0;
+
+  function relativeTime(iso) {
+    if (!iso) return null;
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return t(locale, 'admin_book_justNow');
+    if (mins < 60) return `${mins}m`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d`;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+      <span className={`inline-flex items-center gap-1 font-medium ${style.color}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${
+          status === 'checked_in' || status === 'viewing' ? 'bg-coqui-500' :
+          status === 'link_opened' ? 'bg-atardecer-500' :
+          status === 'link_copied' ? 'bg-caribe-500' :
+          status === 'revoked' ? 'bg-flamboyan-500' :
+          'bg-gray-300'
+        }`} />
+        {t(locale, style.label)}
+      </span>
+      {lastSeen && (
+        <span className="text-coqui-800/40">
+          {t(locale, 'admin_book_lastSeen')} {relativeTime(lastSeen)}
+        </span>
+      )}
+      {memberCount > 1 && (
+        <span className="inline-flex items-center gap-1 text-coqui-800/50">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          {memberCount} {t(locale, 'admin_book_members')}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Booking Card
 // ---------------------------------------------------------------------------
 
@@ -491,6 +560,7 @@ function BookingCard({ booking, onCancel, user, settings }) {
   const [cancelling, setCancelling] = useState(false);
   const [editing, setEditing] = useState(false);
   const { data: checkin } = useDocument('checkins', booking.code || null);
+  const { data: accessLog } = useDocument('guest_access_log', booking.code || null);
   const { data: members } = useCollection('booking_members', [
     where('bookingCode', '==', booking.code || '__none__'),
   ]);
@@ -498,6 +568,17 @@ function BookingCard({ booking, onCancel, user, settings }) {
   const isActive = booking.status === 'active';
   const primaryMember = members.find((m) => m.role === 'primary');
   const hasPortalVisit = !!primaryMember?.firstPortalVisitAt;
+
+  // Derive guest lifecycle status from access log
+  const guestStatus = accessLog
+    ? accessLog.revokedAt ? 'revoked'
+    : accessLog.expiredAt ? 'expired'
+    : checkin?.checkedIn ? 'checked_in'
+    : accessLog.portalViewedAt || hasPortalVisit ? 'viewing'
+    : accessLog.linkOpenedAt ? 'link_opened'
+    : accessLog.linkCopiedAt ? 'link_copied'
+    : 'created'
+    : checkin?.checkedIn ? 'checked_in' : 'created';
 
   async function handleCancel() {
     setCancelling(true);
@@ -530,41 +611,9 @@ function BookingCard({ booking, onCancel, user, settings }) {
         </div>
 
         {/* Guest funnel status */}
+        {/* Guest lifecycle status */}
         {isActive && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-            {/* Check-in status */}
-            <span className={`inline-flex items-center gap-1 ${checkin?.checkedIn ? 'text-coqui-700' : 'text-atardecer-600'}`}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                {checkin?.checkedIn ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                )}
-              </svg>
-              {checkin?.checkedIn
-                ? `${t(locale, 'admin_book_checkedIn')}${checkin.checkedInAt ? ` · ${formatDate(checkin.checkedInAt, locale)}` : ''}`
-                : t(locale, 'admin_book_awaitingCheckin')}
-            </span>
-            {/* Portal visit */}
-            {checkin?.checkedIn && (
-              <span className={`inline-flex items-center gap-1 ${hasPortalVisit ? 'text-coqui-700' : 'text-coqui-800/40'}`}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                {hasPortalVisit ? t(locale, 'admin_book_portalActive') : t(locale, 'admin_book_portalNotVisited')}
-              </span>
-            )}
-            {/* Group members count */}
-            {members.length > 1 && (
-              <span className="inline-flex items-center gap-1 text-coqui-800/50">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                {members.length} {t(locale, 'admin_book_members')}
-              </span>
-            )}
-          </div>
+          <GuestLifecycleBadge status={guestStatus} accessLog={accessLog} locale={locale} members={members} />
         )}
 
         {/* Vehicle */}
@@ -578,7 +627,7 @@ function BookingCard({ booking, onCancel, user, settings }) {
             <span className="flex-1 text-xs text-coqui-800/50 font-mono truncate min-w-0">
               {booking.guestLink}
             </span>
-            <CopyButton text={booking.guestLink} />
+            <CopyButton text={booking.guestLink} bookingCode={booking.code} />
           </div>
         )}
 
