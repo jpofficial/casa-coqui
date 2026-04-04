@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
 import { nanoid } from 'nanoid';
 import { requireRole } from '@/lib/api-auth';
@@ -91,7 +92,12 @@ export async function POST(request) {
 
     const code = nanoid(10);
     const appUrl = getAppUrl(request);
-    const guestLink = `${appUrl}/g/${code}/checkin`;
+
+    // Generate 256-bit cryptographic access token for secure guest link
+    const accessToken = crypto.randomBytes(32).toString('base64url');
+    const accessTokenHash = crypto.createHash('sha256').update(accessToken).digest('hex');
+    const guestLink = `${appUrl}/g/${code}?t=${accessToken}`;
+    const now = new Date().toISOString();
 
     const booking = {
       code,
@@ -103,8 +109,11 @@ export async function POST(request) {
       checkOutDate,
       status: 'active',
       checkedIn: false,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
       guestLink,
+      accessTokenHash,
+      accessTokenCreatedAt: now,
+      accessTokenRevokedAt: null,
     };
 
     const docRef = await adminDb.collection('bookings').add(booking);
@@ -119,7 +128,22 @@ export async function POST(request) {
       uid: null,
       status: 'pending',
       invitedBy: null,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+    });
+
+    // Create guest access log for lifecycle tracking
+    await adminDb.collection('guest_access_log').doc(code).set({
+      bookingCode: code,
+      inviteCreatedAt: now,
+      linkCopiedAt: null,
+      linkOpenedAt: null,
+      portalViewedAt: null,
+      checkedInAt: null,
+      lastSeenAt: null,
+      expiredAt: null,
+      revokedAt: null,
+      pushEnabled: false,
+      accessCount: 0,
     });
 
     // ── Auto-create checkout cleaning job ────────────────────────────────
