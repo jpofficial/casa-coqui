@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import useAuth from '@/hooks/useAuth';
 import { useDocument } from '@/hooks/useFirestore';
-import { getUnitNames, getUnitPalette } from '@/lib/units';
+import { getUnits, getUnitNames, getUnitPalette } from '@/lib/units';
+import { auth } from '@/lib/firebase';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -83,14 +84,148 @@ function SkeletonCard() {
 }
 
 // ---------------------------------------------------------------------------
+// Edit Stay Form (modal)
+// ---------------------------------------------------------------------------
+function EditStayForm({ stay, onClose, onSaved, settings }) {
+  const units = getUnits(settings);
+  const unitNames = units.map((u) => u.name);
+  const [form, setForm] = useState({
+    guestName: stay.guestName || '',
+    guestEmail: stay.guestEmail || '',
+    unit: stay.unit || unitNames[0] || '',
+    checkInDate: stay.checkInDate || '',
+    checkOutDate: stay.checkOutDate || '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const selectedUnitId = units.find((u) => u.name === form.unit)?.id || null;
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setError('');
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+
+    if (!form.checkInDate || !form.checkOutDate) {
+      setError('Check-in and check-out dates are required.');
+      return;
+    }
+    if (form.checkOutDate <= form.checkInDate) {
+      setError('Check-out must be after check-in.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/bookings/${stay.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          unit: form.unit,
+          unitId: selectedUnitId,
+          guestName: form.guestName.trim(),
+          guestEmail: form.guestEmail.trim(),
+          checkInDate: form.checkInDate,
+          checkOutDate: form.checkOutDate,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!json.success) {
+        setError(json.error || 'Failed to update booking.');
+        return;
+      }
+
+      onSaved();
+    } catch (err) {
+      setError('Failed to update booking.');
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const inputClass =
+    'w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-gray-400';
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+      <div className="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900">Edit Booking</h2>
+          <button onClick={onClose} className="text-gray-400 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Guest Name</label>
+            <input type="text" name="guestName" value={form.guestName} onChange={handleChange} placeholder="Guest name" className={inputClass} />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Guest Email</label>
+            <input type="email" name="guestEmail" value={form.guestEmail} onChange={handleChange} placeholder="guest@email.com" className={inputClass} />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+            <select name="unit" value={form.unit} onChange={handleChange} required className={inputClass}>
+              {unitNames.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Check-in</label>
+              <input type="date" name="checkInDate" value={form.checkInDate} onChange={handleChange} required className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Check-out</label>
+              <input type="date" name="checkOutDate" value={form.checkOutDate} onChange={handleChange} required min={form.checkInDate || undefined} className={inputClass} />
+            </div>
+          </div>
+
+          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-green-600 active:bg-green-700 text-white font-semibold rounded-lg px-4 py-3 text-sm transition-colors disabled:opacity-60 min-h-[48px]"
+          >
+            {submitting ? 'Saving...' : 'Save Changes'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Stay Card
 // ---------------------------------------------------------------------------
-function StayCard({ stay, isAdmin, unitNames }) {
+function StayCard({ stay, isAdmin, unitNames, settings, onRefresh }) {
   const palette = getUnitPalette(stay.unit, unitNames);
   const progress = getProgressPercent(stay);
   const label = getProgressLabel(stay);
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const primaryGuest = stay.members?.find((m) => m.role === 'primary');
   const invitedGuests = stay.members?.filter((m) => m.role !== 'primary') || [];
@@ -293,7 +428,17 @@ function StayCard({ stay, isAdmin, unitNames }) {
 
         {/* Quick actions (admin only) */}
         {isAdmin && (
-          <div className="flex gap-2 pt-1">
+          <div className="flex gap-2 pt-1 flex-wrap">
+            <button
+              onClick={() => setEditing(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-50 text-xs font-medium text-green-700 active:bg-green-100 transition-colors min-h-[36px]"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit
+            </button>
+
             <a
               href="https://www.airbnb.com/hosting/inbox"
               target="_blank"
@@ -330,6 +475,16 @@ function StayCard({ stay, isAdmin, unitNames }) {
               </a>
             )}
           </div>
+        )}
+
+        {/* Edit modal */}
+        {editing && (
+          <EditStayForm
+            stay={stay}
+            onClose={() => setEditing(false)}
+            onSaved={() => { setEditing(false); onRefresh(); }}
+            settings={settings}
+          />
         )}
       </div>
     </div>
@@ -382,26 +537,27 @@ export default function StaysPage() {
   const [error, setError] = useState(null);
   const [unitFilter, setUnitFilter] = useState('All');
 
-  useEffect(() => {
-    async function fetchStays() {
-      if (!user) return;
-      try {
-        const idToken = await user.getIdToken();
-        const res = await fetch('/api/stays/active', {
-          headers: { Authorization: `Bearer ${idToken}` },
-        });
-        const json = await res.json();
-        if (json.success) {
-          setStays(json.data);
-        } else {
-          setError(json.error);
-        }
-      } catch {
-        setError('Failed to load stays.');
-      } finally {
-        setLoading(false);
+  async function fetchStays() {
+    if (!user) return;
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch('/api/stays/active', {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setStays(json.data);
+      } else {
+        setError(json.error);
       }
+    } catch {
+      setError('Failed to load stays.');
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     fetchStays();
   }, [user]);
 
@@ -466,7 +622,7 @@ export default function StaysPage() {
       ) : (
         <div className="space-y-3">
           {filteredStays.map((stay) => (
-            <StayCard key={stay.id} stay={stay} isAdmin={isAdmin} unitNames={unitNames} />
+            <StayCard key={stay.id} stay={stay} isAdmin={isAdmin} unitNames={unitNames} settings={settings} onRefresh={fetchStays} />
           ))}
         </div>
       )}

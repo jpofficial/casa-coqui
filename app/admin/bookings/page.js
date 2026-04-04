@@ -650,7 +650,11 @@ export default function BookingsPage() {
       const idToken = await user.getIdToken();
       const res = await fetch(`/api/bookings/${bookingId}`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${idToken}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ status: 'cancelled' }),
       });
       const json = await res.json();
       if (!json.success) {
