@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
@@ -67,11 +67,228 @@ function ConfirmDialog({ title, message, confirmLabel, confirmClass, onConfirm, 
 }
 
 // ---------------------------------------------------------------------------
+// Calendar helpers
+// ---------------------------------------------------------------------------
+function getDaysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfWeek(year, month) {
+  return new Date(year, month, 1).getDay();
+}
+
+function dateToYMD(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function formatMonthYear(year, month) {
+  return new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+const DAY_HEADERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+const STATUS_DOT = {
+  scheduled: 'bg-gray-400',
+  acknowledged: 'bg-blue-500',
+  declined: 'bg-red-500',
+  en_route: 'bg-indigo-500',
+  arrived: 'bg-purple-500',
+  before_photos: 'bg-yellow-500',
+  cleaning: 'bg-amber-500',
+  after_photos: 'bg-orange-500',
+  laundry_check: 'bg-teal-500',
+  completed: 'bg-green-500',
+};
+
+// ---------------------------------------------------------------------------
+// CleaningCalendar — month-grid view of cleaning jobs
+// ---------------------------------------------------------------------------
+function CleaningCalendar({ jobs, loading, onSelectJob }) {
+  const today = dateToYMD(new Date());
+  const [year, setYear] = useState(() => new Date().getFullYear());
+  const [month, setMonth] = useState(() => new Date().getMonth());
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  function prevMonth() {
+    if (month === 0) { setYear(year - 1); setMonth(11); }
+    else setMonth(month - 1);
+    setSelectedDate(null);
+  }
+  function nextMonth() {
+    if (month === 11) { setYear(year + 1); setMonth(0); }
+    else setMonth(month + 1);
+    setSelectedDate(null);
+  }
+  function goToToday() {
+    const now = new Date();
+    setYear(now.getFullYear());
+    setMonth(now.getMonth());
+    setSelectedDate(today);
+  }
+
+  // Map jobs to dates (exclude deleted/cancelled)
+  const jobsByDate = useMemo(() => {
+    const map = {};
+    for (const job of jobs) {
+      if (!job.scheduledDate || job.status === 'deleted' || job.status === 'cancelled') continue;
+      const dateStr = job.scheduledDate.substring(0, 10);
+      if (!map[dateStr]) map[dateStr] = [];
+      map[dateStr].push(job);
+    }
+    return map;
+  }, [jobs]);
+
+  // Build calendar grid
+  const daysInMonth = getDaysInMonth(year, month);
+  const firstDay = getFirstDayOfWeek(year, month);
+  const weeks = [];
+  let week = new Array(firstDay).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    week.push({ day: d, dateStr });
+    if (week.length === 7) { weeks.push(week); week = []; }
+  }
+  if (week.length > 0) {
+    while (week.length < 7) week.push(null);
+    weeks.push(week);
+  }
+
+  // Jobs for selected date
+  const selectedJobs = selectedDate ? (jobsByDate[selectedDate] || []) : [];
+
+  if (loading) return <p className="text-sm text-gray-500">Loading calendar...</p>;
+
+  return (
+    <div className="space-y-4">
+      {/* Month navigation */}
+      <div className="flex items-center justify-between">
+        <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-gray-600">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+          </svg>
+        </button>
+        <button onClick={goToToday} className="text-base font-bold text-gray-900 hover:text-coqui-700 transition">
+          {formatMonthYear(year, month)}
+        </button>
+        <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-gray-600">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Calendar grid */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {/* Day headers */}
+        <div className="grid grid-cols-7 border-b border-gray-100">
+          {DAY_HEADERS.map((d) => (
+            <div key={d} className="text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wider py-2">
+              {d}
+            </div>
+          ))}
+        </div>
+        {/* Weeks */}
+        {weeks.map((wk, wi) => (
+          <div key={wi} className="grid grid-cols-7 border-b border-gray-50 last:border-b-0">
+            {wk.map((cell, ci) => {
+              if (!cell) return <div key={ci} className="h-16 bg-gray-50/50" />;
+              const dayJobs = jobsByDate[cell.dateStr] || [];
+              const isToday = cell.dateStr === today;
+              const isSelected = cell.dateStr === selectedDate;
+              return (
+                <button
+                  key={ci}
+                  onClick={() => setSelectedDate(isSelected ? null : cell.dateStr)}
+                  className={`h-16 flex flex-col items-center pt-1.5 gap-1 transition-colors relative ${
+                    isSelected ? 'bg-coqui-50 ring-2 ring-inset ring-coqui-400' :
+                    isToday ? 'bg-amber-50/50' : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <span className={`text-xs font-medium leading-none ${
+                    isToday ? 'bg-coqui-600 text-white w-5 h-5 rounded-full flex items-center justify-center' :
+                    isSelected ? 'text-coqui-800 font-bold' : 'text-gray-700'
+                  }`}>
+                    {cell.day}
+                  </span>
+                  {/* Job dots */}
+                  {dayJobs.length > 0 && (
+                    <div className="flex gap-0.5 flex-wrap justify-center max-w-[90%]">
+                      {dayJobs.slice(0, 4).map((j, ji) => (
+                        <span key={ji} className={`w-2 h-2 rounded-full ${STATUS_DOT[j.status] || 'bg-gray-300'}`} />
+                      ))}
+                      {dayJobs.length > 4 && (
+                        <span className="text-[8px] text-gray-400 font-bold leading-none">+{dayJobs.length - 4}</span>
+                      )}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500">
+        {[
+          ['Scheduled', 'bg-gray-400'],
+          ['Acknowledged', 'bg-blue-500'],
+          ['In progress', 'bg-amber-500'],
+          ['Completed', 'bg-green-500'],
+        ].map(([label, dot]) => (
+          <span key={label} className="inline-flex items-center gap-1">
+            <span className={`w-2 h-2 rounded-full ${dot}`} />
+            {label}
+          </span>
+        ))}
+      </div>
+
+      {/* Selected date job list */}
+      {selectedDate && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-gray-700">
+            {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </h3>
+          {selectedJobs.length === 0 ? (
+            <p className="text-sm text-gray-400 bg-white rounded-xl border border-gray-200 p-4 text-center">
+              No cleaning jobs on this date.
+            </p>
+          ) : (
+            selectedJobs.map((job) => (
+              <div key={job.id} className="bg-white rounded-xl border border-gray-200 p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold text-gray-900">{job.unit}</p>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[job.status] || 'bg-gray-100 text-gray-600'}`}>
+                    {job.status?.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-gray-500">
+                  <span>{job.checkoutTime || '11:00 AM'}</span>
+                  <span>{job.assigneeName || 'Unassigned'}</span>
+                </div>
+                {job.notes && <p className="text-xs text-gray-500 truncate">{job.notes}</p>}
+                <button
+                  onClick={() => onSelectJob(job)}
+                  className="text-xs font-semibold text-coqui-600 mt-1"
+                >
+                  View Forum
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Admin / Cohost — cleaning job management dashboard
 // ---------------------------------------------------------------------------
 function AdminCleaningDashboard({ user, role, isAdmin }) {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState('list'); // 'list' | 'calendar'
   const [filter, setFilter] = useState('active'); // 'active' | 'completed' | 'archived'
   const [showForm, setShowForm] = useState(false);
   const [confirm, setConfirm] = useState(null); // { jobId, action: 'archive' | 'delete' }
@@ -179,6 +396,36 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
         onCreated={() => {}}
       />
 
+      {/* View toggle: List / Calendar */}
+      <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+        <button
+          onClick={() => setView('list')}
+          className={`flex-1 flex items-center justify-center gap-1.5 text-sm font-medium py-2 rounded-md transition-colors ${
+            view === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+          </svg>
+          List
+        </button>
+        <button
+          onClick={() => setView('calendar')}
+          className={`flex-1 flex items-center justify-center gap-1.5 text-sm font-medium py-2 rounded-md transition-colors ${
+            view === 'calendar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+          </svg>
+          Calendar
+        </button>
+      </div>
+
+      {view === 'calendar' ? (
+        <CleaningCalendar jobs={jobs} loading={loading} onSelectJob={setSelectedJob} />
+      ) : (
+      <>
       {/* Filter tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
         {['active', 'completed', 'archived', ...(counts.cancelled > 0 ? ['cancelled'] : [])].map((f) => (
@@ -337,6 +584,9 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
             );
           })}
         </div>
+      )}
+
+      </>
       )}
 
       {/* Confirmation dialog */}
