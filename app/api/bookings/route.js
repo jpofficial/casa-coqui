@@ -155,13 +155,14 @@ export async function POST(request) {
         .collection('users')
         .where('role', '==', 'cleaner')
         .where('status', '==', 'active')
-        .limit(2)
         .get();
 
-      if (cleanerSnap.size === 1) {
+      if (cleanerSnap.size >= 1) {
+        // Assign to the first cleaner, notify all active cleaners
         const cleanerDoc = cleanerSnap.docs[0];
         const cleanerData = cleanerDoc.data();
         const cleanerUid = cleanerDoc.id;
+        const allCleanerUids = cleanerSnap.docs.map((d) => d.id);
 
         const job = {
           unit,
@@ -195,7 +196,7 @@ export async function POST(request) {
         const title = nt('en', 'newCleaningAssignment_title');
         const body = nt('en', 'cleaningAssignment_body', { unit, date: checkOutDate, time: job.checkoutTime });
         await notifyStaff({
-          staffIds: [cleanerUid],
+          staffIds: allCleanerUids,
           title,
           body,
           type: 'cleaning_assignment',
