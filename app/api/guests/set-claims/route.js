@@ -52,9 +52,11 @@ export async function POST(request) {
     const staffRoles = ['admin', 'cohost', 'cleaner', 'maintenance'];
     const isStaff = staffRoles.includes(existingClaims.role);
 
-    // Preserve existing tier if already set (e.g. tier:2 from check-in)
-    const existingTier = existingClaims.tier || 0;
-    const tier = existingClaims.bookingCode === bookingCode ? Math.max(existingTier, 1) : 1;
+    // Grant tier:2 automatically once the stay has started (checkInDate <= today)
+    const bookingData = bookingsSnap.docs[0].data();
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const stayStarted = bookingData.checkInDate && bookingData.checkInDate <= todayStr;
+    const tier = stayStarted ? 2 : 1;
 
     await adminAuth.setCustomUserClaims(decoded.uid, {
       bookingCode,
