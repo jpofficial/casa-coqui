@@ -27,6 +27,7 @@ const { parseReceiptHandler } = require('./parseReceipt');
 const { reorderCheckHandler } = require('./reorderCheck');
 const { expireLinksHandler } = require('./expireLinks');
 const { cleaningReminderHandler } = require('./cleaningReminder');
+const { icsSyncHandler } = require('./icsSync');
 
 // ---------------------------------------------------------------------------
 // Global defaults
@@ -152,6 +153,36 @@ exports.cleaningReminder = onSchedule(
       logger.info('[cleaningReminder] Completed', result);
     } catch (err) {
       logger.error('[cleaningReminder] Unhandled error:', err);
+      throw err;
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// icsSync
+//
+// Scheduled function: runs every 30 minutes.
+// Fetches Airbnb ICS calendar feeds, diffs against internal bookings,
+// and creates/updates/cancels bookings + cascades to cleaning jobs.
+//
+// To trigger manually via gcloud CLI:
+//   gcloud scheduler jobs run icsSync --location us-east1
+// ---------------------------------------------------------------------------
+exports.icsSync = onSchedule(
+  {
+    schedule: '*/30 * * * *', // every 30 minutes
+    timeZone: 'America/Puerto_Rico',
+    retryCount: 1,
+    memory: '512MiB',
+    timeoutSeconds: 120,
+  },
+  async (event) => {
+    logger.info('[icsSync] Scheduled trigger fired', { eventId: event.jobName });
+    try {
+      const result = await icsSyncHandler();
+      logger.info('[icsSync] Completed', result);
+    } catch (err) {
+      logger.error('[icsSync] Unhandled error:', err);
       throw err;
     }
   }

@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
 import { notifyStaff } from '@/lib/staff-notifications';
 import { nt } from '@/lib/notification-strings';
+import { cascadeCleaningJobDates } from '@/lib/booking-cleaning-cascade';
 
 // ---------------------------------------------------------------------------
 // PATCH /api/bookings/[id]
@@ -148,6 +149,17 @@ export async function PATCH(request, { params }) {
 
     updates.updatedAt = now;
     await docRef.update(updates);
+
+    // Cascade checkout date changes to linked cleaning jobs
+    if (updates.checkOutDate && updates.checkOutDate !== booking.checkOutDate) {
+      await cascadeCleaningJobDates({
+        bookingId: id,
+        newCheckOutDate: updates.checkOutDate,
+        oldCheckOutDate: booking.checkOutDate,
+        unit: updates.unit || booking.unit,
+        guestName: updates.guestName || booking.guestName,
+      }).catch((err) => console.error('[PATCH /api/bookings] Cascade error:', err));
+    }
 
     return NextResponse.json({ success: true, data: { id, ...updates } });
   } catch (error) {

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
+import Link from 'next/link';
 import CleanerHome from '@/components/cleaner/CleanerHome';
 import CleaningJobForm from '@/components/admin/CleaningJobForm';
 import JobForum from '@/components/cleaner/JobForum';
@@ -257,7 +258,12 @@ function CleaningCalendar({ jobs, loading, onSelectJob }) {
             selectedJobs.map((job) => (
               <div key={job.id} className="bg-white rounded-xl border border-gray-200 p-3 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-bold text-gray-900">{job.unit}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-bold text-gray-900">{job.unit}</p>
+                    {job.notes?.startsWith('Guest: ') && (
+                      <span className="text-xs text-gray-500">· {job.notes.replace('Guest: ', '')}</span>
+                    )}
+                  </div>
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[job.status] || 'bg-gray-100 text-gray-600'}`}>
                     {job.status?.replace(/_/g, ' ')}
                   </span>
@@ -266,7 +272,6 @@ function CleaningCalendar({ jobs, loading, onSelectJob }) {
                   <span>{job.checkoutTime || '11:00 AM'}</span>
                   <span>{job.assigneeName || 'Unassigned'}</span>
                 </div>
-                {job.notes && <p className="text-xs text-gray-500 truncate">{job.notes}</p>}
                 <button
                   onClick={() => onSelectJob(job)}
                   className="text-xs font-semibold text-coqui-600 mt-1"
@@ -376,6 +381,15 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
 
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-6 pb-8">
+      {/* Link to unified calendar */}
+      <Link
+        href="/admin/calendar"
+        className="block bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 hover:bg-green-100 transition"
+      >
+        <span className="font-semibold">Operational Calendar</span>
+        <span className="text-green-600"> — View reservations + cleaning jobs together →</span>
+      </Link>
+
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Cleaning Jobs</h1>
         <button
@@ -461,7 +475,12 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
             return (
               <div key={job.id} className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-bold text-gray-900">{job.unit}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-bold text-gray-900">{job.unit}</p>
+                    {job.notes?.startsWith('Guest: ') && (
+                      <span className="text-xs text-gray-500">· {job.notes.replace('Guest: ', '')}</span>
+                    )}
+                  </div>
                   <span className={`text-xs font-semibold px-2 py-1 rounded-full ${STATUS_COLORS[job.status] || 'bg-gray-100 text-gray-600'}`}>
                     {job.status?.replace(/_/g, ' ')}
                   </span>

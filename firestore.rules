@@ -338,6 +338,15 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
+    // sync_log — ICS sync audit trail
+    // Admin can write (API routes use admin SDK). Staff can read for debugging.
+    // -------------------------------------------------------------------------
+    match /sync_log/{logId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
     // staff_notifications
     // Each staff member can read/update their own notifications.
     // Staff and admin can create. No one can delete.

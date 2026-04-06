@@ -107,6 +107,24 @@
         { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
     }
+    ,
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "externalId", "order": "ASCENDING" },
+        { "fieldPath": "unit", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "unit", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    }
   ],
   "fieldOverrides": []
 }

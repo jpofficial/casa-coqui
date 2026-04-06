@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
 import { useDocument } from '@/hooks/useFirestore';
 import ImageUpload from '@/components/ui/ImageUpload';
 import Parking from '@/components/guest/Parking';
@@ -64,6 +65,120 @@ function Toast({ message, onClose }) {
   );
 }
 
+// ─── ICS Sync Section ─────────────────────────────────────────────────────────
+function IcsSyncSection({ form, set, openSections, toggleSection }) {
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+
+  const apiCall = useCallback(async (url, opts = {}) => {
+    const token = await auth.currentUser?.getIdToken();
+    return fetch(url, {
+      ...opts,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...opts.headers },
+    });
+  }, []);
+
+  async function handleSync(unitId = null) {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await apiCall('/api/admin/sync-ics', {
+        method: 'POST',
+        body: JSON.stringify(unitId ? { unitId } : {}),
+      });
+      const data = await res.json();
+      setSyncResult(data.success ? data.data : { errors: [data.error] });
+    } catch (err) {
+      setSyncResult({ errors: [err.message] });
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  function updateFeed(idx, field, value) {
+    const feeds = [...(form.icsFeeds || [])];
+    feeds[idx] = { ...feeds[idx], [field]: value };
+    set('icsFeeds', feeds);
+  }
+
+  if (!form?.icsFeeds) return null;
+
+  return (
+    <Section title="Airbnb Calendar Sync" open={openSections.icsSync} onToggle={() => toggleSection('icsSync')}>
+      <p className="text-xs text-gray-500 -mt-1 mb-3">
+        Paste your Airbnb iCal export URL for each unit. The system syncs every 30 minutes and auto-creates bookings + cleaning jobs.
+      </p>
+
+      {form.icsFeeds.map((feed, idx) => (
+        <div key={feed.unitId} className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-gray-700">{feed.unitName}</span>
+            <label className="flex items-center gap-2 text-xs text-gray-500">
+              <input
+                type="checkbox"
+                checked={feed.enabled}
+                onChange={(e) => updateFeed(idx, 'enabled', e.target.checked)}
+                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              Enabled
+            </label>
+          </div>
+
+          <input
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
+            placeholder="https://www.airbnb.com/calendar/ical/..."
+            value={feed.icsUrl}
+            onChange={(e) => updateFeed(idx, 'icsUrl', e.target.value)}
+          />
+
+          {feed.enabled && feed.icsUrl && (
+            <button
+              type="button"
+              disabled={syncing}
+              onClick={() => handleSync(feed.unitId)}
+              className="mt-2 text-xs font-medium text-green-700 hover:text-green-800 disabled:text-gray-400"
+            >
+              {syncing ? 'Syncing...' : 'Sync Now'}
+            </button>
+          )}
+        </div>
+      ))}
+
+      {/* Sync all button */}
+      <button
+        type="button"
+        disabled={syncing || !form.icsFeeds.some((f) => f.enabled && f.icsUrl)}
+        onClick={() => handleSync()}
+        className="w-full py-2.5 rounded-lg text-sm font-semibold text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:text-gray-500 transition"
+      >
+        {syncing ? 'Syncing All Feeds...' : 'Sync All Feeds'}
+      </button>
+
+      {/* Sync result */}
+      {syncResult && (
+        <div className={`mt-3 p-3 rounded-lg text-xs ${syncResult.errors?.length > 0 ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+          {syncResult.errors?.length > 0 ? (
+            <div>
+              <p className="font-semibold">Sync completed with errors:</p>
+              {syncResult.errors.map((e, i) => <p key={i}>{e}</p>)}
+            </div>
+          ) : (
+            <div>
+              <p className="font-semibold">Sync complete</p>
+              <p>Events: {syncResult.eventsFound} found, {syncResult.created} created, {syncResult.updated} updated, {syncResult.cancelled} cancelled, {syncResult.unchanged} unchanged</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <p className="text-xs text-gray-400 mt-3">
+        To get your Airbnb calendar URL: Airbnb → Hosting → Calendar → Availability Settings → Export Calendar → Copy link.
+        Save settings after pasting URLs to persist them.
+      </p>
+    </Section>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { data: settings, loading } = useDocument('settings', 'property');
@@ -112,6 +227,15 @@ export default function SettingsPage() {
         houseRules: settings.houseRules || [],
         propertyPhotos: settings.propertyPhotos || [],
         units: getUnits(settings),
+        icsFeeds: Array.isArray(settings.icsFeeds) && settings.icsFeeds.length > 0
+          ? settings.icsFeeds
+          : (() => {
+              const u = getUnits(settings);
+              return [
+                { unitId: 'unit-a', unitName: u[0]?.name || 'Unit A', icsUrl: '', enabled: false },
+                { unitId: 'unit-b', unitName: u[1]?.name || 'Unit B', icsUrl: '', enabled: false },
+              ];
+            })(),
       });
     }
   }, [settings, form]);
@@ -300,6 +424,14 @@ export default function SettingsPage() {
           </div>
         </div>
       </Section>
+
+      {/* B2. Airbnb Calendar Sync */}
+      <IcsSyncSection
+        form={form}
+        set={set}
+        openSections={openSections}
+        toggleSection={toggleSection}
+      />
 
       {/* C. Check-In Steps (per unit) */}
       <Section title="Check-In Steps" open={openSections.checkin} onToggle={() => toggleSection('checkin')}>
