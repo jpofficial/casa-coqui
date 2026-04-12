@@ -44,13 +44,13 @@ phases:
   pre_build:
     commands:
       - echo "=== pre_build ==="
-      - test -f package.json || (echo "FATAL: package.json missing" && exit 1)
-      - test -f package-lock.json || (echo "FATAL: package-lock.json missing" && exit 1)
-      - test -f next.config.mjs || (echo "FATAL: next.config.mjs missing" && exit 1)
-      - test -f firebase.json || (echo "FATAL: firebase.json missing" && exit 1)
-      - test -f firestore.rules || (echo "FATAL: firestore.rules missing" && exit 1)
-      - test -f firestore.indexes.json || (echo "FATAL: firestore.indexes.json missing" && exit 1)
-      - test -d functions || (echo "FATAL: functions/ missing" && exit 1)
+      - 'test -f package.json || (echo "FATAL: package.json missing" && exit 1)'
+      - 'test -f package-lock.json || (echo "FATAL: package-lock.json missing" && exit 1)'
+      - 'test -f next.config.mjs || (echo "FATAL: next.config.mjs missing" && exit 1)'
+      - 'test -f firebase.json || (echo "FATAL: firebase.json missing" && exit 1)'
+      - 'test -f firestore.rules || (echo "FATAL: firestore.rules missing" && exit 1)'
+      - 'test -f firestore.indexes.json || (echo "FATAL: firestore.indexes.json missing" && exit 1)'
+      - 'test -d functions || (echo "FATAL: functions/ missing" && exit 1)'
       - echo "Installing root dependencies"
       - npm ci --no-audit --no-fund --prefer-offline
 

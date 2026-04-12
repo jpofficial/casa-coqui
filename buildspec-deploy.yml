@@ -40,7 +40,7 @@ phases:
       - chmod 700 /tmp/secrets
       - printf '%s' "$FIREBASE_SERVICE_ACCOUNT_KEY" > /tmp/secrets/firebase-sa.json
       - chmod 600 /tmp/secrets/firebase-sa.json
-      - test -s /tmp/secrets/firebase-sa.json || (echo "FATAL: empty service account" && exit 1)
+      - 'test -s /tmp/secrets/firebase-sa.json || (echo "FATAL: empty service account" && exit 1)'
       - echo "Installing functions/ dependencies"
       - (cd functions && npm ci --omit=dev --no-audit --no-fund --prefer-offline)
 
