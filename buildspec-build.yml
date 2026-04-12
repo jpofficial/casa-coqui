@@ -36,6 +36,11 @@ env:
     NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID"
     NEXT_PUBLIC_FIREBASE_VAPID_KEY: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_VAPID_KEY"
     NEXT_PUBLIC_ADMIN_EMAIL: "casa-coqui/pipeline:NEXT_PUBLIC_ADMIN_EMAIL"
+    # Server-side secrets — needed at build time because next build evaluates
+    # server-side API routes during page data collection.
+    FIREBASE_SERVICE_ACCOUNT_KEY: "casa-coqui/pipeline:FIREBASE_SERVICE_ACCOUNT_KEY"
+    RESEND_API_KEY: "casa-coqui/pipeline:RESEND_API_KEY"
+    ANTHROPIC_API_KEY: "casa-coqui/pipeline:ANTHROPIC_API_KEY"
 
 phases:
   install:
