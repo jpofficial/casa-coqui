@@ -5,7 +5,7 @@
   "description": "Firebase Cloud Functions for Casa Coqui property management",
   "main": "index.js",
   "engines": {
-    "node": "18"
+    "node": "20"
   },
   "scripts": {
     "lint": "eslint .",
