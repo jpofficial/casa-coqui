@@ -92,21 +92,17 @@ cache:
 
 artifacts:
   base-directory: .
+  # Include the full project so the deploy stage has source code for
+  # vercel deploy --prod (which does its own build on Vercel's servers)
+  # plus .next/ for potential --prebuilt usage, plus functions/ for
+  # firebase deploy.
   files:
-    - ".next/**/*"
-    - "public/**/*"
-    - "package.json"
-    - "package-lock.json"
-    - "next.config.mjs"
-    - "firebase.json"
-    - ".firebaserc"
-    - "firestore.rules"
-    - "firestore.indexes.json"
-    - "functions/**/*"
-    - "buildspec-deploy.yml"
-    - "build-timestamp.txt"
+    - "**/*"
   exclude-paths:
-    - "functions/node_modules/**/*"
     - "node_modules/**/*"
+    - "functions/node_modules/**/*"
+    - "infra/**/*"
+    - ".git/**/*"
+    - ".venv/**/*"
   discard-paths: no
   name: casa-coqui-build-$(date +%Y-%m-%d)
