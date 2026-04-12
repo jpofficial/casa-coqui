@@ -303,9 +303,35 @@ class CasaCoquiPipelineStack(Stack):
             run_order=1,
         )
 
+        # CDK's ManualApprovalAction auto-creates a role with sns:Publish
+        # but NOT kms permissions. When the SNS topic is CMK-encrypted,
+        # the publish fails with "pipeline or action role does not have
+        # access to the encryption key." (This is Trap 4 from README.)
+        #
+        # Fix: create an explicit role with both sns:Publish AND KMS
+        # permissions, and pass it to the approval action.
+        approval_role = iam.Role(
+            self,
+            "ApprovalActionRole",
+            assumed_by=iam.CompositePrincipal(
+                iam.ServicePrincipal("codepipeline.amazonaws.com"),
+                iam.AccountPrincipal(self.account),
+            ),
+            description="Casa Coqui approval action role (SNS publish + KMS for encrypted topic)",
+        )
+        approval_role.add_to_policy(iam.PolicyStatement(
+            actions=["sns:Publish"],
+            resources=[notifications_topic.topic_arn],
+        ))
+        approval_role.add_to_policy(iam.PolicyStatement(
+            actions=["kms:GenerateDataKey*", "kms:Decrypt", "kms:DescribeKey"],
+            resources=[cmk.key_arn],
+        ))
+
         approval_action = cp_actions.ManualApprovalAction(
             action_name="Approve_Deploy",
             notification_topic=notifications_topic,
+            role=approval_role,
             additional_information=(
                 "Approve to deploy Casa Coqui to Vercel (production) and "
                 "Firebase (functions + firestore rules + indexes). "
