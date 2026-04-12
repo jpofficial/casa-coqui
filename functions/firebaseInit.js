@@ -20,15 +20,16 @@ const { getMessaging } = require('firebase-admin/messaging');
 function getServiceAccount() {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (!raw) {
-    throw new Error(
-      'Missing required env var: FIREBASE_SERVICE_ACCOUNT_KEY. ' +
-      'Set it in .env for the emulator or in Firebase function config for production.'
-    );
+    // Not fatal — Cloud Functions runtime uses Application Default
+    // Credentials (ADC) automatically. The env var is only needed for
+    // local development and non-GCP environments (e.g. Vercel).
+    return null;
   }
   try {
     return JSON.parse(raw);
   } catch (err) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not valid JSON: ' + err.message);
+    console.error('[firebase-admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY:', err.message);
+    return null;
   }
 }
 
@@ -36,10 +37,14 @@ function getServiceAccount() {
 let adminApp;
 if (getApps().length === 0) {
   const serviceAccount = getServiceAccount();
-  adminApp = initializeApp({
-    credential: cert(serviceAccount),
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  });
+  const config = {};
+  if (serviceAccount) {
+    config.credential = cert(serviceAccount);
+  }
+  if (process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) {
+    config.storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+  }
+  adminApp = initializeApp(config);
 } else {
   adminApp = getApps()[0];
 }
