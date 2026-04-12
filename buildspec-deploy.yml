@@ -54,7 +54,13 @@ phases:
       - vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
       - vercel deploy --prod --yes --token="$VERCEL_TOKEN"
       - echo "Deploying Firebase functions + firestore rules + indexes"
+      # Firebase CLI loads function code in a subprocess for analysis.
+      # That subprocess reads .env from the functions/ directory, not
+      # from CodeBuild's shell env. Write the SA key to functions/.env
+      # so firebaseInit.js can find it during code analysis.
+      - printf 'FIREBASE_SERVICE_ACCOUNT_KEY=' > functions/.env && cat /tmp/secrets/firebase-sa.json >> functions/.env
       - firebase deploy --only functions,firestore:rules,firestore:indexes --project "$FIREBASE_PROJECT_ID" --non-interactive
+      - rm -f functions/.env
 
   post_build:
     commands:
