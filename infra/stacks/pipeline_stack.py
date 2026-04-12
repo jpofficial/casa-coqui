@@ -74,7 +74,10 @@ class CasaCoquiPipelineStack(Stack):
             ),
             default=self.node.try_get_context("codestar_connection_arn")
             or "arn:aws:codestar-connections:us-east-1:000000000000:connection/00000000-0000-0000-0000-000000000000",
-            allowed_pattern="^arn:aws:codestar-connections:[a-z0-9-]+:[0-9]{12}:connection/[a-z0-9-]+$",
+            # AWS renamed the service from codestar-connections to
+            # codeconnections in 2024. Accept both so existing consoles
+            # and CLI users aren't forced to regenerate their ARN.
+            allowed_pattern="^arn:aws:(codestar-connections|codeconnections):[a-z0-9-]+:[0-9]{12}:connection/[a-z0-9-]+$",
             constraint_description="Must be a valid CodeStar Connections ARN",
         )
 
@@ -114,23 +117,73 @@ class CasaCoquiPipelineStack(Stack):
             description="Casa Coqui deploy project role (read secret, read artifacts, write logs)",
         )
 
-        # Log group writes
+        # Log group writes (same-stack grants are safe — no cycle risk).
         build_log_group.grant_write(build_role)
         deploy_log_group.grant_write(deploy_role)
 
-        # Artifact bucket access (read/write for both)
-        artifact_bucket.grant_read_write(build_role)
-        artifact_bucket.grant_read_write(deploy_role)
+        # --------------------------------------------------------------
+        # Cross-stack permissions — use IDENTITY policies (not grant_*)
+        # --------------------------------------------------------------
+        # grant_read_write / grant_read / grant_decrypt would cause CDK
+        # to emit resource policies on Foundation-stack resources that
+        # reference these Pipeline-stack roles, creating a cyclic stack
+        # dependency (Foundation → Pipeline and Pipeline → Foundation).
+        #
+        # Instead, attach explicit PolicyStatements to the roles. The
+        # statements reference Foundation resource ARNs by value only,
+        # producing a one-way Pipeline → Foundation import. Same runtime
+        # permissions, no cycle. DOP-C02 exam surface.
 
-        # Secret access
-        pipeline_secret.grant_read(build_role)
-        pipeline_secret.grant_read(deploy_role)
+        # Artifact bucket access (read/write for both roles)
+        s3_access_policy = iam.PolicyStatement(
+            actions=[
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+                "s3:DeleteObject*",
+                "s3:PutObject*",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging",
+                "s3:Abort*",
+            ],
+            resources=[
+                artifact_bucket.bucket_arn,
+                f"{artifact_bucket.bucket_arn}/*",
+            ],
+        )
+        build_role.add_to_policy(s3_access_policy)
+        deploy_role.add_to_policy(s3_access_policy)
 
-        # KMS — decrypt for secret + artifact bucket
-        cmk.grant_decrypt(build_role)
-        cmk.grant_decrypt(deploy_role)
-        cmk.grant_encrypt_decrypt(build_role)   # write encrypted artifacts
-        cmk.grant_encrypt_decrypt(deploy_role)
+        # Secret read access. The trailing "-*" covers the 6-char random
+        # suffix Secrets Manager appends to every secret ARN at runtime.
+        secret_read_policy = iam.PolicyStatement(
+            actions=[
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+            ],
+            resources=[
+                pipeline_secret.secret_arn,
+                f"{pipeline_secret.secret_arn}-*",
+            ],
+        )
+        build_role.add_to_policy(secret_read_policy)
+        deploy_role.add_to_policy(secret_read_policy)
+
+        # KMS — encrypt/decrypt for the secret + artifact bucket.
+        kms_access_policy = iam.PolicyStatement(
+            actions=[
+                "kms:Decrypt",
+                "kms:DescribeKey",
+                "kms:Encrypt",
+                "kms:GenerateDataKey*",
+                "kms:ReEncrypt*",
+            ],
+            resources=[cmk.key_arn],
+        )
+        build_role.add_to_policy(kms_access_policy)
+        deploy_role.add_to_policy(kms_access_policy)
 
         # SSM read — buildspec reads NEXT_PUBLIC_APP_URL from parameter-store.
         # Scoped narrowly to just the casa-coqui pipeline namespace.
