@@ -2,7 +2,7 @@ version: 0.2
 
 # Casa Coqui — Deploy phase
 #
-# Runtime: Node 18.
+# Runtime: Node 20.
 # Responsibilities:
 #   1. Install firebase-tools + vercel CLIs globally
 #   2. Materialize Firebase service account JSON to /tmp/secrets/firebase-sa.json

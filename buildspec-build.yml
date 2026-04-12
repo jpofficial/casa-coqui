@@ -2,7 +2,7 @@ version: 0.2
 
 # Casa Coqui — Build phase
 #
-# Runtime: Node 18 (matches functions/package.json engines.node = 18).
+# Runtime: Node 20 (node-ical requires ES2024 /v regex flag).
 # Responsibilities:
 #   1. Load env from three different providers (exam exposure — three types)
 #   2. npm ci (Casa Coqui root only; functions/ deps installed in deploy phase)
