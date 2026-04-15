@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
+import { isUnmatchedKey } from '@/lib/thread-key';
 
 // ---------------------------------------------------------------------------
 // POST /api/messages/threads/link
@@ -23,6 +24,13 @@ export async function POST(request) {
     if (!fromThreadKey || !bookingId) {
       return NextResponse.json(
         { success: false, error: 'fromThreadKey and bookingId are required.' },
+        { status: 400 }
+      );
+    }
+
+    if (!isUnmatchedKey(fromThreadKey)) {
+      return NextResponse.json(
+        { success: false, error: 'fromThreadKey is already a matched booking code.' },
         { status: 400 }
       );
     }
