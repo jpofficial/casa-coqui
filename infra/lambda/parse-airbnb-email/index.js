@@ -1022,20 +1022,46 @@ exports.handler = async (event) => {
       );
 
       if (!booking) {
-        console.warn('No matching booking found — routing to quarantine', {
+        console.warn('No matching booking found — writing as unmatched', {
           confirmationCode,
           guestName,
         });
 
-        // Idempotency for quarantine path too
-        const alreadyQ = await isDuplicate(
+        // Idempotency check against airbnb_messages
+        const alreadyWritten = await isDuplicate(
           firestore,
-          'airbnb_messages_quarantine',
+          'airbnb_messages',
           objectKey,
           rfcMessageId
         );
 
-        if (!alreadyQ) {
+        if (!alreadyWritten) {
+          // Write to airbnb_messages with null bookingId so it appears in admin UI
+          await firestore.collection('airbnb_messages').add({
+            bookingId: null,
+            guestName: guestName || null,
+            direction: 'inbound',
+            body: bodyText.slice(0, 8000),
+            receivedAt: admin.firestore.Timestamp.fromDate(receivedAt),
+            rawEmailS3Key: objectKey,
+            messageId: rfcMessageId,
+            sesMessageId,
+            airbnbConfirmationCode: confirmationCode || null,
+            subject,
+            fromName,
+            fromAddress,
+            read: false,
+            draftReply: null,
+            draftStatus: 'pending',
+            draftedAt: null,
+            sentAt: null,
+            editedReply: null,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+          console.log('Written unmatched guest_message to airbnb_messages');
+
+          // Also archive to quarantine for record-keeping
           await firestore.collection('airbnb_messages_quarantine').add({
             messageType: 'guest_message',
             subject,
@@ -1053,7 +1079,7 @@ exports.handler = async (event) => {
           });
         }
 
-        quarantinedCount++;
+        processedCount++;
         continue;
       }
 
