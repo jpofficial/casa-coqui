@@ -1003,10 +1003,11 @@ export default function BookingsPage() {
   // Default tab: Drafts if any, else In-house, else Upcoming.
   useEffect(() => {
     if (tab !== null) return;
+    if (loading) return;
     if (tabBuckets.drafts.length > 0) setTab('drafts');
     else if (tabBuckets.inhouse.length > 0) setTab('inhouse');
     else setTab('upcoming');
-  }, [allBookings.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loading, tab, tabBuckets]);
 
   const handleCreated = useCallback((booking) => {
     setNewBooking(booking);
@@ -1036,12 +1037,12 @@ export default function BookingsPage() {
 
   const emptyMessage =
     tab === 'drafts'
-      ? t(locale, 'admin_book_emptyDrafts') || 'No welcome drafts waiting. 🎉'
+      ? t(locale, 'admin_book_emptyDrafts')
       : tab === 'inhouse'
-      ? t(locale, 'admin_book_emptyInhouse') || 'No guests currently in-house.'
+      ? t(locale, 'admin_book_emptyInhouse')
       : tab === 'upcoming'
-      ? t(locale, 'admin_book_emptyUpcoming') || 'No upcoming bookings.'
-      : t(locale, 'admin_book_emptyPast') || 'No past bookings.';
+      ? t(locale, 'admin_book_emptyUpcoming')
+      : t(locale, 'admin_book_emptyPast');
 
   return (
     <div className="px-4 pt-5 pb-6 max-w-2xl mx-auto space-y-4">
@@ -1134,7 +1135,7 @@ export default function BookingsPage() {
                     open={shouldAutoOpen}
                     className="bg-white rounded-xl shadow-brand border border-cafe-100 overflow-hidden group"
                   >
-                    <summary className="flex items-center justify-between gap-2 px-4 py-3 cursor-pointer list-none select-none">
+                    <summary className="flex items-center justify-between gap-2 px-4 py-3 cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden">
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-coqui-900 truncate">{booking.guestName || '—'}</div>
                         <div className="text-xs text-coqui-800/60 mt-0.5 truncate">
