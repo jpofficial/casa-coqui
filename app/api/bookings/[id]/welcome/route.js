@@ -125,7 +125,70 @@ export async function PATCH(request, { params }) {
     const booking = { id: bookingDoc.id, ...bookingDoc.data() };
     const now = new Date().toISOString();
 
+    // Helper: create or update the single welcome message doc tied to this booking.
+    async function upsertWelcomeMessageDoc({ welcomeState, text, snoozedUntil }) {
+      const threadKey = buildThreadKey({
+        bookingCode: booking.code,
+        senderEmail: booking.guestEmail || null,
+        senderName: booking.guestName || null,
+      });
+
+      const baseFields = {
+        bookingId: booking.id,
+        bookingCode: booking.code || null,
+        threadKey,
+        guestName: booking.guestName || null,
+        senderEmail: booking.guestEmail || null,
+        source: 'welcome_draft',
+        sender: 'host',
+        read: true,
+      };
+
+      const stateFields =
+        welcomeState === 'sent'
+          ? {
+              direction: 'outbound',
+              welcomeState: 'sent',
+              text,
+              sentAt: FieldValue.serverTimestamp(),
+              welcomeSnoozedUntil: FieldValue.delete(),
+            }
+          : welcomeState === 'snoozed'
+          ? {
+              direction: 'outbound_draft',
+              welcomeState: 'snoozed',
+              text,
+              welcomeSnoozedUntil: snoozedUntil || null,
+              sentAt: FieldValue.delete(),
+            }
+          : {
+              // skipped
+              direction: 'outbound_draft',
+              welcomeState: 'skipped',
+              text,
+              welcomeSnoozedUntil: FieldValue.delete(),
+              sentAt: FieldValue.delete(),
+            };
+
+      if (booking.welcomeMessageId) {
+        const ref = adminDb.collection('airbnb_messages').doc(booking.welcomeMessageId);
+        await ref.set({ ...baseFields, ...stateFields }, { merge: true });
+        return booking.welcomeMessageId;
+      } else {
+        const ref = adminDb.collection('airbnb_messages').doc();
+        await ref.set({
+          ...baseFields,
+          ...stateFields,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+        await bookingRef.update({ welcomeMessageId: ref.id });
+        return ref.id;
+      }
+    }
+
     if (action === 'skip') {
+      const text = booking.welcomeMessage || '(welcome skipped)';
+      await upsertWelcomeMessageDoc({ welcomeState: 'skipped', text });
       await bookingRef.update({ welcomeStatus: 'skipped' });
       return NextResponse.json({ success: true, data: { welcomeStatus: 'skipped' } });
     }
@@ -138,6 +201,17 @@ export async function PATCH(request, { params }) {
           { status: 400 }
         );
       }
+      if (!booking.welcomeMessage) {
+        return NextResponse.json(
+          { success: false, error: 'Cannot snooze — no welcome draft to stage.' },
+          { status: 400 }
+        );
+      }
+      await upsertWelcomeMessageDoc({
+        welcomeState: 'snoozed',
+        text: booking.welcomeMessage,
+        snoozedUntil,
+      });
       await bookingRef.update({
         welcomeStatus: 'snoozed',
         welcomeSnoozedUntil: snoozedUntil,
@@ -172,39 +246,19 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    // Write a batch: update booking + create airbnb_messages thread entry.
-    const messagesRef = adminDb.collection('airbnb_messages').doc();
-    const threadKey = buildThreadKey({
-      bookingCode: booking.code,
-      senderEmail: booking.guestEmail || null,
-      senderName: booking.guestName || null,
+    const messageId = await upsertWelcomeMessageDoc({
+      welcomeState: 'sent',
+      text: finalText,
     });
-
-    const batch = adminDb.batch();
-    batch.update(bookingRef, {
+    await bookingRef.update({
       welcomeStatus: 'sent',
       welcomeSentAt: now,
       welcomeSentText: finalText,
     });
-    batch.set(messagesRef, {
-      bookingId: booking.id,
-      bookingCode: booking.code || null,
-      threadKey,
-      guestName: booking.guestName || null,
-      senderEmail: booking.guestEmail || null,
-      direction: 'outbound',
-      sender: 'host',
-      text: finalText,
-      source: 'welcome_draft',
-      sentAt: FieldValue.serverTimestamp(),
-      createdAt: FieldValue.serverTimestamp(),
-      read: true,
-    });
-    await batch.commit();
 
     return NextResponse.json({
       success: true,
-      data: { welcomeStatus: 'sent', messageId: messagesRef.id, threadKey },
+      data: { welcomeStatus: 'sent', messageId },
     });
   } catch (error) {
     console.error('[PATCH /api/bookings/[id]/welcome]', error);

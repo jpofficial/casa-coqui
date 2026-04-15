@@ -59,6 +59,24 @@ function formatFullDate(dateValue, locale) {
   });
 }
 
+// Returns a label string for draft welcome messages, or null for normal sent messages.
+function welcomeStateLabel(msg, locale) {
+  if (!msg.welcomeState || msg.welcomeState === 'sent') return null;
+  if (msg.welcomeState === 'snoozed') {
+    const when = msg.welcomeSnoozedUntil
+      ? new Date(msg.welcomeSnoozedUntil).toLocaleDateString(
+          locale === 'es' ? 'es' : 'en-US',
+          { month: 'short', day: 'numeric' }
+        )
+      : '';
+    return t(locale, 'admin_msg_draft_snoozed').replace('{when}', when);
+  }
+  if (msg.welcomeState === 'skipped') {
+    return t(locale, 'admin_msg_draft_skipped');
+  }
+  return null;
+}
+
 // Build a thread list from a flat array of messages.
 // Groups by threadKey so unmatched senders get their own threads instead of
 // all being lumped into one 'unknown' bucket.
@@ -306,19 +324,28 @@ function ChatView({ thread, allMessages, onBack, onLinkClick }) {
           }
           const { msg } = item;
           const isHost = msg.sender === 'host';
+          const isDraft = msg.direction === 'outbound_draft';
+          const draftLabel = welcomeStateLabel(msg, locale);
           return (
             <div key={item.key} className={`flex ${isHost ? 'justify-end' : 'justify-start'} mt-1`}>
               <div
                 className={`max-w-[78%] px-3.5 py-2.5 rounded-2xl text-sm leading-snug shadow-sm ${
-                  isHost
+                  isDraft
+                    ? 'bg-green-100 text-green-900 rounded-br-sm opacity-60'
+                    : isHost
                     ? 'bg-green-600 text-white rounded-br-sm'
                     : 'bg-white text-gray-800 rounded-bl-sm'
                 }`}
               >
                 <p>{msg.text}</p>
-                <p className={`text-[10px] mt-1 ${isHost ? 'text-green-200' : 'text-gray-400'} text-right`}>
+                <p className={`text-[10px] mt-1 ${isHost && !isDraft ? 'text-green-200' : 'text-gray-400'} text-right`}>
                   {formatTime(msg.createdAt, locale)}
                 </p>
+                {isDraft && draftLabel && (
+                  <div className="mt-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full inline-block">
+                    {draftLabel}
+                  </div>
+                )}
               </div>
             </div>
           );
