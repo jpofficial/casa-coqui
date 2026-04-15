@@ -248,7 +248,7 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
         });
 
       let thread = [];
-      if (threadKey) {
+      if (threadKey && threadKey !== 'unknown') {
         const threadSnap = await db
           .collection('airbnb_messages')
           .where('threadKey', '==', threadKey)

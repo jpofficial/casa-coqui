@@ -139,6 +139,14 @@
         { "fieldPath": "unit", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "airbnb_messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "threadKey", "order": "ASCENDING" },
+        { "fieldPath": "receivedAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
