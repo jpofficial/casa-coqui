@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Casa Coqui — Bookings Redesign Mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f9fafb; }
+  .msg-body { white-space: pre-wrap; }
+  .chev { transition: transform 0.15s ease; display: inline-block; }
+  .expanded .chev { transform: rotate(90deg); }
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  details[open] .chev { transform: rotate(90deg); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .tab-btn.active { color: #059669; border-color: #059669; font-weight: 600; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="max-w-4xl mx-auto py-6 px-4">
+
+  <!-- Page header -->
+  <div class="flex justify-between items-center mb-1">
+    <h1 class="text-2xl font-bold text-gray-900">Bookings</h1>
+    <button class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700">+ New Booking</button>
+  </div>
+  <p class="text-sm text-gray-500 mb-6">Manage reservations and welcome messages</p>
+
+  <!-- Tabs -->
+  <div class="flex gap-1 border-b border-gray-200 mb-5 overflow-x-auto">
+    <button data-tab="drafts" class="tab-btn active px-4 py-2 text-sm text-gray-500 border-b-2 border-transparent whitespace-nowrap">
+      Drafts
+      <span class="inline-block ml-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">3</span>
+    </button>
+    <button data-tab="inhouse" class="tab-btn px-4 py-2 text-sm text-gray-500 border-b-2 border-transparent whitespace-nowrap">
+      In-house
+      <span class="inline-block ml-1 px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold">1</span>
+    </button>
+    <button data-tab="upcoming" class="tab-btn px-4 py-2 text-sm text-gray-500 border-b-2 border-transparent whitespace-nowrap">
+      Upcoming
+      <span class="inline-block ml-1 px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 text-[10px] font-bold">6</span>
+    </button>
+    <button data-tab="past" class="tab-btn px-4 py-2 text-sm text-gray-500 border-b-2 border-transparent whitespace-nowrap">
+      Past
+      <span class="inline-block ml-1 px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 text-[10px] font-bold">8</span>
+    </button>
+  </div>
+
+  <!-- =================== DRAFTS TAB =================== -->
+  <div data-panel="drafts" class="tab-panel active">
+    <p class="text-xs text-gray-500 mb-3">3 welcome drafts waiting to be sent. First is auto-expanded — click any card to expand.</p>
+
+    <!-- Card 1: expanded by default -->
+    <details open class="bg-white border border-gray-200 rounded-xl p-4 mb-2 shadow-sm">
+      <summary class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-gray-900">Edwin Antonio</div>
+          <div class="text-xs text-gray-500 mt-0.5">📅 Jul 5, 2026 → Jul 12, 2026 · Coqui Cielo</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold">✉ READY</span>
+          <span class="chev text-gray-400">▸</span>
+        </div>
+      </summary>
+
+      <!-- Booking meta -->
+      <div class="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-100 text-xs">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-gray-500">Guest link</span>
+          <button class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-100">Copy link</button>
+        </div>
+        <code class="text-[10px] text-gray-600 break-all">https://casa-coqui.cc/g/9062f7d2b2?t=5h1difBLuJ2dwWN5_DTUtgOpFXF…</code>
+        <div class="flex gap-2 mt-2 pt-2 border-t border-gray-200">
+          <button class="text-[10px] text-emerald-700 hover:underline">Edit</button>
+          <button class="text-[10px] text-red-600 hover:underline">Cancel booking</button>
+        </div>
+      </div>
+
+      <!-- Welcome message -->
+      <div class="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs font-semibold text-emerald-900">✉ Welcome Message</div>
+          <div class="text-[10px] text-gray-500">drafted 2 min ago</div>
+        </div>
+        <div class="bg-white p-3 rounded text-xs text-gray-900 leading-relaxed msg-body">¡Hola Edwin! 🌴
+
+So excited to have you coming to Coqui Cielo at Casa Coqui! We're getting everything ready for your arrival on July 5th. You've got a full week to explore San Juan, relax on the island, and soak it all in.
+
+Here's your personal guest portal — it's got all the details you need like check-in info, WiFi, house rules, and local tips:
+https://casa-coqui.cc/g/9062f7d2b2?t=5h1difBLuJ2dwWN5…
+
+If you have any questions before you arrive or need anything during your stay, just reach out. Looking forward to hosting you!
+
+¡Bienvenido!
+Julio</div>
+
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button class="px-3 py-1.5 bg-emerald-600 text-white rounded text-xs font-semibold hover:bg-emerald-700">✓ Mark as Sent</button>
+          <button class="px-3 py-1.5 bg-white border border-gray-300 rounded text-xs text-gray-700 hover:bg-gray-50">📋 Copy</button>
+          <button class="px-3 py-1.5 bg-white border border-gray-300 rounded text-xs text-gray-700 hover:bg-gray-50">⏱ Send later</button>
+          <button class="px-3 py-1.5 bg-white border border-gray-300 rounded text-xs text-gray-700 hover:bg-gray-50">↻ Regenerate</button>
+          <button class="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded">Skip</button>
+        </div>
+        <div class="mt-2 text-[10px] text-gray-500 italic">ℹ Marking sent saves the message to the guest's thread in Messages.</div>
+      </div>
+    </details>
+
+    <!-- Card 2: collapsed -->
+    <details class="bg-white border border-gray-200 rounded-xl p-4 mb-2 hover:border-emerald-300 transition-colors">
+      <summary class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-gray-900">Sarah Kim</div>
+          <div class="text-xs text-gray-500 mt-0.5">📅 Apr 22, 2026 → Apr 26, 2026 · Coqui Alta</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold">✉ READY</span>
+          <span class="chev text-gray-400">▸</span>
+        </div>
+      </summary>
+      <div class="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+        <div class="bg-white p-3 rounded text-xs text-gray-900 leading-relaxed msg-body">Hi Sarah! 🌺
+
+Welcome to Coqui Alta! Your stay from April 22–26 is all set. We'll have the unit ready for a 3pm check-in.
+
+Here's your guest portal with all the info: https://casa-coqui.cc/g/ab3c…
+
+Looking forward to having you!
+Julio</div>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button class="px-3 py-1.5 bg-emerald-600 text-white rounded text-xs font-semibold">✓ Mark as Sent</button>
+          <button class="px-3 py-1.5 bg-white border border-gray-300 rounded text-xs">📋 Copy</button>
+          <button class="px-3 py-1.5 bg-white border border-gray-300 rounded text-xs">⏱ Send later</button>
+          <button class="px-3 py-1.5 bg-white border border-gray-300 rounded text-xs">↻ Regenerate</button>
+          <button class="px-3 py-1.5 text-xs text-gray-500">Skip</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- Card 3: collapsed -->
+    <details class="bg-white border border-gray-200 rounded-xl p-4 mb-2 hover:border-emerald-300 transition-colors">
+      <summary class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-gray-900">John Rivera</div>
+          <div class="text-xs text-gray-500 mt-0.5">📅 May 18, 2026 → May 22, 2026 · Coqui Cielo</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold">✉ READY</span>
+          <span class="chev text-gray-400">▸</span>
+        </div>
+      </summary>
+      <div class="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+        <div class="bg-white p-3 rounded text-xs text-gray-900 leading-relaxed msg-body">¡Hola John! 🌴
+
+Pumped to have you at Coqui Cielo May 18–22. Everything will be ready for your arrival…</div>
+      </div>
+    </details>
+  </div>
+
+  <!-- =================== IN-HOUSE TAB =================== -->
+  <div data-panel="inhouse" class="tab-panel">
+    <p class="text-xs text-gray-500 mb-3">1 guest currently on the property.</p>
+
+    <details class="bg-white border border-gray-200 rounded-xl p-4 mb-2 hover:border-blue-300">
+      <summary class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-gray-900">Maria Santos</div>
+          <div class="text-xs text-gray-500 mt-0.5">📅 Apr 13 → Apr 16, 2026 · Coqui Cielo</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-semibold">🏠 IN-HOUSE</span>
+          <span class="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-semibold">✉ SENT</span>
+          <span class="chev text-gray-400">▸</span>
+        </div>
+      </summary>
+      <div class="mt-3 p-3 bg-gray-50 rounded text-xs">
+        <p class="text-gray-600">Checked in on Apr 13. Guest portal link copied 3 days ago.</p>
+        <p class="text-gray-600 mt-1">Welcome message: <span class="text-emerald-700">sent Apr 11</span> — <a href="#" class="underline">view in Messages →</a></p>
+      </div>
+    </details>
+  </div>
+
+  <!-- =================== UPCOMING TAB =================== -->
+  <div data-panel="upcoming" class="tab-panel">
+    <p class="text-xs text-gray-500 mb-3">6 future reservations. Status pill on the right shows where each welcome draft is.</p>
+
+    <details class="bg-white border border-gray-200 rounded-xl p-4 mb-2 hover:border-emerald-300">
+      <summary class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-gray-900">Edwin Antonio</div>
+          <div class="text-xs text-gray-500 mt-0.5">📅 Jul 5 → Jul 12 · Coqui Cielo</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold">✉ READY</span>
+          <span class="chev text-gray-400">▸</span>
+        </div>
+      </summary>
+      <div class="mt-3 text-xs text-gray-600">Full booking card expands here with welcome panel (same layout as Drafts tab).</div>
+    </details>
+
+    <details class="bg-white border border-gray-200 rounded-xl p-4 mb-2 hover:border-emerald-300">
+      <summary class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-gray-900">Sarah Kim</div>
+          <div class="text-xs text-gray-500 mt-0.5">📅 Apr 22 → Apr 26 · Coqui Alta</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold">✉ READY</span>
+          <span class="chev text-gray-400">▸</span>
+        </div>
+      </summary>
+    </details>
+
+    <details class="bg-white border border-gray-200 rounded-xl p-4 mb-2 hover:border-emerald-300">
+      <summary class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-gray-900">Julia Méndez</div>
+          <div class="text-xs text-gray-500 mt-0.5">📅 Apr 29 → May 3 · Coqui Cielo</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-semibold">✉ SENT</span>
+          <span class="chev text-gray-400">▸</span>
+        </div>
+      </summary>
+    </details>
+
+    <details class="bg-white border border-gray-200 rounded-xl p-4 mb-2 hover:border-emerald-300">
+      <summary class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-gray-900">Marco Delgado</div>
+          <div class="text-xs text-gray-500 mt-0.5">📅 May 5 → May 9 · Coqui Alta</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-full font-semibold">✉ GENERATING…</span>
+          <span class="chev text-gray-400">▸</span>
+        </div>
+      </summary>
+    </details>
+
+    <details class="bg-white border border-gray-200 rounded-xl p-4 mb-2 hover:border-emerald-300">
+      <summary class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-gray-900">John Rivera</div>
+          <div class="text-xs text-gray-500 mt-0.5">📅 May 18 → May 22 · Coqui Cielo</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold">✉ READY</span>
+          <span class="chev text-gray-400">▸</span>
+        </div>
+      </summary>
+    </details>
+
+    <details class="bg-white border border-gray-200 rounded-xl p-4 mb-2 hover:border-emerald-300">
+      <summary class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-gray-900">Tanya Robles</div>
+          <div class="text-xs text-gray-500 mt-0.5">📅 Jun 2 → Jun 6 · Coqui Cielo</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full font-semibold">✉ SKIPPED</span>
+          <span class="chev text-gray-400">▸</span>
+        </div>
+      </summary>
+    </details>
+  </div>
+
+  <!-- =================== PAST TAB =================== -->
+  <div data-panel="past" class="tab-panel">
+    <p class="text-xs text-gray-500 mb-3">Previous guests. Useful for referencing prior stays.</p>
+
+    <details class="bg-white border border-gray-200 rounded-xl p-4 mb-2">
+      <summary class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-gray-900">Carlos Ruiz</div>
+          <div class="text-xs text-gray-500 mt-0.5">📅 Mar 28 → Apr 2, 2026 · Coqui Alta</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-semibold">PAST</span>
+          <span class="chev text-gray-400">▸</span>
+        </div>
+      </summary>
+    </details>
+
+    <details class="bg-white border border-gray-200 rounded-xl p-4 mb-2">
+      <summary class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-gray-900">Angela Ortiz</div>
+          <div class="text-xs text-gray-500 mt-0.5">📅 Mar 15 → Mar 19 · Coqui Cielo</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-semibold">CANCELLED</span>
+          <span class="chev text-gray-400">▸</span>
+        </div>
+      </summary>
+    </details>
+  </div>
+
+</div>
+
+<!-- Design notes callout -->
+<div class="max-w-4xl mx-auto px-4 pb-10">
+  <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-xs text-amber-900">
+    <div class="font-bold mb-2">🧪 Mockup notes (not part of the real UI)</div>
+    <ul class="list-disc list-inside space-y-1">
+      <li><b>Cards collapsed by default</b>; first Drafts card auto-expands so you can act without extra clicks.</li>
+      <li><b>Mark as Sent</b> will <em>also</em> write the message into the guest's thread on <code>/admin/messages</code> — so your conversation log is complete.</li>
+      <li><b>Send later</b> is a proposed new action (snooze the draft; surfaces in Drafts again closer to check-in). Can be dropped.</li>
+      <li><b>Generating…</b> pills reassure you the AI is still working. A fallback job will flip any draft stuck >10 min to a retry state.</li>
+      <li>Non-Drafts tabs show the same card shape, but with a status pill that tells you at a glance where each welcome stands.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelector(`[data-panel="${tab}"]`).classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>
