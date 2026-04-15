@@ -22,6 +22,7 @@ const {
 const { simpleParser } = require('mailparser');
 const admin = require('firebase-admin');
 const Anthropic = require('@anthropic-ai/sdk').default;
+const { buildThreadKey } = require('./thread-key');
 
 // ---------------------------------------------------------------------------
 // AWS clients (module-level — reused across warm invocations)
@@ -681,10 +682,19 @@ async function generateWelcomeDraft(firestore, bookingId, booking, settings) {
       latencyMs: Date.now() - startTime,
     });
   } catch (err) {
-    console.error('Welcome message generation failed (non-fatal)', {
+    console.error('Welcome message generation failed', {
       bookingId,
       error: err.message,
     });
+    // Record the failure so the admin UI can surface a Retry button.
+    try {
+      await firestore.collection('bookings').doc(bookingId).update({
+        welcomeStatus: 'error',
+        welcomeError: err.message ? String(err.message).slice(0, 500) : 'unknown',
+      });
+    } catch (updateErr) {
+      console.error('Failed to persist welcome error state', updateErr.message);
+    }
   }
 }
 
@@ -1063,6 +1073,12 @@ exports.handler = async (event) => {
             sentAt: null,
             editedReply: null,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            threadKey: buildThreadKey({
+              bookingCode: null,
+              senderEmail: fromAddress,
+              senderName: guestName || fromName,
+            }),
+            source: 'inbound',
           });
 
           console.log('Written unmatched guest_message to airbnb_messages');
@@ -1112,6 +1128,12 @@ exports.handler = async (event) => {
         sentAt: null,
         editedReply: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        threadKey: buildThreadKey({
+          bookingCode: booking.data.code,
+          senderEmail: fromAddress,
+          senderName: guestName || booking.data.guestName || null,
+        }),
+        source: 'inbound',
       };
 
       const ref = await firestore.collection('airbnb_messages').add(docData);
