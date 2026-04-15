@@ -189,6 +189,9 @@ exports.icsSync = onSchedule(
   }
 );
 
+// Scheduled sweepers
+exports.welcomeSweeper = require('./scheduled').welcomeSweeper;
+
 // ---------------------------------------------------------------------------
 // onAirbnbMessageCreated
 //
