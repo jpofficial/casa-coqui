@@ -49,3 +49,6 @@ infra/.venv/
 
 # voice sample downloads (seed script temp)
 .tmp-voice-samples/
+
+# Firebase admin service account keys — never commit
+*firebase-adminsdk*.json

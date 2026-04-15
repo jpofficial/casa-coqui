@@ -7,11 +7,11 @@
  *   node scripts/backfill-thread-keys.js          # dry run (prints what would change)
  *   node scripts/backfill-thread-keys.js --apply  # actually writes
  *
- * Requires GOOGLE_APPLICATION_CREDENTIALS env or the service-account JSON
- * at casa-coqui-firebase-adminsdk-fbsvc-25747895e8.json (already in repo root).
+ * Requires GOOGLE_APPLICATION_CREDENTIALS env pointing to an admin-SDK
+ * service-account JSON. Do NOT commit the key file — .gitignore covers
+ * *firebase-adminsdk*.json.
  */
 
-const path = require('path');
 const admin = require('firebase-admin');
 const { buildThreadKey } = require('../lib/thread-key');
 
@@ -19,13 +19,14 @@ const APPLY = process.argv.includes('--apply');
 const BATCH_SIZE = 500;
 
 async function main() {
-  if (!admin.apps.length) {
-    const keyPath = path.resolve(
-      __dirname,
-      '..',
-      'casa-coqui-firebase-adminsdk-fbsvc-25747895e8.json'
+  if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    console.error(
+      'Set GOOGLE_APPLICATION_CREDENTIALS to the path of your admin-SDK JSON key before running.'
     );
-    admin.initializeApp({ credential: admin.credential.cert(require(keyPath)) });
+    process.exit(1);
+  }
+  if (!admin.apps.length) {
+    admin.initializeApp({ credential: admin.credential.applicationDefault() });
   }
 
   const db = admin.firestore();
@@ -33,6 +34,7 @@ async function main() {
 
   console.log(`Scanned ${snap.size} airbnb_messages docs`);
   let planned = 0;
+  let unresolved = 0;
   let batch = db.batch();
   let batchCount = 0;
 
@@ -45,6 +47,11 @@ async function main() {
       senderEmail: data.senderEmail || data.fromAddress || null,
       senderName: data.guestName || data.fromName || null,
     });
+
+    if (newKey === 'unknown') {
+      console.warn(`  [WARN] ${doc.id} resolved to "unknown" — no bookingCode/email/name`);
+      unresolved++;
+    }
 
     planned++;
     if (APPLY) {
@@ -64,6 +71,10 @@ async function main() {
   if (APPLY && batchCount > 0) {
     await batch.commit();
     console.log(`  committed final batch (${batchCount} updates)`);
+  }
+
+  if (unresolved > 0) {
+    console.warn(`${unresolved} doc(s) resolved to "unknown" — manual review recommended.`);
   }
 
   console.log(
