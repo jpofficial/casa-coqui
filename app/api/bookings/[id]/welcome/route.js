@@ -144,41 +144,32 @@ export async function PATCH(request, { params }) {
         read: true,
       };
 
-      const stateFields =
-        welcomeState === 'sent'
-          ? {
-              direction: 'outbound',
-              welcomeState: 'sent',
-              text,
-              sentAt: FieldValue.serverTimestamp(),
-              welcomeSnoozedUntil: FieldValue.delete(),
-            }
-          : welcomeState === 'snoozed'
-          ? {
-              direction: 'outbound_draft',
-              welcomeState: 'snoozed',
-              text,
-              welcomeSnoozedUntil: snoozedUntil || null,
-              sentAt: FieldValue.delete(),
-            }
-          : {
-              // skipped
-              direction: 'outbound_draft',
-              welcomeState: 'skipped',
-              text,
-              welcomeSnoozedUntil: FieldValue.delete(),
-              sentAt: FieldValue.delete(),
-            };
+      // Build the state-specific payload. We keep two variants: `create`
+      // (fresh set, cannot use FieldValue.delete) and `update` (set with
+      // merge, can clear stale fields via FieldValue.delete).
+      let create;
+      let update;
+      if (welcomeState === 'sent') {
+        create = { direction: 'outbound', welcomeState: 'sent', text, sentAt: FieldValue.serverTimestamp() };
+        update = { ...create, welcomeSnoozedUntil: FieldValue.delete() };
+      } else if (welcomeState === 'snoozed') {
+        create = { direction: 'outbound_draft', welcomeState: 'snoozed', text, welcomeSnoozedUntil: snoozedUntil || null };
+        update = { ...create, sentAt: FieldValue.delete() };
+      } else {
+        // skipped
+        create = { direction: 'outbound_draft', welcomeState: 'skipped', text };
+        update = { ...create, welcomeSnoozedUntil: FieldValue.delete(), sentAt: FieldValue.delete() };
+      }
 
       if (booking.welcomeMessageId) {
         const ref = adminDb.collection('airbnb_messages').doc(booking.welcomeMessageId);
-        await ref.set({ ...baseFields, ...stateFields }, { merge: true });
+        await ref.set({ ...baseFields, ...update }, { merge: true });
         return booking.welcomeMessageId;
       } else {
         const ref = adminDb.collection('airbnb_messages').doc();
         await ref.set({
           ...baseFields,
-          ...stateFields,
+          ...create,
           createdAt: FieldValue.serverTimestamp(),
         });
         await bookingRef.update({ welcomeMessageId: ref.id });
