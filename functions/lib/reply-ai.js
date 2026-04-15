@@ -32,7 +32,8 @@ YOUR RULES:
 9. If you cannot confidently answer (refunds, complaints, legal issues, schedule conflicts, pricing disputes), set shouldEscalate to true and explain why.
 10. NEVER promise refunds, discounts, or policy exceptions — always escalate those.
 11. For simple questions (directions, recommendations, check-in time, amenities), answer directly.
-12. Keep it under 150 words unless the question requires a detailed answer.`;
+12. Keep it under 150 words unless the question requires a detailed answer.
+13. When RELEVANT PAST CONVERSATIONS are provided, use them as reference for how Julio has handled similar questions before. Prioritize these over generic voice samples when the topic matches closely. Do not copy them verbatim — adapt to the current guest's situation.`;
 
 // ---------------------------------------------------------------------------
 // Tool schema — structured reply output
@@ -70,7 +71,7 @@ const REPLY_TOOL = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function buildReplyInput({ message, thread, booking, settings, voiceSamples }) {
+function buildReplyInput({ message, thread, booking, settings, voiceSamples, relevantConversations }) {
   const input = {
     inboundMessage: {
       from: message.guestName || 'Guest',
@@ -104,6 +105,14 @@ function buildReplyInput({ message, thread, booking, settings, voiceSamples }) {
     input.voiceSamples = voiceSamples.slice(0, 10).map((s) => s.editedReply || s.draftReply);
   }
 
+  if (relevantConversations && relevantConversations.length > 0) {
+    input.relevantPastConversations = relevantConversations.map((c) => ({
+      guestAsked: c.guestMessage,
+      julioReplied: c.hostReply,
+      similarity: c.distance != null ? (1 - c.distance).toFixed(2) : null,
+    }));
+  }
+
   return JSON.stringify(input, null, 0);
 }
 
@@ -122,9 +131,9 @@ function buildReplyInput({ message, thread, booking, settings, voiceSamples }) {
  * @param {Object[]} params.voiceSamples - Past sent replies for voice matching
  * @returns {Promise<{ reply: string, language: string, shouldEscalate: boolean, escalateReason: string|null }>}
  */
-async function generateReply({ message, thread, booking, settings, voiceSamples }) {
+async function generateReply({ message, thread, booking, settings, voiceSamples, relevantConversations }) {
   const startTime = Date.now();
-  const userMessage = buildReplyInput({ message, thread, booking, settings, voiceSamples });
+  const userMessage = buildReplyInput({ message, thread, booking, settings, voiceSamples, relevantConversations });
 
   const response = await client.messages.create({
     model: MODEL,

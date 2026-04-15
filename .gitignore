@@ -46,3 +46,6 @@ next-env.d.ts
 # aws cdk (Phase 1 infra)
 infra/cdk.out/
 infra/.venv/
+
+# voice sample downloads (seed script temp)
+.tmp-voice-samples/

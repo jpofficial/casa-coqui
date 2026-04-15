@@ -198,7 +198,9 @@ exports.icsSync = onSchedule(
 // already safely stored.
 // ---------------------------------------------------------------------------
 const { generateReply } = require('./lib/reply-ai');
+const { embedText } = require('./lib/embeddings');
 const { db } = require('./firebaseInit');
+const { FieldValue } = require('firebase-admin/firestore');
 
 exports.onAirbnbMessageCreated = onDocumentCreated(
   {
@@ -257,6 +259,29 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
       const settingsDoc = await db.collection('settings').doc('property').get();
       const settings = settingsDoc.exists ? settingsDoc.data() : {};
 
+      // RAG retrieval — find relevant past conversations (non-blocking on failure)
+      let relevantConversations = [];
+      try {
+        const queryEmbedding = await embedText(message.body);
+        const ragSnap = await db
+          .collection('voice_conversations')
+          .findNearest({
+            vectorField: 'embedding',
+            queryVector: FieldValue.vector(queryEmbedding),
+            limit: 3,
+            distanceMeasure: 'COSINE',
+            distanceResultField: 'distance',
+          })
+          .get();
+        relevantConversations = ragSnap.docs.map((d) => ({
+          ...d.data(),
+          distance: d.get('distance'),
+        }));
+        logger.info(`[onAirbnbMessageCreated] RAG: found ${relevantConversations.length} relevant conversations`);
+      } catch (ragErr) {
+        logger.warn('[onAirbnbMessageCreated] RAG retrieval failed (non-fatal):', ragErr.message);
+      }
+
       // Generate reply
       const result = await generateReply({
         message: { id: messageId, ...message },
@@ -264,6 +289,7 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
         booking,
         settings,
         voiceSamples,
+        relevantConversations,
       });
 
       // Update the message doc with the draft
