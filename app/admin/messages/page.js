@@ -16,6 +16,7 @@ import { db, auth } from '@/lib/firebase';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
 import { buildThreadKey, isUnmatchedKey } from '@/lib/thread-key';
+import LinkToBookingModal from '@/components/admin/LinkToBookingModal';
 
 function timeAgo(dateValue, locale) {
   if (!dateValue) return '';
@@ -168,7 +169,7 @@ function ThreadItem({ thread, onSelect }) {
 }
 
 // Full chat view for a single thread
-function ChatView({ thread, allMessages, onBack }) {
+function ChatView({ thread, allMessages, onBack, onLinkClick }) {
   const { locale } = useLocale();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -268,12 +269,22 @@ function ChatView({ thread, allMessages, onBack }) {
         <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm uppercase flex-shrink-0">
           {(thread.guestName || thread.bookingCode || thread.threadKey || '?').charAt(0)}
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">
-            {thread.guestName !== thread.bookingCode
-              ? thread.guestName
-              : `${t(locale, 'admin_msg_guestPrefix')} ${thread.bookingCode}`}
-          </p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-gray-900 truncate">
+              {thread.guestName !== thread.bookingCode
+                ? thread.guestName
+                : `${t(locale, 'admin_msg_guestPrefix')} ${thread.bookingCode}`}
+            </p>
+            {thread.unmatched && onLinkClick && (
+              <button
+                onClick={onLinkClick}
+                className="ml-2 text-[10px] px-2 py-1 bg-coqui-600 text-white rounded-lg font-semibold hover:bg-coqui-700 whitespace-nowrap flex-shrink-0"
+              >
+                {t(locale, 'admin_msg_link_button')}
+              </button>
+            )}
+          </div>
           <p className="text-xs text-gray-400 truncate">{t(locale, 'admin_msg_codePrefix')} {thread.bookingCode}</p>
         </div>
       </div>
@@ -686,6 +697,7 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [selectedThread, setSelectedThread] = useState(null);
+  const [linkTarget, setLinkTarget] = useState(null); // { threadKey, guestName } or null
 
   // Subscribe to all in-app messages ordered by newest first
   useEffect(() => {
@@ -717,11 +729,27 @@ export default function MessagesPage() {
   // Full-screen chat view takes over the whole page
   if (selectedThread) {
     return (
-      <ChatView
-        thread={selectedThread}
-        allMessages={messages}
-        onBack={() => setSelectedThread(null)}
-      />
+      <>
+        <ChatView
+          thread={selectedThread}
+          allMessages={messages}
+          onBack={() => setSelectedThread(null)}
+          onLinkClick={() => setLinkTarget({ threadKey: selectedThread.threadKey, guestName: selectedThread.guestName })}
+        />
+        {linkTarget && (
+          <LinkToBookingModal
+            threadKey={linkTarget.threadKey}
+            guestName={linkTarget.guestName}
+            user={auth.currentUser}
+            locale={locale}
+            onLinked={() => {
+              setLinkTarget(null);
+              // Firestore onSnapshot will refresh threads automatically
+            }}
+            onCancel={() => setLinkTarget(null)}
+          />
+        )}
+      </>
     );
   }
 
