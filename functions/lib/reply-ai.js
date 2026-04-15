@@ -10,6 +10,7 @@
 'use strict';
 
 const Anthropic = require('@anthropic-ai/sdk').default;
+const { filterRAGResults } = require('./rag-filter');
 
 const client = new Anthropic(); // reads ANTHROPIC_API_KEY from env
 const MODEL = 'claude-haiku-4-5-20251001';
@@ -220,7 +221,8 @@ function buildReplyInput({ message, thread, booking, settings, voiceSamples, rel
   }
 
   if (relevantConversations && relevantConversations.length > 0) {
-    input.relevantPastConversations = relevantConversations.map((c) => ({
+    const filtered = filterRAGResults(relevantConversations);
+    input.relevantPastConversations = filtered.map((c) => ({
       guestAsked: c.guestMessage,
       julioReplied: c.hostReply,
       similarity: c.distance != null ? (1 - c.distance).toFixed(2) : null,
