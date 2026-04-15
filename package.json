@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --test 'lib/__tests__/*.test.js'"
+    "test": "TZ=America/Puerto_Rico node --test 'lib/__tests__/*.test.js'"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
