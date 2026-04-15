@@ -15,6 +15,7 @@ import {
 import { db, auth } from '@/lib/firebase';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
+import { buildThreadKey, isUnmatchedKey } from '@/lib/thread-key';
 
 function timeAgo(dateValue, locale) {
   if (!dateValue) return '';
@@ -57,26 +58,40 @@ function formatFullDate(dateValue, locale) {
   });
 }
 
-// Build a thread list from a flat array of messages
+// Build a thread list from a flat array of messages.
+// Groups by threadKey so unmatched senders get their own threads instead of
+// all being lumped into one 'unknown' bucket.
 function buildThreads(messages) {
   const threadMap = {};
   for (const msg of messages) {
-    const code = msg.bookingCode || 'unknown';
-    if (!threadMap[code]) {
-      threadMap[code] = {
-        bookingCode: code,
-        guestName: msg.guestName || code,
+    const key =
+      msg.threadKey ||
+      buildThreadKey({
+        bookingCode: msg.bookingCode || null,
+        senderEmail: msg.senderEmail || msg.fromAddress || null,
+        senderName: msg.guestName || msg.fromName || null,
+      });
+
+    if (!threadMap[key]) {
+      threadMap[key] = {
+        threadKey: key,
+        bookingCode: isUnmatchedKey(key) ? null : key,
+        guestName: msg.guestName || msg.fromName || key,
         messages: [],
         lastMessage: null,
         unreadCount: 0,
+        unmatched: isUnmatchedKey(key),
       };
     }
-    threadMap[code].messages.push(msg);
-    if (!threadMap[code].lastMessage || compareFirestoreDates(msg.createdAt, threadMap[code].lastMessage.createdAt) > 0) {
-      threadMap[code].lastMessage = msg;
+    threadMap[key].messages.push(msg);
+    if (
+      !threadMap[key].lastMessage ||
+      compareFirestoreDates(msg.createdAt, threadMap[key].lastMessage.createdAt) > 0
+    ) {
+      threadMap[key].lastMessage = msg;
     }
     if (msg.sender === 'guest' && !msg.read) {
-      threadMap[code].unreadCount += 1;
+      threadMap[key].unreadCount += 1;
     }
   }
   // Sort threads by last message descending
@@ -120,7 +135,7 @@ function ThreadItem({ thread, onSelect }) {
     >
       {/* Avatar */}
       <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 text-green-700 font-bold text-sm uppercase">
-        {(thread.guestName || thread.bookingCode).charAt(0)}
+        {(thread.guestName || thread.bookingCode || thread.threadKey || '?').charAt(0)}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-1">
@@ -129,6 +144,11 @@ function ThreadItem({ thread, onSelect }) {
               ? thread.guestName
               : `${t(locale, 'admin_msg_guestPrefix')} ${thread.bookingCode}`}
           </span>
+          {thread.unmatched && (
+            <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full whitespace-nowrap">
+              {t(locale, 'admin_msg_unmatched_badge')}
+            </span>
+          )}
           <span className="text-[11px] text-gray-400 flex-shrink-0">{timeAgo(last?.createdAt, locale)}</span>
         </div>
         <div className="flex items-center gap-2 mt-0.5">
@@ -154,9 +174,18 @@ function ChatView({ thread, allMessages, onBack }) {
   const [sending, setSending] = useState(false);
   const bottomRef = useRef(null);
 
-  // Messages sorted oldest first
+  // Messages sorted oldest first — match by threadKey so unmatched threads work too
   const threadMessages = allMessages
-    .filter((m) => m.bookingCode === thread.bookingCode)
+    .filter((m) => {
+      const key =
+        m.threadKey ||
+        buildThreadKey({
+          bookingCode: m.bookingCode || null,
+          senderEmail: m.senderEmail || m.fromAddress || null,
+          senderName: m.guestName || m.fromName || null,
+        });
+      return key === thread.threadKey;
+    })
     .sort((a, b) => compareFirestoreDates(a.createdAt, b.createdAt));
 
   const grouped = groupByDay(threadMessages, locale);
@@ -171,7 +200,7 @@ function ChatView({ thread, allMessages, onBack }) {
     });
     batch.commit().catch(console.error);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [thread.bookingCode]);
+  }, [thread.threadKey]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -237,7 +266,7 @@ function ChatView({ thread, allMessages, onBack }) {
           </svg>
         </button>
         <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm uppercase flex-shrink-0">
-          {(thread.guestName || thread.bookingCode).charAt(0)}
+          {(thread.guestName || thread.bookingCode || thread.threadKey || '?').charAt(0)}
         </div>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-gray-900 truncate">
@@ -680,7 +709,7 @@ export default function MessagesPage() {
   // Keep selectedThread in sync when messages update
   useEffect(() => {
     if (!selectedThread) return;
-    const thr = threads.find((th) => th.bookingCode === selectedThread.bookingCode);
+    const thr = threads.find((th) => th.threadKey === selectedThread.threadKey);
     if (thr) setSelectedThread(thr);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
@@ -755,7 +784,7 @@ export default function MessagesPage() {
         ) : (
           <div className="space-y-2">
             {threads.map((thread) => (
-              <ThreadItem key={thread.bookingCode} thread={thread} onSelect={setSelectedThread} />
+              <ThreadItem key={thread.threadKey} thread={thread} onSelect={setSelectedThread} />
             ))}
           </div>
         )
