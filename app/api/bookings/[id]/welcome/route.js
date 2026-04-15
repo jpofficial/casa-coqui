@@ -167,10 +167,16 @@ export async function PATCH(request, { params }) {
         return booking.welcomeMessageId;
       } else {
         const ref = adminDb.collection('airbnb_messages').doc();
+        const ts = FieldValue.serverTimestamp();
+        // `receivedAt` is the field the Messages page orders by — without it
+        // the doc is silently excluded from the onSnapshot query. Set it to
+        // the same timestamp as createdAt so the welcome lands chronologically
+        // at the moment it was staged.
         await ref.set({
           ...baseFields,
           ...create,
-          createdAt: FieldValue.serverTimestamp(),
+          createdAt: ts,
+          receivedAt: ts,
         });
         await bookingRef.update({ welcomeMessageId: ref.id });
         return ref.id;
