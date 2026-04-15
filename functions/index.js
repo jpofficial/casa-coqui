@@ -197,7 +197,8 @@ exports.icsSync = onSchedule(
 // Decoupled from the Lambda parser — if AI fails, the inbound message is
 // already safely stored.
 // ---------------------------------------------------------------------------
-const { generateReply } = require('./lib/reply-ai');
+const { generateReply, buildReplyInput, SYSTEM_PROMPT } = require('./lib/reply-ai');
+const { generateReplyChain } = require('./lib/reply-agent-chain');
 const { embedText } = require('./lib/embeddings');
 const { db } = require('./firebaseInit');
 const { FieldValue } = require('firebase-admin/firestore');
@@ -283,15 +284,28 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
         logger.warn('[onAirbnbMessageCreated] RAG retrieval failed (non-fatal):', ragErr.message);
       }
 
-      // Generate reply
-      const result = await generateReply({
-        message: { id: messageId, ...message },
-        thread,
-        booking,
-        settings,
-        voiceSamples,
-        relevantConversations,
+      // Generate reply via chain strategy (reason → draft → evaluate → revise)
+      // Falls back to single-shot if chain fails
+      const messageWithId = { id: messageId, ...message };
+      const contextJson = buildReplyInput({
+        message: messageWithId, thread, booking, settings, voiceSamples, relevantConversations,
       });
+
+      let result;
+      try {
+        result = await generateReplyChain({
+          message: messageWithId,
+          contextJson,
+          voicePrompt: SYSTEM_PROMPT,
+          relevantConversations,
+        });
+        logger.info(`[onAirbnbMessageCreated] Chain: voice=${result._agentRun?.voiceScore}/10, steps=${result._agentRun?.steps?.map(s => s.step).join('→')}`);
+      } catch (chainErr) {
+        logger.warn('[onAirbnbMessageCreated] Chain strategy failed, falling back to single-shot:', chainErr.message);
+        result = await generateReply({
+          message: messageWithId, thread, booking, settings, voiceSamples, relevantConversations,
+        });
+      }
 
       // Update the message doc with the draft
       const now = new Date().toISOString();
