@@ -9,6 +9,7 @@ import { getUnitNames, getUnits } from '@/lib/units';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
 import StatusPill from '@/components/admin/StatusPill';
+import WelcomeMarkSentModal from '@/components/admin/WelcomeMarkSentModal';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -582,6 +583,7 @@ function WelcomeMessagePanel({ booking, user }) {
   const [marking, setMarking] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [skipping, setSkipping] = useState(false);
+  const [showMarkSent, setShowMarkSent] = useState(false);
 
   const { welcomeStatus, welcomeMessage } = booking;
 
@@ -606,23 +608,23 @@ function WelcomeMessagePanel({ booking, user }) {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  async function handleMarkSent() {
+  async function handleMarkSent(finalText) {
     setMarking(true);
     try {
       const idToken = await user.getIdToken();
-      await fetch(`/api/bookings/${booking.id}`, {
+      const res = await fetch(`/api/bookings/${booking.id}/welcome`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({
-          welcomeStatus: 'sent',
-          welcomeSentAt: new Date().toISOString(),
-        }),
+        body: JSON.stringify({ action: 'mark-sent', text: finalText }),
       });
+      if (!res.ok) throw new Error(`mark-sent failed: ${res.status}`);
+      setShowMarkSent(false);
     } catch (err) {
       console.error('[WelcomeMessagePanel] markSent failed:', err);
+      alert('Failed to mark as sent — check console.');
     } finally {
       setMarking(false);
     }
@@ -737,7 +739,7 @@ function WelcomeMessagePanel({ booking, user }) {
           {/* Mark as Sent */}
           {!isSkipped && (
             <button
-              onClick={handleMarkSent}
+              onClick={() => setShowMarkSent(true)}
               disabled={marking}
               className="inline-flex items-center gap-1 text-xs font-medium rounded-lg px-3 py-1.5 min-h-[36px] bg-coqui-600 text-white active:bg-coqui-700 transition-all active:scale-[0.98] disabled:opacity-60"
             >
@@ -803,6 +805,14 @@ function WelcomeMessagePanel({ booking, user }) {
           </button>
         </div>
       )}
+
+      <WelcomeMarkSentModal
+        open={showMarkSent}
+        initialText={welcomeMessage || ''}
+        locale={locale}
+        onConfirm={handleMarkSent}
+        onCancel={() => setShowMarkSent(false)}
+      />
     </div>
   );
 }
