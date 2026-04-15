@@ -74,8 +74,10 @@ async function getFirestore() {
 // Email classification
 // ---------------------------------------------------------------------------
 
+const crypto = require('crypto');
+
 /**
- * @typedef {'guest_message' | 'payout' | 'review_request' | 'policy_update' | 'unknown'} MessageType
+ * @typedef {'reservation_confirmation' | 'guest_message' | 'payout' | 'review_request' | 'policy_update' | 'unknown'} MessageType
  */
 
 /**
@@ -88,7 +90,14 @@ async function getFirestore() {
 function classifyEmail(subject) {
   if (!subject) return 'unknown';
 
-  const s = subject.toLowerCase();
+  // Reservation confirmations — check BEFORE guest messages
+  if (
+    /reservation confirmed/i.test(subject) ||
+    /new booking confirmed/i.test(subject) ||
+    /reservation request from/i.test(subject)
+  ) {
+    return 'reservation_confirmation';
+  }
 
   // Guest messages
   if (
@@ -183,6 +192,366 @@ function extractGuestNameFromSubject(subject) {
   if (m) return m[1].trim();
 
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Reservation detail extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Month name → 0-indexed month number.
+ */
+const MONTHS = {
+  jan: 0, january: 0,
+  feb: 1, february: 1,
+  mar: 2, march: 2,
+  apr: 3, april: 3,
+  may: 4,
+  jun: 5, june: 5,
+  jul: 6, july: 6,
+  aug: 7, august: 7,
+  sep: 8, september: 8,
+  oct: 9, october: 9,
+  nov: 10, november: 10,
+  dec: 11, december: 11,
+};
+
+/**
+ * Parse a short date like "Sat, May 23" into YYYY-MM-DD using the email's
+ * received year. If check-in month is before the received month, assume next year.
+ *
+ * @param {string} dateStr - e.g. "Sat, May 23" or "May 23"
+ * @param {Date} receivedAt
+ * @returns {string | null} - YYYY-MM-DD or null
+ */
+function parseShortDate(dateStr, receivedAt) {
+  if (!dateStr) return null;
+
+  // Match patterns like "Sat, May 23" or "May 23" or "May 23, 2026"
+  const m = dateStr.match(/(?:\w+,\s*)?(\w+)\s+(\d{1,2})(?:,?\s*(\d{4}))?/);
+  if (!m) return null;
+
+  const monthStr = m[1].toLowerCase();
+  const day = parseInt(m[2], 10);
+  const explicitYear = m[3] ? parseInt(m[3], 10) : null;
+
+  const monthIdx = MONTHS[monthStr];
+  if (monthIdx === undefined || isNaN(day)) return null;
+
+  let year = explicitYear || receivedAt.getFullYear();
+  // If no explicit year and month is before received month, assume next year
+  if (!explicitYear && monthIdx < receivedAt.getMonth()) {
+    year++;
+  }
+
+  const mm = String(monthIdx + 1).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
+  return `${year}-${mm}-${dd}`;
+}
+
+/**
+ * Extract reservation details from an Airbnb confirmation email.
+ *
+ * @param {string} subject
+ * @param {string} body
+ * @param {Date} receivedAt
+ * @returns {object}
+ */
+function extractReservationDetails(subject, body, receivedAt) {
+  const details = {
+    guestName: null,
+    checkInDate: null,
+    checkOutDate: null,
+    guestCount: null,
+    confirmationCode: null,
+    listingTitle: null,
+    payoutAmount: null,
+    guestMessage: null,
+  };
+
+  // Confirmation code — reuse existing extractor
+  details.confirmationCode =
+    extractConfirmationCode(subject) || extractConfirmationCode(body);
+
+  // Guest name from subject: "Reservation confirmed - Angelina Pascual arrives May 23"
+  let m = subject.match(/(?:confirmed|booking)\s*[-–—]\s*(.+?)\s+arrives?\b/i);
+  if (m) details.guestName = m[1].trim();
+
+  // Fallback: "Reservation request from Angelina Pascual"
+  if (!details.guestName) {
+    m = subject.match(/request from\s+(.+?)(?:\s*[-–—]|$)/i);
+    if (m) details.guestName = m[1].trim();
+  }
+
+  // Check-in date: look for "Check-in" followed by a date
+  m = body.match(/Check-?in\s*[\n\r]+\s*(.+)/i);
+  if (m) details.checkInDate = parseShortDate(m[1].trim(), receivedAt);
+
+  // Fallback: inline "Check-in: May 23"
+  if (!details.checkInDate) {
+    m = body.match(/Check-?in[:\s]+(\w+,?\s+\w+\s+\d{1,2}(?:,?\s*\d{4})?)/i);
+    if (m) details.checkInDate = parseShortDate(m[1].trim(), receivedAt);
+  }
+
+  // Checkout date
+  m = body.match(/Check-?out\s*[\n\r]+\s*(.+)/i);
+  if (m) details.checkOutDate = parseShortDate(m[1].trim(), receivedAt);
+
+  if (!details.checkOutDate) {
+    m = body.match(/Check-?out[:\s]+(\w+,?\s+\w+\s+\d{1,2}(?:,?\s*\d{4})?)/i);
+    if (m) details.checkOutDate = parseShortDate(m[1].trim(), receivedAt);
+  }
+
+  // Guest count: "7 adults" or "2 guests"
+  m = body.match(/(\d+)\s+(?:adults?|guests?)/i);
+  if (m) details.guestCount = parseInt(m[1], 10);
+
+  // Listing title: look for the listing name between quotes or before "Entire home"
+  // Common patterns in Airbnb emails
+  m = body.match(/(?:Listing|Property)[:\s]*([^\n]+)/i);
+  if (m) details.listingTitle = m[1].trim();
+
+  // Fallback: text before "Entire home/apt" or "Entire rental unit"
+  if (!details.listingTitle) {
+    m = body.match(/([^\n]{10,})\s*\n\s*Entire (?:home|rental|apartment)/i);
+    if (m) details.listingTitle = m[1].trim();
+  }
+
+  // Payout amount: "$774.40" near "total" or "Guest paid" or "You earn"
+  m = body.match(/(?:total|guest paid|you earn|payout)[^$]*\$([0-9,]+\.?\d*)/i);
+  if (m) details.payoutAmount = parseFloat(m[1].replace(/,/g, ''));
+
+  // Guest intro message: typically a quoted block or paragraph after the guest name
+  // Look for text between "Message from" and the next section break
+  m = body.match(/(?:Message from .+?|"([^"]+)")\s*\n/i);
+  if (m && m[1]) details.guestMessage = m[1].trim();
+
+  // Fallback: look for a quoted paragraph
+  if (!details.guestMessage) {
+    m = body.match(/"([^"]{20,})"/);
+    if (m) details.guestMessage = m[1].trim();
+  }
+
+  return details;
+}
+
+// ---------------------------------------------------------------------------
+// Booking creation from reservation confirmation
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a full booking from a parsed reservation confirmation email.
+ * Mirrors the logic in POST /api/bookings (route.js lines 102-225).
+ *
+ * @param {object} details - from extractReservationDetails()
+ * @param {import('firebase-admin').firestore.Firestore} firestore
+ * @param {object | null} propertySettings - settings/property doc data
+ * @param {Date} receivedAt
+ * @returns {Promise<{ bookingId: string, code: string } | null>}
+ */
+async function createBookingFromConfirmation(details, firestore, propertySettings, receivedAt) {
+  const { confirmationCode, guestName, checkInDate, checkOutDate, guestCount, listingTitle, payoutAmount, guestMessage } = details;
+
+  if (!checkInDate || !checkOutDate) {
+    console.warn('Cannot create booking — missing dates', { checkInDate, checkOutDate });
+    return null;
+  }
+
+  // 1. Deduplicate: skip if booking already exists for this confirmation code
+  if (confirmationCode) {
+    const existing = await firestore
+      .collection('bookings')
+      .where('airbnbConfirmationCode', '==', confirmationCode)
+      .limit(1)
+      .get();
+
+    if (!existing.empty) {
+      console.log('Booking already exists for confirmation code — skipping', { confirmationCode, existingId: existing.docs[0].id });
+      return null;
+    }
+  }
+
+  // 2. Map listing title to unit via listingMappings
+  const mappings = propertySettings?.listingMappings || [];
+  let unitId = null;
+  let unitName = null;
+
+  if (listingTitle) {
+    const titleLower = listingTitle.toLowerCase();
+    for (const mapping of mappings) {
+      if (mapping.listingFragment && titleLower.includes(mapping.listingFragment.toLowerCase())) {
+        unitId = mapping.unitId;
+        unitName = mapping.unitName;
+        break;
+      }
+    }
+  }
+
+  // Fallback to first unit if no mapping matched
+  if (!unitId) {
+    const units = propertySettings?.units || [];
+    if (units.length > 0) {
+      const firstUnit = units[0];
+      unitId = firstUnit.id || 'unit-a';
+      unitName = firstUnit.name || 'Unit A';
+    } else {
+      unitId = 'unit-a';
+      unitName = 'Unit A';
+    }
+    console.warn('No listing mapping matched — defaulting to first unit', {
+      listingTitle,
+      unitId,
+      unitName,
+      mappingsCount: mappings.length,
+    });
+  }
+
+  // 3. Generate booking code + access token
+  const code = crypto.randomBytes(5).toString('hex');
+  const accessToken = crypto.randomBytes(32).toString('base64url');
+  const accessTokenHash = crypto.createHash('sha256').update(accessToken).digest('hex');
+  const appUrl = process.env.APP_URL || 'https://casa-coqui.cc';
+  const guestLink = `${appUrl}/g/${code}?t=${accessToken}`;
+  const now = new Date().toISOString();
+
+  // 4. Write booking doc
+  const booking = {
+    code,
+    unit: unitName,
+    unitId,
+    guestName: (guestName || '').trim(),
+    guestEmail: '',
+    checkInDate,
+    checkOutDate,
+    status: 'active',
+    checkedIn: false,
+    source: 'airbnb_email',
+    externalId: confirmationCode || null,
+    lastSyncedAt: null,
+    syncHash: null,
+    createdAt: now,
+    guestLink,
+    accessTokenHash,
+    accessTokenCreatedAt: now,
+    accessTokenRevokedAt: null,
+    welcomeStatus: 'pending',
+    welcomeMessage: null,
+    welcomeDraftedAt: null,
+    welcomeSentAt: null,
+    airbnbConfirmationCode: confirmationCode || null,
+    guestCount: guestCount || null,
+    payoutAmount: payoutAmount || null,
+    guestMessage: guestMessage || null,
+  };
+
+  const docRef = await firestore.collection('bookings').add(booking);
+  console.log('Booking created', { bookingId: docRef.id, code, unitName, confirmationCode });
+
+  // 5. Write booking_members doc (primary guest)
+  await firestore.collection('booking_members').add({
+    bookingCode: code,
+    role: 'primary',
+    name: booking.guestName,
+    email: '',
+    phone: null,
+    uid: null,
+    status: 'pending',
+    invitedBy: null,
+    createdAt: now,
+  });
+
+  // 6. Write guest_access_log
+  await firestore.collection('guest_access_log').doc(code).set({
+    bookingCode: code,
+    inviteCreatedAt: now,
+    linkCopiedAt: null,
+    linkOpenedAt: null,
+    portalViewedAt: null,
+    checkedInAt: null,
+    lastSeenAt: null,
+    expiredAt: null,
+    revokedAt: null,
+    pushEnabled: false,
+    accessCount: 0,
+  });
+
+  // 7. Auto-create checkout cleaning job
+  try {
+    const cleanerSnap = await firestore
+      .collection('users')
+      .where('role', '==', 'cleaner')
+      .where('status', '==', 'active')
+      .get();
+
+    if (cleanerSnap.size >= 1) {
+      const cleanerDoc = cleanerSnap.docs[0];
+      const cleanerData = cleanerDoc.data();
+
+      const job = {
+        unit: unitName,
+        scheduledDate: checkOutDate,
+        checkoutTime: '11:00 AM',
+        assigneeId: cleanerDoc.id,
+        assigneeName: cleanerData.displayName || cleanerData.email,
+        bookingId: docRef.id,
+        status: 'scheduled',
+        source: 'airbnb_email',
+        manualOverride: false,
+        notes: guestName ? `Guest: ${guestName}` : '',
+        turnoverNotes: '',
+        sameDayArrival: false,
+        beforePhotos: [],
+        afterPhotos: [],
+        issues: [],
+        laundryFound: null,
+        laundryNote: '',
+        laundryPhoto: null,
+        acknowledgedAt: null,
+        enRouteAt: null,
+        arrivedAt: null,
+        startedAt: null,
+        completedAt: null,
+        createdAt: now,
+        createdBy: 'system',
+      };
+
+      const jobRef = await firestore.collection('cleaning_jobs').add(job);
+      console.log('Cleaning job created', { jobId: jobRef.id, unit: unitName, date: checkOutDate });
+    }
+  } catch (err) {
+    console.error('Auto-create cleaning job error (non-fatal)', err.message);
+  }
+
+  // 8. Write staff notification for admin
+  try {
+    const staffSnap = await firestore
+      .collection('users')
+      .where('role', 'in', ['admin', 'cohost'])
+      .where('status', '==', 'active')
+      .get();
+
+    const staffIds = staffSnap.docs.map((d) => d.id);
+    const notifTitle = 'New Airbnb Booking';
+    const notifBody = `${guestName || 'Guest'} — ${unitName} — ${checkInDate} to ${checkOutDate}`;
+
+    for (const staffId of staffIds) {
+      await firestore.collection('staff_notifications').add({
+        recipientId: staffId,
+        title: notifTitle,
+        body: notifBody,
+        type: 'booking',
+        data: { bookingId: docRef.id, targetPath: '/admin/bookings' },
+        read: false,
+        readAt: null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+    console.log('Staff notifications sent', { staffCount: staffIds.length });
+  } catch (err) {
+    console.error('Staff notification error (non-fatal)', err.message);
+  }
+
+  return { bookingId: docRef.id, code };
 }
 
 // ---------------------------------------------------------------------------
@@ -320,7 +689,10 @@ exports.handler = async (event) => {
 
     const sesMessageId = mail.messageId ?? 'unknown';
     const bucketName = action.bucketName ?? process.env.EMAIL_BUCKET_NAME;
-    const objectKey = action.objectKey ?? null;
+    // When Lambda is invoked async (EVENT), SES doesn't include the S3 action
+    // details. Derive the object key from the prefix + SES message ID, which
+    // is how the S3 action stores the raw email.
+    const objectKey = action.objectKey ?? (sesMessageId !== 'unknown' ? `airbnb/${sesMessageId}` : null);
 
     console.log('Processing record', { sesMessageId, bucketName, objectKey });
 
@@ -391,7 +763,68 @@ exports.handler = async (event) => {
       const firestore = await getFirestore();
 
       // ------------------------------------------------------------------
-      // 6. Route non-guest-message emails straight to quarantine
+      // 6. Route reservation confirmations → auto-create booking
+      // ------------------------------------------------------------------
+      if (messageType === 'reservation_confirmation') {
+        console.log('Reservation confirmation detected — extracting details');
+
+        const reservationDetails = extractReservationDetails(subject, bodyText, receivedAt);
+        console.log('Reservation details extracted', reservationDetails);
+
+        // Load property settings for listing → unit mapping
+        let propertySettings = null;
+        try {
+          const settingsDoc = await firestore.doc('settings/property').get();
+          if (settingsDoc.exists) propertySettings = settingsDoc.data();
+        } catch (err) {
+          console.warn('Failed to load property settings (non-fatal)', err.message);
+        }
+
+        const result = await createBookingFromConfirmation(
+          reservationDetails,
+          firestore,
+          propertySettings,
+          receivedAt
+        );
+
+        // Archive to quarantine for record-keeping
+        const alreadyArchived = await isDuplicate(
+          firestore,
+          'airbnb_messages_quarantine',
+          objectKey,
+          rfcMessageId
+        );
+
+        if (!alreadyArchived) {
+          await firestore.collection('airbnb_messages_quarantine').add({
+            messageType,
+            subject,
+            fromName,
+            fromAddress,
+            body: bodyText.slice(0, 4000),
+            receivedAt: admin.firestore.Timestamp.fromDate(receivedAt),
+            rawEmailS3Key: objectKey,
+            messageId: rfcMessageId,
+            sesMessageId,
+            airbnbConfirmationCode: reservationDetails.confirmationCode || confirmationCode,
+            quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
+            reason: result ? 'reservation_confirmation:booking_created' : 'reservation_confirmation:skipped',
+            bookingId: result?.bookingId || null,
+          });
+        }
+
+        if (result) {
+          console.log('Booking auto-created from reservation confirmation', result);
+          processedCount++;
+        } else {
+          console.log('Reservation confirmation processed — no new booking (duplicate or missing data)');
+          quarantinedCount++;
+        }
+        continue;
+      }
+
+      // ------------------------------------------------------------------
+      // 6b. Route other non-guest-message emails straight to quarantine
       // ------------------------------------------------------------------
       if (messageType !== 'guest_message') {
         console.log('Non-guest message — routing to quarantine', { messageType });

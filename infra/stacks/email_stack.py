@@ -98,7 +98,9 @@ class CasaCoquiEmailStack(Stack):
             "InboxEmailIdentity",
             identity=ses.Identity.domain(INBOUND_DOMAIN),
             dkim_signing=True,
-            mail_from_domain=INBOUND_DOMAIN,
+            # No mail_from_domain — not needed for inbound-only use.
+            # SES requires MAIL-FROM to be a subdomain of the identity,
+            # and we don't send outbound from this domain.
         )
 
         # ------------------------------------------------------------------
@@ -163,20 +165,10 @@ class CasaCoquiEmailStack(Stack):
         #   aws secretsmanager put-secret-value \
         #     --secret-id casa-coqui/firebase-service-account \
         #     --secret-string file:///path/to/serviceAccount.json
-        self.firebase_secret = sm.Secret(
+        self.firebase_secret = sm.Secret.from_secret_name_v2(
             self,
             "FirebaseServiceAccountSecret",
             secret_name="casa-coqui/firebase-service-account",
-            description=(
-                "Firebase Admin SDK service account JSON for the "
-                "Airbnb email parser Lambda. Set value out-of-band."
-            ),
-            generate_secret_string=sm.SecretStringGenerator(
-                secret_string_template='{"type": "service_account"}',
-                generate_string_key="_placeholder",
-                exclude_punctuation=True,
-            ),
-            removal_policy=RemovalPolicy.RETAIN,
         )
 
         # ------------------------------------------------------------------
@@ -283,6 +275,7 @@ class CasaCoquiEmailStack(Stack):
             environment={
                 "EMAIL_BUCKET_NAME": EMAIL_BUCKET_NAME,
                 "FIREBASE_SECRET_ARN": self.firebase_secret.secret_arn,
+                "APP_URL": "https://casa-coqui.cc",
                 "NODE_ENV": "production",
             },
             log_group=lambda_log_group,
@@ -314,7 +307,6 @@ class CasaCoquiEmailStack(Stack):
         # Actions execute in order: (1) save to S3, (2) invoke Lambda
         rule_set.add_rule(
             "AirbnbReceiptsRule",
-            rule_name=RECEIPT_RULE_NAME,
             recipients=[RECEIPT_ADDRESS],
             actions=[
                 ses_actions.S3(

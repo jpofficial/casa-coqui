@@ -194,6 +194,7 @@ export default function SettingsPage() {
   // Initialize form from Firestore
   useEffect(() => {
     if (settings && !form) {
+      const u = getUnits(settings);
       setForm({
         propertyName: settings.propertyName || '',
         address: settings.address || '',
@@ -226,16 +227,18 @@ export default function SettingsPage() {
             },
         houseRules: settings.houseRules || [],
         propertyPhotos: settings.propertyPhotos || [],
-        units: getUnits(settings),
+        units: u,
         icsFeeds: Array.isArray(settings.icsFeeds) && settings.icsFeeds.length > 0
           ? settings.icsFeeds
           : (() => {
-              const u = getUnits(settings);
               return [
                 { unitId: 'unit-a', unitName: u[0]?.name || 'Unit A', icsUrl: '', enabled: false },
                 { unitId: 'unit-b', unitName: u[1]?.name || 'Unit B', icsUrl: '', enabled: false },
               ];
             })(),
+        listingMappings: Array.isArray(settings.listingMappings) && settings.listingMappings.length > 0
+          ? settings.listingMappings
+          : u.map((unit) => ({ listingFragment: '', unitId: unit.id, unitName: unit.name })),
       });
     }
   }, [settings, form]);
@@ -432,6 +435,32 @@ export default function SettingsPage() {
         openSections={openSections}
         toggleSection={toggleSection}
       />
+
+      {/* B3. Airbnb Listing → Unit Mapping */}
+      <Section title="Listing → Unit Mapping" open={openSections.listingMapping} onToggle={() => toggleSection('listingMapping')}>
+        <p className="text-xs text-gray-500 -mt-1 mb-3">
+          Map keywords from your Airbnb listing titles to units. When a reservation confirmation email arrives, the system matches the listing title to auto-assign the correct unit.
+        </p>
+
+        {(form.listingMappings || []).map((mapping, idx) => (
+          <div key={mapping.unitId} className="mb-3 p-3 bg-gray-50 rounded-lg">
+            <span className="text-sm font-semibold text-gray-700 block mb-2">{mapping.unitName}</span>
+            <input
+              className={INPUT_CLASS}
+              placeholder="Listing keyword (e.g. &quot;Acogedora 4H&quot;)"
+              value={mapping.listingFragment}
+              onChange={(e) => {
+                const arr = [...form.listingMappings];
+                arr[idx] = { ...arr[idx], listingFragment: e.target.value };
+                set('listingMappings', arr);
+              }}
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Enter a unique keyword from this unit&apos;s Airbnb listing title.
+            </p>
+          </div>
+        ))}
+      </Section>
 
       {/* C. Check-In Steps (per unit) */}
       <Section title="Check-In Steps" open={openSections.checkin} onToggle={() => toggleSection('checkin')}>
