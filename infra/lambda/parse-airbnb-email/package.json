@@ -7,12 +7,12 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.89.0",
     "@aws-sdk/client-s3": "^3.600.0",
     "@aws-sdk/client-secrets-manager": "^3.600.0",
     "firebase-admin": "^12.0.0",
     "mailparser": "^3.7.1"
   },
-  "devDependencies": {},
   "scripts": {
     "test": "node -e \"require('./index'); console.log('module loads OK')\""
   },

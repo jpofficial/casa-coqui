@@ -171,6 +171,12 @@ class CasaCoquiEmailStack(Stack):
             secret_name="casa-coqui/firebase-service-account",
         )
 
+        self.anthropic_secret = sm.Secret.from_secret_name_v2(
+            self,
+            "AnthropicApiKeySecret",
+            secret_name="casa-coqui/anthropic-api-key",
+        )
+
         # ------------------------------------------------------------------
         # 7. Lambda IAM role
         # ------------------------------------------------------------------
@@ -200,10 +206,10 @@ class CasaCoquiEmailStack(Stack):
             )
         )
 
-        # Secrets Manager: read Firebase service account
+        # Secrets Manager: read Firebase service account + Anthropic API key
         lambda_role.add_to_policy(
             iam.PolicyStatement(
-                sid="ReadFirebaseSecret",
+                sid="ReadSecrets",
                 actions=[
                     "secretsmanager:GetSecretValue",
                     "secretsmanager:DescribeSecret",
@@ -211,6 +217,8 @@ class CasaCoquiEmailStack(Stack):
                 resources=[
                     self.firebase_secret.secret_arn,
                     f"{self.firebase_secret.secret_arn}-*",
+                    self.anthropic_secret.secret_arn,
+                    f"{self.anthropic_secret.secret_arn}-*",
                 ],
             )
         )
@@ -270,11 +278,12 @@ class CasaCoquiEmailStack(Stack):
             handler="index.handler",
             code=lambda_.Code.from_asset(lambda_asset_path),
             role=lambda_role,
-            timeout=Duration.seconds(30),
+            timeout=Duration.seconds(60),
             memory_size=256,
             environment={
                 "EMAIL_BUCKET_NAME": EMAIL_BUCKET_NAME,
                 "FIREBASE_SECRET_ARN": self.firebase_secret.secret_arn,
+                "ANTHROPIC_SECRET_NAME": "casa-coqui/anthropic-api-key",
                 "APP_URL": "https://casa-coqui.cc",
                 "NODE_ENV": "production",
             },

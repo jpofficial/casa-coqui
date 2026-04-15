@@ -21,6 +21,7 @@ const {
 } = require('@aws-sdk/client-secrets-manager');
 const { simpleParser } = require('mailparser');
 const admin = require('firebase-admin');
+const Anthropic = require('@anthropic-ai/sdk').default;
 
 // ---------------------------------------------------------------------------
 // AWS clients (module-level — reused across warm invocations)
@@ -555,6 +556,133 @@ async function createBookingFromConfirmation(details, firestore, propertySetting
 }
 
 // ---------------------------------------------------------------------------
+// Welcome message generation (mirrors functions/lib/welcome-ai.js)
+// ---------------------------------------------------------------------------
+
+/** @type {string | null} */
+let cachedAnthropicKey = null;
+
+/**
+ * Fetch the Anthropic API key from Secrets Manager (cached per container).
+ * @returns {Promise<string>}
+ */
+async function getAnthropicApiKey() {
+  if (cachedAnthropicKey) return cachedAnthropicKey;
+
+  const secretName = process.env.ANTHROPIC_SECRET_NAME || 'casa-coqui/anthropic-api-key';
+  const resp = await secretsManager.send(
+    new GetSecretValueCommand({ SecretId: secretName })
+  );
+  cachedAnthropicKey = resp.SecretString;
+  return cachedAnthropicKey;
+}
+
+const WELCOME_SYSTEM_PROMPT = `You are drafting a welcome message for a short-term rental guest on behalf of Julio, the host of Casa Coqui in San Juan, Puerto Rico. Julio is warm, friendly, and helpful — not overly formal.
+
+YOUR RULES:
+1. Write in the guest's likely language. If the guest name suggests Spanish, write in Spanish. Otherwise default to English. If a language is explicitly requested, use that.
+2. Keep the message concise — 3-5 short paragraphs max. Guests are reading this on their phone.
+3. Include: warm greeting, excitement about their stay, check-in date confirmation, and an invitation to reach out with questions.
+4. If a guestPortalLink is provided, include it naturally in the message — tell the guest this is their personal portal with check-in info, WiFi, house rules, etc. Place it on its own line so it's easy to tap.
+5. Do NOT include specific check-in instructions, WiFi passwords, or door codes — those are in the guest portal.
+6. Do NOT use generic hotel language. Sound like a real person, not a template.
+7. Do NOT use emojis excessively — one or two max is fine.
+8. Sign off as "Julio" (not "Julio P." or "Julio Perez").
+9. If a template/example is provided, match its tone and structure closely.
+10. Mention the unit name naturally if it has a friendly name.
+11. Keep it under 200 words.`;
+
+const WELCOME_TOOL = {
+  name: 'welcome_message',
+  description: 'Generate a personalized welcome message for an incoming guest',
+  input_schema: {
+    type: 'object',
+    properties: {
+      message: { type: 'string', description: 'The welcome message text' },
+      language: { type: 'string', enum: ['en', 'es'], description: 'Language used' },
+    },
+    required: ['message', 'language'],
+  },
+};
+
+/**
+ * Generate a welcome message draft and update the booking doc.
+ * Non-fatal: logs errors but does not throw.
+ *
+ * @param {import('firebase-admin').firestore.Firestore} firestore
+ * @param {string} bookingId
+ * @param {object} booking - booking doc data
+ * @param {object | null} settings - property settings
+ */
+async function generateWelcomeDraft(firestore, bookingId, booking, settings) {
+  try {
+    const apiKey = await getAnthropicApiKey();
+    const client = new Anthropic({ apiKey });
+
+    const checkIn = booking.checkInDate;
+    const checkOut = booking.checkOutDate;
+    const nightCount = checkIn && checkOut
+      ? Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000)
+      : null;
+
+    const input = JSON.stringify({
+      guest: { name: booking.guestName || 'Guest', confirmationCode: booking.airbnbConfirmationCode },
+      stay: { unit: booking.unit, checkInDate: checkIn, checkOutDate: checkOut, nightCount },
+      property: { name: settings?.propertyName || 'Casa Coqui', location: settings?.location || 'San Juan, Puerto Rico' },
+      guestPortalLink: booking.guestLink || null,
+    });
+
+    const startTime = Date.now();
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 512,
+      system: WELCOME_SYSTEM_PROMPT,
+      tools: [WELCOME_TOOL],
+      tool_choice: { type: 'tool', name: 'welcome_message' },
+      messages: [{ role: 'user', content: input }],
+    });
+
+    const toolUse = response.content.find((b) => b.type === 'tool_use');
+    if (!toolUse) {
+      console.error('Welcome AI did not return structured output');
+      return;
+    }
+
+    const now = new Date().toISOString();
+    await firestore.collection('bookings').doc(bookingId).update({
+      welcomeStatus: 'ready',
+      welcomeMessage: toolUse.input.message,
+      welcomeDraftedAt: now,
+    });
+
+    // Log agent run for observability
+    await firestore.collection('agent_runs').add({
+      kind: 'welcome',
+      refId: bookingId,
+      model: 'claude-haiku-4-5-20251001',
+      inputTokens: response.usage?.input_tokens || 0,
+      outputTokens: response.usage?.output_tokens || 0,
+      latencyMs: Date.now() - startTime,
+      prompt: input,
+      response: JSON.stringify(toolUse.input),
+      escalated: false,
+      createdAt: now,
+    });
+
+    console.log('Welcome message generated', {
+      bookingId,
+      language: toolUse.input.language,
+      latencyMs: Date.now() - startTime,
+    });
+  } catch (err) {
+    console.error('Welcome message generation failed (non-fatal)', {
+      bookingId,
+      error: err.message,
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Booking match
 // ---------------------------------------------------------------------------
 
@@ -815,6 +943,11 @@ exports.handler = async (event) => {
 
         if (result) {
           console.log('Booking auto-created from reservation confirmation', result);
+
+          // Generate welcome message draft (non-blocking failure)
+          const bookingDoc = await firestore.collection('bookings').doc(result.bookingId).get();
+          await generateWelcomeDraft(firestore, result.bookingId, bookingDoc.data(), propertySettings);
+
           processedCount++;
         } else {
           console.log('Reservation confirmation processed — no new booking (duplicate or missing data)');
