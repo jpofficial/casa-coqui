@@ -9,13 +9,15 @@ import { getUnitNames } from '@/lib/units';
  * CleaningJobForm — modal form for creating ad-hoc cleaning jobs.
  *
  * Props:
- *   open      {boolean}   whether the modal is visible
- *   onClose   {function}  close callback
- *   onCreated {function}  called with the new job data after successful creation
+ *   open         {boolean}           whether the modal is visible
+ *   onClose      {function}          close callback
+ *   onCreated    {function}          called with the new job data after successful creation
+ *   initialUnit  {string} (optional) prefill unit name on open
+ *   initialDate  {string} (optional) prefill scheduledDate (YYYY-MM-DD) on open
  */
-export default function CleaningJobForm({ open, onClose, onCreated }) {
-  const [unit, setUnit] = useState('');
-  const [scheduledDate, setScheduledDate] = useState('');
+export default function CleaningJobForm({ open, onClose, onCreated, initialUnit = '', initialDate = '' }) {
+  const [unit, setUnit] = useState(initialUnit);
+  const [scheduledDate, setScheduledDate] = useState(initialDate);
   const [checkoutTime, setCheckoutTime] = useState('11:00 AM');
   const [assigneeId, setAssigneeId] = useState('');
   const [sameDayArrival, setSameDayArrival] = useState(false);
@@ -55,18 +57,18 @@ export default function CleaningJobForm({ open, onClose, onCreated }) {
     fetchData();
   }, [open]);
 
-  // Reset form when opening
+  // Reset form when opening — honor prefill if provided
   useEffect(() => {
     if (open) {
-      setUnit('');
-      setScheduledDate('');
+      setUnit(initialUnit || '');
+      setScheduledDate(initialDate || '');
       setCheckoutTime('11:00 AM');
       setSameDayArrival(false);
       setTurnoverNotes('');
       setError('');
       setSubmitting(false);
     }
-  }, [open]);
+  }, [open, initialUnit, initialDate]);
 
   async function handleSubmit(e) {
     e.preventDefault();
