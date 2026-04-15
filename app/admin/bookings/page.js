@@ -10,6 +10,7 @@ import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
 import StatusPill from '@/components/admin/StatusPill';
 import WelcomeMarkSentModal from '@/components/admin/WelcomeMarkSentModal';
+import WelcomeSendLaterModal from '@/components/admin/WelcomeSendLaterModal';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -584,6 +585,7 @@ function WelcomeMessagePanel({ booking, user }) {
   const [regenerating, setRegenerating] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const [showMarkSent, setShowMarkSent] = useState(false);
+  const [showSendLater, setShowSendLater] = useState(false);
 
   const { welcomeStatus, welcomeMessage } = booking;
 
@@ -627,6 +629,25 @@ function WelcomeMessagePanel({ booking, user }) {
       throw err;
     } finally {
       setMarking(false);
+    }
+  }
+
+  async function handleSnooze(snoozedUntilIso) {
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch(`/api/bookings/${booking.id}/welcome`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ action: 'snooze', snoozedUntil: snoozedUntilIso }),
+      });
+      if (!res.ok) throw new Error(`snooze failed: ${res.status}`);
+      setShowSendLater(false);
+    } catch (err) {
+      console.error('[WelcomeMessagePanel] snooze failed:', err);
+      throw err;
     }
   }
 
@@ -754,6 +775,16 @@ function WelcomeMessagePanel({ booking, user }) {
             </button>
           )}
 
+          {/* Send later */}
+          {!isSkipped && (
+            <button
+              onClick={() => setShowSendLater(true)}
+              className="inline-flex items-center gap-1 text-xs font-medium rounded-lg px-3 py-1.5 min-h-[36px] bg-white border border-cafe-200 text-cafe-800 active:bg-cafe-50 transition-all active:scale-[0.98]"
+            >
+              {t(locale, 'admin_book_welcome_sendLater')}
+            </button>
+          )}
+
           {/* Regenerate */}
           <button
             onClick={handleRegenerate}
@@ -812,6 +843,15 @@ function WelcomeMessagePanel({ booking, user }) {
           locale={locale}
           onConfirm={handleMarkSent}
           onCancel={() => setShowMarkSent(false)}
+        />
+      )}
+
+      {showSendLater && (
+        <WelcomeSendLaterModal
+          checkInDate={booking.checkInDate}
+          locale={locale}
+          onConfirm={handleSnooze}
+          onCancel={() => setShowSendLater(false)}
         />
       )}
     </div>
