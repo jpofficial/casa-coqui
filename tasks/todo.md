@@ -45,3 +45,12 @@
 2. Bilingual rule — always English? Always Spanish? Detect from name/message?
 3. Escalation preference — draft something safe + flag, or just notify?
 4. Voice corpus seed — dig up 10-20 past Airbnb replies
+
+## 2026-04-15 Admin Calendar Cleanup — Review
+
+- Spec: `docs/superpowers/specs/2026-04-15-admin-calendar-cleanup-design.md`
+- Plan: `docs/superpowers/plans/2026-04-15-admin-calendar-cleanup.md`
+- Branch: `feat/admin-calendar` (worktree at `/Users/jperez/dev/casa-coqui-admin-calendar`)
+- Tests: `npm test` — all 14 pass (7 buildWarningList + 7 buildAgendaForWindow)
+- Build: `npm run build` — succeeds (env copied from main repo)
+- Pending: manual browser verification of Agenda/Calendar toggle, color-pill cells, warning Fix → deep-link, cleaner view unchanged
