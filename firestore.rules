@@ -432,5 +432,33 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // -------------------------------------------------------------------------
+    // airbnb_messages — inbound Airbnb guest messages + AI draft replies
+    // Admin has full access. Written by Lambda/Cloud Functions via Admin SDK.
+    // No client reads needed yet (admin UI uses API routes).
+    // -------------------------------------------------------------------------
+    match /airbnb_messages/{messageId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // airbnb_messages_quarantine — non-guest emails (payouts, reviews, etc.)
+    // Admin only for debugging. Written by Lambda via Admin SDK.
+    // -------------------------------------------------------------------------
+    match /airbnb_messages_quarantine/{messageId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // agent_runs — AI generation audit log (welcome messages, reply drafts)
+    // Staff can read for debugging. Written by server-side code only.
+    // -------------------------------------------------------------------------
+    match /agent_runs/{runId} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
   }
 }

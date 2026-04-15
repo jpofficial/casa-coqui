@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import { cascadeCleaningJobDates } from '@/lib/booking-cleaning-cascade';
 import { notifyStaff, notifyAdminAndCohost } from '@/lib/staff-notifications';
 import { nt } from '@/lib/notification-strings';
+import { generateWelcomeMessage } from '@/lib/welcome-ai';
 
 // ---------------------------------------------------------------------------
 // POST /api/admin/sync-ics
@@ -35,6 +36,13 @@ function extractGuestName(summary) {
   const blocked = ['reserved', 'not available', 'airbnb', 'blocked'];
   if (blocked.some((p) => summary.toLowerCase().includes(p))) return 'Airbnb Guest';
   return summary.trim() || 'Airbnb Guest';
+}
+
+/** Extract Airbnb confirmation code from VEVENT DESCRIPTION (e.g. HMABCD1234) */
+function extractConfirmationCode(description) {
+  if (!description) return null;
+  const match = description.match(/\b(HM[A-Z0-9]{6,10})\b/i);
+  return match ? match[1].toUpperCase() : null;
 }
 
 const RESCHEDULABLE = ['scheduled', 'acknowledged', 'declined'];
@@ -126,7 +134,12 @@ async function processFeed(feed) {
     const dtend = veventDateToYMD(event.end);
     if (!dtstart || !dtend) continue;
     if (new Date(dtend) < cutoff) continue;
-    vevents.push({ uid: event.uid, dtstart, dtend, summary: event.summary || '' });
+    vevents.push({
+      uid: event.uid, dtstart, dtend,
+      summary: event.summary || '',
+      description: event.description || '',
+      confirmationCode: extractConfirmationCode(event.description),
+    });
   }
 
   stats.eventsFound = vevents.length;
@@ -187,10 +200,38 @@ async function processFeed(feed) {
           accessTokenHash: '',
           accessTokenCreatedAt: now,
           accessTokenRevokedAt: null,
+          welcomeStatus: 'pending',
+          welcomeMessage: null,
+          welcomeDraftedAt: null,
+          welcomeSentAt: null,
+          airbnbConfirmationCode: vevent.confirmationCode || null,
         };
 
         const ref = await adminDb.collection('bookings').add(bookingData);
         await autoCreateCleaningJob(ref.id, unitName, checkOutDate, guestName);
+
+        // Generate welcome draft (non-blocking)
+        try {
+          const settingsForWelcome = settings;
+          const template = settingsForWelcome.welcomeTemplate || null;
+          const result = await generateWelcomeMessage({
+            booking: { id: ref.id, ...bookingData },
+            settings: settingsForWelcome,
+            template,
+          });
+          await ref.update({
+            welcomeStatus: 'ready',
+            welcomeMessage: result.message,
+            welcomeDraftedAt: new Date().toISOString(),
+          });
+          if (result._agentRun) {
+            result._agentRun.refId = ref.id;
+            await adminDb.collection('agent_runs').add(result._agentRun);
+          }
+        } catch (welcomeErr) {
+          console.error('[sync-ics] Welcome draft failed:', welcomeErr.message);
+        }
+
         stats.created++;
       } else {
         const bookingDoc = existingSnap.docs[0];

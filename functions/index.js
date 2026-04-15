@@ -20,6 +20,7 @@
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const logger = require('firebase-functions/logger');
 
@@ -184,6 +185,144 @@ exports.icsSync = onSchedule(
     } catch (err) {
       logger.error('[icsSync] Unhandled error:', err);
       throw err;
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// onAirbnbMessageCreated
+//
+// Firestore trigger: fires when a new doc is created in airbnb_messages.
+// Generates an AI reply draft for inbound guest messages.
+// Decoupled from the Lambda parser — if AI fails, the inbound message is
+// already safely stored.
+// ---------------------------------------------------------------------------
+const { generateReply } = require('./lib/reply-ai');
+const { db } = require('./firebaseInit');
+
+exports.onAirbnbMessageCreated = onDocumentCreated(
+  {
+    document: 'airbnb_messages/{messageId}',
+    memory: '512MiB',
+    timeoutSeconds: 120,
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const message = snap.data();
+    const messageId = event.params.messageId;
+
+    // Only draft replies for inbound messages that haven't been processed
+    if (message.direction !== 'inbound' || message.draftStatus !== 'pending') {
+      logger.info(`[onAirbnbMessageCreated] Skipping ${messageId}: direction=${message.direction}, status=${message.draftStatus}`);
+      return;
+    }
+
+    logger.info(`[onAirbnbMessageCreated] Generating reply for ${messageId}`);
+
+    try {
+      // Load booking context
+      let booking = null;
+      if (message.bookingId) {
+        const bookingDoc = await db.collection('bookings').doc(message.bookingId).get();
+        if (bookingDoc.exists) booking = { id: bookingDoc.id, ...bookingDoc.data() };
+      }
+
+      // Load conversation thread (previous messages in this booking)
+      let thread = [];
+      if (message.bookingId) {
+        const threadSnap = await db
+          .collection('airbnb_messages')
+          .where('bookingId', '==', message.bookingId)
+          .orderBy('receivedAt', 'asc')
+          .limit(10)
+          .get();
+        thread = threadSnap.docs
+          .filter((d) => d.id !== messageId) // exclude current message
+          .map((d) => d.data());
+      }
+
+      // Load voice corpus (sent replies for tone matching)
+      const voiceSnap = await db
+        .collection('airbnb_messages')
+        .where('direction', '==', 'outbound_draft')
+        .where('draftStatus', '==', 'sent')
+        .orderBy('sentAt', 'desc')
+        .limit(50)
+        .get();
+      const voiceSamples = voiceSnap.docs.map((d) => d.data());
+
+      // Load property settings
+      const settingsDoc = await db.collection('settings').doc('property').get();
+      const settings = settingsDoc.exists ? settingsDoc.data() : {};
+
+      // Generate reply
+      const result = await generateReply({
+        message: { id: messageId, ...message },
+        thread,
+        booking,
+        settings,
+        voiceSamples,
+      });
+
+      // Update the message doc with the draft
+      const now = new Date().toISOString();
+      await snap.ref.update({
+        draftReply: result.reply,
+        draftStatus: result.shouldEscalate ? 'escalated' : 'ready',
+        draftedAt: now,
+      });
+
+      // Log agent run
+      if (result._agentRun) {
+        result._agentRun.refId = messageId;
+        await db.collection('agent_runs').add(result._agentRun);
+      }
+
+      // Notify admin of new message + draft
+      try {
+        const usersSnap = await db
+          .collection('users')
+          .where('role', 'in', ['admin', 'cohost'])
+          .where('status', '==', 'active')
+          .get();
+
+        const staffIds = usersSnap.docs.map((d) => d.id);
+        if (staffIds.length > 0) {
+          const { messaging } = require('./firebaseInit');
+          const notifTitle = result.shouldEscalate
+            ? `Escalation: ${message.guestName || 'Guest'}`
+            : `New message from ${message.guestName || 'Guest'}`;
+          const notifBody = result.shouldEscalate
+            ? result.escalateReason || 'Needs human review'
+            : 'Reply draft ready for review';
+
+          await Promise.all(
+            staffIds.map(async (uid) => {
+              await db.collection('staff_notifications').add({
+                recipientId: uid,
+                title: notifTitle,
+                body: notifBody,
+                type: 'airbnb_message',
+                data: { messageId, targetPath: '/admin/messages' },
+                read: false,
+                createdAt: now,
+              });
+            })
+          );
+        }
+      } catch (notifyErr) {
+        logger.error('[onAirbnbMessageCreated] Notify error:', notifyErr);
+      }
+
+      logger.info(`[onAirbnbMessageCreated] Reply drafted for ${messageId}`, {
+        escalated: result.shouldEscalate,
+      });
+    } catch (err) {
+      logger.error(`[onAirbnbMessageCreated] Failed to generate reply for ${messageId}:`, err);
+      // Mark as failed but don't throw — the inbound message is safe
+      await snap.ref.update({ draftStatus: 'error' }).catch(() => {});
     }
   }
 );

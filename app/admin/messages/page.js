@@ -46,6 +46,17 @@ function formatDateDivider(dateValue, locale) {
   return date.toLocaleDateString(locale === 'es' ? 'es' : 'en-US', { month: 'short', day: 'numeric' });
 }
 
+function formatFullDate(dateValue, locale) {
+  if (!dateValue) return '';
+  const date = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+  return date.toLocaleDateString(locale === 'es' ? 'es' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 // Build a thread list from a flat array of messages
 function buildThreads(messages) {
   const threadMap = {};
@@ -301,13 +312,353 @@ function ChatView({ thread, allMessages, onBack }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Airbnb Messages Tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DRAFT_STATUS_CONFIG = {
+  pending: { labelKey: 'admin_msg_draftPending', color: 'bg-yellow-100 text-yellow-700' },
+  ready: { labelKey: 'admin_msg_draftReady', color: 'bg-green-100 text-green-700' },
+  sent: { labelKey: 'admin_msg_draftSent', color: 'bg-gray-100 text-gray-500' },
+  escalated: { labelKey: 'admin_msg_draftEscalated', color: 'bg-red-100 text-red-600' },
+  error: { labelKey: 'admin_msg_draftError', color: 'bg-red-100 text-red-600' },
+};
+
+function DraftStatusBadge({ status, locale }) {
+  const config = DRAFT_STATUS_CONFIG[status] || DRAFT_STATUS_CONFIG.pending;
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${config.color}`}>
+      {t(locale, config.labelKey)}
+    </span>
+  );
+}
+
+function MarkSentModal({ message, onConfirm, onCancel, locale }) {
+  const [editedReply, setEditedReply] = useState(message.draftReply || '');
+  const [confirming, setConfirming] = useState(false);
+
+  async function handleConfirm() {
+    setConfirming(true);
+    await onConfirm(editedReply.trim() || message.draftReply || '');
+    setConfirming(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4 sm:pb-0">
+      <div className="bg-white rounded-2xl w-full max-w-lg p-5 shadow-xl">
+        <p className="text-sm font-semibold text-gray-900 mb-3">
+          {t(locale, 'admin_msg_editBeforeSend')}
+        </p>
+        <textarea
+          value={editedReply}
+          onChange={(e) => setEditedReply(e.target.value)}
+          rows={5}
+          className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+        />
+        <div className="flex gap-2 mt-4">
+          <button
+            onClick={onCancel}
+            disabled={confirming}
+            className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 active:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            {t(locale, 'admin_msg_cancel')}
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={confirming}
+            className="flex-1 py-2.5 rounded-xl bg-green-600 text-white text-sm font-medium active:bg-green-700 transition-colors disabled:opacity-50"
+          >
+            {confirming ? t(locale, 'admin_saving') : t(locale, 'admin_msg_confirm')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AirbnbMessageCard({ message, locale }) {
+  const [expanded, setExpanded] = useState(false);
+  const [markSentOpen, setMarkSentOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const isMatched = Boolean(message.bookingId);
+  const hasActions = isMatched && (message.draftStatus === 'ready' || message.draftStatus === 'escalated');
+
+  async function handleCopy() {
+    if (!message.draftReply) return;
+    try {
+      await navigator.clipboard.writeText(message.draftReply);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+  }
+
+  async function handleMarkSent(finalReply) {
+    setBusy(true);
+    try {
+      await updateDoc(doc(db, 'airbnb_messages', message.id), {
+        draftStatus: 'sent',
+        sentAt: serverTimestamp(),
+        editedReply: finalReply,
+      });
+    } catch (err) {
+      console.error('Failed to mark as sent:', err);
+    } finally {
+      setBusy(false);
+      setMarkSentOpen(false);
+    }
+  }
+
+  async function handleRegenerate() {
+    setBusy(true);
+    try {
+      await updateDoc(doc(db, 'airbnb_messages', message.id), {
+        draftStatus: 'pending',
+        draftReply: null,
+        regeneratedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error('Failed to trigger regenerate:', err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleEscalate() {
+    setBusy(true);
+    try {
+      await updateDoc(doc(db, 'airbnb_messages', message.id), {
+        draftStatus: 'escalated',
+        escalatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error('Failed to escalate:', err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        {/* Card header */}
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full text-left px-4 pt-4 pb-3 flex items-start gap-3"
+        >
+          {/* Avatar */}
+          <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 text-orange-600 font-bold text-sm uppercase">
+            {(message.guestName || 'G').charAt(0)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold text-gray-900 truncate">
+                {message.guestName || 'Guest'}
+              </span>
+              {message.unitLabel && (
+                <span className="text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                  {message.unitLabel}
+                </span>
+              )}
+              {!isMatched && (
+                <span className="text-[11px] font-medium bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full">
+                  {t(locale, 'admin_msg_unmatched')}
+                </span>
+              )}
+              <DraftStatusBadge status={message.draftStatus || 'pending'} locale={locale} />
+            </div>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              {formatFullDate(message.receivedAt, locale)}
+            </p>
+          </div>
+          {/* Chevron */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className={`w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {/* Inbound message preview (always visible, 2-line clamp) */}
+        <div className="px-4 pb-3">
+          <p className={`text-sm text-gray-700 leading-snug ${expanded ? '' : 'line-clamp-2'}`}>
+            {message.body || message.messageBody || ''}
+          </p>
+        </div>
+
+        {/* Expanded content */}
+        {expanded && (
+          <div className="border-t border-gray-100">
+            {/* Draft reply preview */}
+            {message.draftReply && (
+              <div className="mx-4 my-3 p-3 bg-green-50 rounded-xl border border-green-100">
+                <p className="text-[11px] font-semibold text-green-700 mb-1 uppercase tracking-wide">
+                  Draft Reply
+                </p>
+                <p className="text-sm text-gray-800 leading-snug whitespace-pre-wrap">
+                  {message.draftReply}
+                </p>
+              </div>
+            )}
+
+            {/* Sent/edited reply */}
+            {message.draftStatus === 'sent' && message.editedReply && message.editedReply !== message.draftReply && (
+              <div className="mx-4 mb-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <p className="text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">
+                  Sent Reply
+                </p>
+                <p className="text-sm text-gray-700 leading-snug whitespace-pre-wrap">
+                  {message.editedReply}
+                </p>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            {hasActions && (
+              <div className="px-4 pb-4 flex flex-wrap gap-2">
+                {message.draftReply && (
+                  <button
+                    onClick={handleCopy}
+                    disabled={busy}
+                    className="flex-1 min-w-[120px] py-2 px-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 active:bg-gray-50 transition-colors disabled:opacity-50"
+                  >
+                    {copied ? t(locale, 'admin_book_copied') : t(locale, 'admin_msg_copyReply')}
+                  </button>
+                )}
+                {message.draftStatus === 'ready' && (
+                  <button
+                    onClick={() => setMarkSentOpen(true)}
+                    disabled={busy}
+                    className="flex-1 min-w-[120px] py-2 px-3 rounded-xl bg-green-600 text-white text-sm font-medium active:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {t(locale, 'admin_msg_markSent')}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Secondary actions row */}
+            {isMatched && message.draftStatus !== 'sent' && (
+              <div className="px-4 pb-4 flex gap-2">
+                <button
+                  onClick={handleRegenerate}
+                  disabled={busy || message.draftStatus === 'pending'}
+                  className="py-2 px-3 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 active:bg-gray-50 transition-colors disabled:opacity-40"
+                >
+                  {t(locale, 'admin_msg_regenerate')}
+                </button>
+                {message.draftStatus !== 'escalated' && (
+                  <button
+                    onClick={handleEscalate}
+                    disabled={busy}
+                    className="py-2 px-3 rounded-xl border border-red-200 text-xs font-medium text-red-600 active:bg-red-50 transition-colors disabled:opacity-40"
+                  >
+                    {t(locale, 'admin_msg_escalate')}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Mark as Sent modal */}
+      {markSentOpen && (
+        <MarkSentModal
+          message={message}
+          onConfirm={handleMarkSent}
+          onCancel={() => setMarkSentOpen(false)}
+          locale={locale}
+        />
+      )}
+    </>
+  );
+}
+
+function AirbnbMessagesView() {
+  const { locale } = useLocale();
+  const [airbnbMessages, setAirbnbMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'airbnb_messages'),
+      orderBy('receivedAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        setAirbnbMessages(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Airbnb messages subscription error:', err);
+        setLoading(false);
+      }
+    );
+    return unsubscribe;
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-white rounded-xl shadow-sm p-4 flex items-start gap-3 animate-pulse">
+            <div className="w-9 h-9 rounded-full bg-gray-100 flex-shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3.5 bg-gray-100 rounded w-1/3" />
+              <div className="h-3 bg-gray-100 rounded w-2/3" />
+              <div className="h-3 bg-gray-100 rounded w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (airbnbMessages.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm p-10 text-center">
+        <div className="text-gray-300 mb-3">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <p className="text-gray-500 text-sm font-medium">{t(locale, 'admin_msg_airbnbEmpty')}</p>
+        <p className="text-gray-400 text-xs mt-1">{t(locale, 'admin_msg_airbnbEmptyDesc')}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {airbnbMessages.map((msg) => (
+        <AirbnbMessageCard key={msg.id} message={msg} locale={locale} />
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Page
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function MessagesPage() {
   const { locale } = useLocale();
+  const [activeTab, setActiveTab] = useState('inapp');
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [selectedThread, setSelectedThread] = useState(null);
 
-  // Subscribe to all messages ordered by newest first
+  // Subscribe to all in-app messages ordered by newest first
   useEffect(() => {
     const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(
@@ -334,6 +685,7 @@ export default function MessagesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
+  // Full-screen chat view takes over the whole page
   if (selectedThread) {
     return (
       <ChatView
@@ -345,41 +697,70 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="px-4 pt-5 pb-6 max-w-2xl mx-auto space-y-5">
+    <div className="px-4 pt-5 pb-6 max-w-2xl mx-auto space-y-4">
       {/* Page title */}
       <div>
         <h1 className="text-xl font-bold text-gray-900">{t(locale, 'admin_msg_title')}</h1>
         <p className="text-sm text-gray-500 mt-0.5">{t(locale, 'admin_msg_subtitle')}</p>
       </div>
 
-      {loadingMessages ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-3 animate-pulse">
-              <div className="w-10 h-10 rounded-full bg-gray-100 flex-shrink-0" />
-              <div className="flex-1 space-y-2">
-                <div className="h-3.5 bg-gray-100 rounded w-1/3" />
-                <div className="h-3 bg-gray-100 rounded w-2/3" />
+      {/* Tab toggle */}
+      <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+        <button
+          onClick={() => setActiveTab('inapp')}
+          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === 'inapp'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 active:bg-white/60'
+          }`}
+        >
+          {t(locale, 'admin_msg_tabInApp')}
+        </button>
+        <button
+          onClick={() => setActiveTab('airbnb')}
+          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === 'airbnb'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 active:bg-white/60'
+          }`}
+        >
+          {t(locale, 'admin_msg_tabAirbnb')}
+        </button>
+      </div>
+
+      {/* Tab content */}
+      {activeTab === 'inapp' ? (
+        loadingMessages ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-3 animate-pulse">
+                <div className="w-10 h-10 rounded-full bg-gray-100 flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3.5 bg-gray-100 rounded w-1/3" />
+                  <div className="h-3 bg-gray-100 rounded w-2/3" />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : threads.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-10 text-center">
-          <div className="text-gray-300 mb-3">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 16a2 2 0 01-2 2H7l-4 4V6a2 2 0 012-2h14a2 2 0 012 2v10z" />
-            </svg>
+            ))}
           </div>
-          <p className="text-gray-400 text-sm font-medium">{t(locale, 'admin_msg_emptyTitle')}</p>
-          <p className="text-gray-400 text-xs mt-1">{t(locale, 'admin_msg_emptyDesc')}</p>
-        </div>
+        ) : threads.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm p-10 text-center">
+            <div className="text-gray-300 mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 16a2 2 0 01-2 2H7l-4 4V6a2 2 0 012-2h14a2 2 0 012 2v10z" />
+              </svg>
+            </div>
+            <p className="text-gray-400 text-sm font-medium">{t(locale, 'admin_msg_emptyTitle')}</p>
+            <p className="text-gray-400 text-xs mt-1">{t(locale, 'admin_msg_emptyDesc')}</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {threads.map((thread) => (
+              <ThreadItem key={thread.bookingCode} thread={thread} onSelect={setSelectedThread} />
+            ))}
+          </div>
+        )
       ) : (
-        <div className="space-y-2">
-          {threads.map((thread) => (
-            <ThreadItem key={thread.bookingCode} thread={thread} onSelect={setSelectedThread} />
-          ))}
-        </div>
+        <AirbnbMessagesView />
       )}
     </div>
   );

@@ -118,6 +118,12 @@ export async function POST(request) {
       accessTokenHash,
       accessTokenCreatedAt: now,
       accessTokenRevokedAt: null,
+      // Welcome message fields — manual bookings also get drafts
+      welcomeStatus: 'pending',
+      welcomeMessage: null,
+      welcomeDraftedAt: null,
+      welcomeSentAt: null,
+      airbnbConfirmationCode: null,
     };
 
     const docRef = await adminDb.collection('bookings').add(booking);

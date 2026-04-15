@@ -17,6 +17,7 @@
 const ical = require('node-ical');
 const crypto = require('crypto');
 const { db, messaging } = require('./firebaseInit');
+const { generateWelcomeMessage } = require('./lib/welcome-ai');
 
 // Notification strings (CommonJS — can't import ES module)
 const STRINGS = {
@@ -82,6 +83,14 @@ function computeSyncHash(uid, dtstart, dtend, summary) {
     .update(`${uid}|${dtstart}|${dtend}|${summary || ''}`)
     .digest('hex')
     .slice(0, 16); // short hash is sufficient
+}
+
+/** Extract Airbnb confirmation code from VEVENT DESCRIPTION (e.g. HMABCD1234) */
+function extractConfirmationCode(description) {
+  if (!description) return null;
+  // Airbnb confirmation codes are typically HM + alphanumeric
+  const match = description.match(/\b(HM[A-Z0-9]{6,10})\b/i);
+  return match ? match[1].toUpperCase() : null;
 }
 
 /** Extract guest name from VEVENT SUMMARY (best-effort) */
@@ -213,6 +222,48 @@ async function notifyCleaner(assigneeId, titleKey, bodyKey, bodyParams, type, da
     );
   } catch (err) {
     console.error(`[icsSync] notifyCleaner error for ${assigneeId}:`, err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Welcome message draft generation (non-blocking — booking creation is not gated)
+// ---------------------------------------------------------------------------
+async function generateWelcomeDraft(bookingRef, bookingData) {
+  try {
+    // Idempotency: skip if not pending
+    if (bookingData.welcomeStatus !== 'pending') return;
+
+    // Load property settings for context
+    const settingsDoc = await db.collection('settings').doc('property').get();
+    const settings = settingsDoc.exists ? settingsDoc.data() : {};
+
+    // Load welcome template if configured
+    const template = settings.welcomeTemplate || null;
+
+    const result = await generateWelcomeMessage({
+      booking: { id: bookingRef.id, ...bookingData },
+      settings,
+      template,
+    });
+
+    // Update booking with draft
+    await bookingRef.update({
+      welcomeStatus: 'ready',
+      welcomeMessage: result.message,
+      welcomeDraftedAt: new Date().toISOString(),
+    });
+
+    // Log agent run
+    if (result._agentRun) {
+      result._agentRun.refId = bookingRef.id;
+      await db.collection('agent_runs').add(result._agentRun);
+    }
+
+    console.log(`[icsSync] Welcome draft generated for booking ${bookingRef.id}`);
+  } catch (err) {
+    // Non-fatal: booking exists, welcome can be regenerated manually
+    console.error(`[icsSync] Welcome draft failed for ${bookingRef.id}:`, err.message);
+    await bookingRef.update({ welcomeStatus: 'pending' }).catch(() => {});
   }
 }
 
@@ -402,6 +453,7 @@ async function processFeed(feed) {
       dtend,
       summary: event.summary || '',
       description: event.description || '',
+      confirmationCode: extractConfirmationCode(event.description),
     });
   }
 
@@ -486,6 +538,13 @@ async function processFeed(feed) {
           accessTokenHash: '',
           accessTokenCreatedAt: now,
           accessTokenRevokedAt: null,
+          // Welcome message fields
+          welcomeStatus: 'pending',
+          welcomeMessage: null,
+          welcomeDraftedAt: null,
+          welcomeSentAt: null,
+          // Airbnb confirmation code (parsed from ICS DESCRIPTION)
+          airbnbConfirmationCode: vevent.confirmationCode || null,
         };
 
         const bookingRef = await db.collection('bookings').add(bookingData);
@@ -494,6 +553,10 @@ async function processFeed(feed) {
         // Auto-create cleaning job
         await autoCreateCleaningJob(bookingRef.id, unitName, checkOutDate, guestName);
 
+        // Generate welcome message draft (non-blocking — fires after notify)
+        // Do NOT await inline to avoid slowing the sync loop; run after admin notify
+        const welcomePromise = generateWelcomeDraft(bookingRef, bookingData);
+
         // Notify admin
         await notifyAdminAndCohost(
           { key: 'syncNewBooking_title', params: {} },
@@ -501,6 +564,9 @@ async function processFeed(feed) {
           'sync_new',
           { bookingId: bookingRef.id, targetPath: '/admin/calendar' }
         );
+
+        // Await welcome draft (non-critical — errors are caught internally)
+        await welcomePromise;
 
         console.log(`[icsSync] Created booking for ${unitName}: ${checkInDate} → ${checkOutDate}`);
       } else {

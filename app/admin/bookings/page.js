@@ -551,6 +551,241 @@ function GuestLifecycleBadge({ status, accessLog, locale, members }) {
 }
 
 // ---------------------------------------------------------------------------
+// Welcome Message Panel
+// ---------------------------------------------------------------------------
+
+function WelcomeMessagePanel({ booking, user }) {
+  const { locale } = useLocale();
+  const [copied, setCopied] = useState(false);
+  const [marking, setMarking] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [skipping, setSkipping] = useState(false);
+
+  const { welcomeStatus, welcomeMessage } = booking;
+
+  // Only show for non-sent statuses
+  if (!welcomeStatus || welcomeStatus === 'sent') return null;
+
+  async function handleCopyMessage() {
+    if (!welcomeMessage) return;
+    try {
+      await navigator.clipboard.writeText(welcomeMessage);
+    } catch {
+      const el = document.createElement('textarea');
+      el.value = welcomeMessage;
+      el.style.position = 'fixed';
+      el.style.opacity = '0';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleMarkSent() {
+    setMarking(true);
+    try {
+      const idToken = await user.getIdToken();
+      await fetch(`/api/bookings/${booking.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          welcomeStatus: 'sent',
+          welcomeSentAt: new Date().toISOString(),
+        }),
+      });
+    } catch (err) {
+      console.error('[WelcomeMessagePanel] markSent failed:', err);
+    } finally {
+      setMarking(false);
+    }
+  }
+
+  async function handleRegenerate() {
+    setRegenerating(true);
+    try {
+      const idToken = await user.getIdToken();
+      await fetch(`/api/bookings/${booking.id}/welcome?force=true`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+    } catch (err) {
+      console.error('[WelcomeMessagePanel] regenerate failed:', err);
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  async function handleSkip() {
+    setSkipping(true);
+    try {
+      const idToken = await user.getIdToken();
+      await fetch(`/api/bookings/${booking.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ welcomeStatus: 'skipped' }),
+      });
+    } catch (err) {
+      console.error('[WelcomeMessagePanel] skip failed:', err);
+    } finally {
+      setSkipping(false);
+    }
+  }
+
+  const isPending = welcomeStatus === 'pending';
+  const isSkipped = welcomeStatus === 'skipped';
+
+  return (
+    <div className="border-t border-cafe-100 pt-3 mt-1 space-y-2.5">
+      {/* Section header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-coqui-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          <span className="text-xs font-semibold text-coqui-800">
+            {t(locale, 'admin_book_welcome_title')}
+          </span>
+        </div>
+        {isSkipped && (
+          <span className="text-xs text-coqui-800/40 italic">
+            {t(locale, 'admin_book_welcome_skipped')}
+          </span>
+        )}
+        {isPending && (
+          <span className="text-xs text-atardecer-600 font-medium">
+            {t(locale, 'admin_book_welcome_pending')}
+          </span>
+        )}
+      </div>
+
+      {/* Message preview or generating state */}
+      {isPending ? (
+        <div className="bg-coqui-50 border border-coqui-100 rounded-lg px-3 py-3 flex items-center gap-2">
+          <span className="inline-block w-3.5 h-3.5 border-2 border-coqui-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+          <p className="text-xs text-coqui-700 italic">
+            {t(locale, 'admin_book_welcome_generating')}
+          </p>
+        </div>
+      ) : welcomeMessage ? (
+        <div className="bg-coqui-50 border border-coqui-100 rounded-lg px-3 py-2.5">
+          <p className="text-xs text-coqui-800 leading-relaxed whitespace-pre-wrap break-words">
+            {welcomeMessage}
+          </p>
+        </div>
+      ) : null}
+
+      {/* Action buttons — only when there's a message to act on */}
+      {!isPending && welcomeMessage && (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Copy */}
+          <button
+            onClick={handleCopyMessage}
+            className={`inline-flex items-center gap-1 text-xs font-medium rounded-lg px-3 py-1.5 min-h-[36px] transition-all active:scale-[0.98] ${
+              copied
+                ? 'bg-coqui-100 text-coqui-700'
+                : 'bg-cafe-100 text-cafe-700 active:bg-cafe-200'
+            }`}
+          >
+            {copied ? (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                {t(locale, 'admin_book_welcome_copied')}
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-4 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                {t(locale, 'admin_book_welcome_copy')}
+              </>
+            )}
+          </button>
+
+          {/* Mark as Sent */}
+          {!isSkipped && (
+            <button
+              onClick={handleMarkSent}
+              disabled={marking}
+              className="inline-flex items-center gap-1 text-xs font-medium rounded-lg px-3 py-1.5 min-h-[36px] bg-coqui-600 text-white active:bg-coqui-700 transition-all active:scale-[0.98] disabled:opacity-60"
+            >
+              {marking ? (
+                <span className="inline-block w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              {t(locale, 'admin_book_welcome_markSent')}
+            </button>
+          )}
+
+          {/* Regenerate */}
+          <button
+            onClick={handleRegenerate}
+            disabled={regenerating}
+            className="inline-flex items-center gap-1 text-xs font-medium rounded-lg px-3 py-1.5 min-h-[36px] bg-caribe-50 text-caribe-700 active:bg-caribe-100 transition-all active:scale-[0.98] disabled:opacity-60"
+          >
+            {regenerating ? (
+              <span className="inline-block w-3 h-3 border border-caribe-500 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            )}
+            {t(locale, 'admin_book_welcome_regenerate')}
+          </button>
+
+          {/* Skip — only show if not already skipped */}
+          {!isSkipped && (
+            <button
+              onClick={handleSkip}
+              disabled={skipping}
+              className="inline-flex items-center gap-1 text-xs font-medium rounded-lg px-3 py-1.5 min-h-[36px] text-coqui-800/50 active:text-coqui-800/70 transition-all active:scale-[0.98] disabled:opacity-60"
+            >
+              {skipping ? (
+                <span className="inline-block w-3 h-3 border border-cafe-400 border-t-transparent rounded-full animate-spin" />
+              ) : null}
+              {t(locale, 'admin_book_welcome_skip')}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Skipped state — show regenerate to undo */}
+      {isSkipped && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRegenerate}
+            disabled={regenerating}
+            className="inline-flex items-center gap-1 text-xs font-medium rounded-lg px-3 py-1.5 min-h-[36px] bg-caribe-50 text-caribe-700 active:bg-caribe-100 transition-all active:scale-[0.98] disabled:opacity-60"
+          >
+            {regenerating ? (
+              <span className="inline-block w-3 h-3 border border-caribe-500 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            )}
+            {t(locale, 'admin_book_welcome_regenerate')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Booking Card
 // ---------------------------------------------------------------------------
 
@@ -671,6 +906,11 @@ function BookingCard({ booking, onCancel, user, settings }) {
               </button>
             </div>
           </div>
+        )}
+
+        {/* Welcome message panel — shown when status is pending, ready, or skipped */}
+        {isActive && booking.welcomeStatus !== 'sent' && (
+          <WelcomeMessagePanel booking={booking} user={user} />
         )}
 
         {/* Edit modal */}

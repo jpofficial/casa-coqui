@@ -108,6 +108,9 @@ export async function PATCH(request, { params }) {
     if (body.unitId !== undefined) updates.unitId = String(body.unitId).trim();
     if (body.checkInDate !== undefined) updates.checkInDate = String(body.checkInDate).trim();
     if (body.checkOutDate !== undefined) updates.checkOutDate = String(body.checkOutDate).trim();
+    // Welcome message status updates
+    if (body.welcomeStatus !== undefined) updates.welcomeStatus = body.welcomeStatus;
+    if (body.welcomeSentAt !== undefined) updates.welcomeSentAt = body.welcomeSentAt;
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(

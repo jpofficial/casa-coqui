@@ -457,6 +457,14 @@ function FullAdminDashboard() {
   } = useCollection('bookings', [orderBy('checkInDate', 'desc')]);
 
   const {
+    data: welcomePendingBookings,
+    loading: welcomeLoading,
+  } = useCollection('bookings', [
+    where('status', '==', 'active'),
+    where('welcomeStatus', 'in', ['pending', 'ready']),
+  ]);
+
+  const {
     data: openTasks,
     loading: tasksLoading,
   } = useCollection('assignments', [where('status', 'in', ['pending', 'in_progress'])]);
@@ -608,6 +616,28 @@ function FullAdminDashboard() {
           </Link>
         </div>
       </div>
+
+      {/* Welcome Messages Needed — only shown when count > 0 */}
+      {!welcomeLoading && welcomePendingBookings.length > 0 && (
+        <Link
+          href="/admin/bookings"
+          className="flex items-center gap-3 bg-atardecer-50 border border-atardecer-200 rounded-xl px-4 py-3 active:scale-[0.98] active:bg-atardecer-100 transition-all duration-150"
+        >
+          <div className="flex-shrink-0 w-9 h-9 rounded-full bg-atardecer-100 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4.5 h-4.5 text-atardecer-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-atardecer-800 leading-snug">
+              {t(locale, 'admin_dash_welcomeNeeded').replace('{n}', welcomePendingBookings.length)}
+            </p>
+          </div>
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-atardecer-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+      )}
 
       {/* Current Guests */}
       <div>

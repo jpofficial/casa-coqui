@@ -2,9 +2,10 @@
 """
 Casa Coqui CDK entrypoint.
 
-Instantiates two stacks:
+Instantiates three stacks:
   1. CasaCoquiFoundationStack — long-lived resources (KMS, S3, Secret, SNS)
   2. CasaCoquiPipelineStack   — rebuildable CI/CD pipeline
+  3. CasaCoquiEmailStack      — inbound email infrastructure (SES, S3, Lambda)
 
 Foundation constructs are passed directly into the Pipeline stack constructor
 so CDK synthesizes cross-stack Exports automatically. This gives the
@@ -17,6 +18,7 @@ import aws_cdk as cdk
 
 from stacks.foundation_stack import CasaCoquiFoundationStack
 from stacks.pipeline_stack import CasaCoquiPipelineStack
+from stacks.email_stack import CasaCoquiEmailStack
 
 
 app = cdk.App()
@@ -63,13 +65,32 @@ pipeline = CasaCoquiPipelineStack(
     description="Casa Coqui CI/CD pipeline — CodeBuild + CodePipeline. Lifecycle: rebuildable.",
 )
 
+# Email stack — SES inbound, S3 raw storage, Lambda parser.
+# Depends on Foundation so `cdk deploy --all` orders correctly and so the
+# Foundation stack cannot be destroyed while Email exists.
+email = CasaCoquiEmailStack(
+    app,
+    "CasaCoquiEmailStack",
+    env=env,
+    description=(
+        "Casa Coqui inbound email pipeline — SES, S3, Lambda. "
+        "Receives Airbnb receipts and parses them into Firestore."
+    ),
+)
+
 # Make the dependency explicit so `cdk deploy --all` orders correctly and
 # so `cdk destroy CasaCoquiFoundationStack` fails loudly while Pipeline exists.
 pipeline.add_dependency(foundation)
+
+# Email stack depends on Foundation for consistent deploy ordering.
+# No resource references cross the boundary today; the dependency is
+# logical (Foundation provisions the account baseline first).
+email.add_dependency(foundation)
 
 cdk.Tags.of(app).add("Project", "casa-coqui")
 cdk.Tags.of(app).add("ManagedBy", "cdk")
 cdk.Tags.of(foundation).add("Lifecycle", "retain")
 cdk.Tags.of(pipeline).add("Lifecycle", "rebuildable")
+cdk.Tags.of(email).add("Lifecycle", "retain")
 
 app.synth()
