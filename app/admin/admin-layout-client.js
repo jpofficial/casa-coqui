@@ -270,6 +270,7 @@ function AdminLayoutInner({ children }) {
 
   const allMoreLinks = [
     { href: '/admin/bookings', label: t(locale, 'admin_nav_bookings') },
+    { href: '/admin/messages', label: t(locale, 'admin_nav_messages') },
     { href: '/admin/notify', label: t(locale, 'admin_nav_notifications') },
     { href: '/admin/cleaning', label: t(locale, 'admin_nav_cleaning') },
     { href: '/admin/community', label: t(locale, 'admin_nav_community') },

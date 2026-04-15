@@ -15,6 +15,8 @@ import {
 import { db, auth } from '@/lib/firebase';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
+import { buildThreadKey, isUnmatchedKey } from '@/lib/thread-key';
+import LinkToBookingModal from '@/components/admin/LinkToBookingModal';
 
 function timeAgo(dateValue, locale) {
   if (!dateValue) return '';
@@ -57,26 +59,58 @@ function formatFullDate(dateValue, locale) {
   });
 }
 
-// Build a thread list from a flat array of messages
+// Returns a label string for draft welcome messages, or null for normal sent messages.
+function welcomeStateLabel(msg, locale) {
+  if (!msg.welcomeState || msg.welcomeState === 'sent') return null;
+  if (msg.welcomeState === 'snoozed') {
+    const when = msg.welcomeSnoozedUntil
+      ? new Date(msg.welcomeSnoozedUntil).toLocaleDateString(
+          locale === 'es' ? 'es' : 'en-US',
+          { month: 'short', day: 'numeric' }
+        )
+      : '';
+    return t(locale, 'admin_msg_draft_snoozed').replace('{when}', when);
+  }
+  if (msg.welcomeState === 'skipped') {
+    return t(locale, 'admin_msg_draft_skipped');
+  }
+  return null;
+}
+
+// Build a thread list from a flat array of messages.
+// Groups by threadKey so unmatched senders get their own threads instead of
+// all being lumped into one 'unknown' bucket.
 function buildThreads(messages) {
   const threadMap = {};
   for (const msg of messages) {
-    const code = msg.bookingCode || 'unknown';
-    if (!threadMap[code]) {
-      threadMap[code] = {
-        bookingCode: code,
-        guestName: msg.guestName || code,
+    const key =
+      msg.threadKey ||
+      buildThreadKey({
+        bookingCode: msg.bookingCode || null,
+        senderEmail: msg.senderEmail || msg.fromAddress || null,
+        senderName: msg.guestName || msg.fromName || null,
+      });
+
+    if (!threadMap[key]) {
+      threadMap[key] = {
+        threadKey: key,
+        bookingCode: isUnmatchedKey(key) ? null : key,
+        guestName: msg.guestName || msg.fromName || key,
         messages: [],
         lastMessage: null,
         unreadCount: 0,
+        unmatched: isUnmatchedKey(key),
       };
     }
-    threadMap[code].messages.push(msg);
-    if (!threadMap[code].lastMessage || compareFirestoreDates(msg.createdAt, threadMap[code].lastMessage.createdAt) > 0) {
-      threadMap[code].lastMessage = msg;
+    threadMap[key].messages.push(msg);
+    if (
+      !threadMap[key].lastMessage ||
+      compareFirestoreDates(msg.createdAt, threadMap[key].lastMessage.createdAt) > 0
+    ) {
+      threadMap[key].lastMessage = msg;
     }
     if (msg.sender === 'guest' && !msg.read) {
-      threadMap[code].unreadCount += 1;
+      threadMap[key].unreadCount += 1;
     }
   }
   // Sort threads by last message descending
@@ -120,7 +154,7 @@ function ThreadItem({ thread, onSelect }) {
     >
       {/* Avatar */}
       <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 text-green-700 font-bold text-sm uppercase">
-        {(thread.guestName || thread.bookingCode).charAt(0)}
+        {(thread.guestName || thread.bookingCode || thread.threadKey || '?').charAt(0)}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-1">
@@ -129,6 +163,11 @@ function ThreadItem({ thread, onSelect }) {
               ? thread.guestName
               : `${t(locale, 'admin_msg_guestPrefix')} ${thread.bookingCode}`}
           </span>
+          {thread.unmatched && (
+            <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full whitespace-nowrap">
+              {t(locale, 'admin_msg_unmatched_badge')}
+            </span>
+          )}
           <span className="text-[11px] text-gray-400 flex-shrink-0">{timeAgo(last?.createdAt, locale)}</span>
         </div>
         <div className="flex items-center gap-2 mt-0.5">
@@ -148,15 +187,24 @@ function ThreadItem({ thread, onSelect }) {
 }
 
 // Full chat view for a single thread
-function ChatView({ thread, allMessages, onBack }) {
+function ChatView({ thread, allMessages, onBack, onLinkClick }) {
   const { locale } = useLocale();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const bottomRef = useRef(null);
 
-  // Messages sorted oldest first
+  // Messages sorted oldest first — match by threadKey so unmatched threads work too
   const threadMessages = allMessages
-    .filter((m) => m.bookingCode === thread.bookingCode)
+    .filter((m) => {
+      const key =
+        m.threadKey ||
+        buildThreadKey({
+          bookingCode: m.bookingCode || null,
+          senderEmail: m.senderEmail || m.fromAddress || null,
+          senderName: m.guestName || m.fromName || null,
+        });
+      return key === thread.threadKey;
+    })
     .sort((a, b) => compareFirestoreDates(a.createdAt, b.createdAt));
 
   const grouped = groupByDay(threadMessages, locale);
@@ -171,7 +219,7 @@ function ChatView({ thread, allMessages, onBack }) {
     });
     batch.commit().catch(console.error);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [thread.bookingCode]);
+  }, [thread.threadKey]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -237,14 +285,24 @@ function ChatView({ thread, allMessages, onBack }) {
           </svg>
         </button>
         <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm uppercase flex-shrink-0">
-          {(thread.guestName || thread.bookingCode).charAt(0)}
+          {(thread.guestName || thread.bookingCode || thread.threadKey || '?').charAt(0)}
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">
-            {thread.guestName !== thread.bookingCode
-              ? thread.guestName
-              : `${t(locale, 'admin_msg_guestPrefix')} ${thread.bookingCode}`}
-          </p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-gray-900 truncate">
+              {thread.guestName !== thread.bookingCode
+                ? thread.guestName
+                : `${t(locale, 'admin_msg_guestPrefix')} ${thread.bookingCode}`}
+            </p>
+            {thread.unmatched && onLinkClick && (
+              <button
+                onClick={onLinkClick}
+                className="ml-2 text-[10px] px-2 py-1 bg-coqui-600 text-white rounded-lg font-semibold hover:bg-coqui-700 whitespace-nowrap flex-shrink-0"
+              >
+                {t(locale, 'admin_msg_link_button')}
+              </button>
+            )}
+          </div>
           <p className="text-xs text-gray-400 truncate">{t(locale, 'admin_msg_codePrefix')} {thread.bookingCode}</p>
         </div>
       </div>
@@ -266,19 +324,28 @@ function ChatView({ thread, allMessages, onBack }) {
           }
           const { msg } = item;
           const isHost = msg.sender === 'host';
+          const isDraft = msg.direction === 'outbound_draft';
+          const draftLabel = welcomeStateLabel(msg, locale);
           return (
             <div key={item.key} className={`flex ${isHost ? 'justify-end' : 'justify-start'} mt-1`}>
               <div
                 className={`max-w-[78%] px-3.5 py-2.5 rounded-2xl text-sm leading-snug shadow-sm ${
-                  isHost
+                  isDraft
+                    ? 'bg-green-100 text-green-900 rounded-br-sm opacity-60'
+                    : isHost
                     ? 'bg-green-600 text-white rounded-br-sm'
                     : 'bg-white text-gray-800 rounded-bl-sm'
                 }`}
               >
                 <p>{msg.text}</p>
-                <p className={`text-[10px] mt-1 ${isHost ? 'text-green-200' : 'text-gray-400'} text-right`}>
+                <p className={`text-[10px] mt-1 ${isHost && !isDraft ? 'text-green-200' : 'text-gray-400'} text-right`}>
                   {formatTime(msg.createdAt, locale)}
                 </p>
+                {isDraft && draftLabel && (
+                  <div className="mt-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full inline-block">
+                    {draftLabel}
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -654,17 +721,19 @@ function AirbnbMessagesView() {
 export default function MessagesPage() {
   const { locale } = useLocale();
   const [activeTab, setActiveTab] = useState('inapp');
-  const [messages, setMessages] = useState([]);
+  const [inAppMessages, setInAppMessages] = useState([]);
+  const [airbnbThreadMessages, setAirbnbThreadMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [selectedThread, setSelectedThread] = useState(null);
+  const [linkTarget, setLinkTarget] = useState(null); // { threadKey, guestName } or null
 
-  // Subscribe to all in-app messages ordered by newest first
+  // Subscribe to in-app messages (guest-portal chat)
   useEffect(() => {
     const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        setMessages(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setInAppMessages(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
         setLoadingMessages(false);
       },
       (err) => {
@@ -675,12 +744,33 @@ export default function MessagesPage() {
     return unsubscribe;
   }, []);
 
+  // Subscribe to airbnb_messages too — these include welcome drafts (mark-sent,
+  // snoozed, skipped) + parsed Airbnb inbound threads, all grouped by threadKey.
+  useEffect(() => {
+    const q = query(
+      collection(db, 'airbnb_messages'),
+      orderBy('receivedAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        setAirbnbThreadMessages(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+      },
+      (err) => console.error('airbnb_messages subscription error:', err)
+    );
+    return unsubscribe;
+  }, []);
+
+  // Merge both sources. `buildThreads` groups by threadKey (falling back to
+  // bookingCode for legacy in-app docs), so a guest's welcome drafts and
+  // portal chat coalesce into one conversation.
+  const messages = [...inAppMessages, ...airbnbThreadMessages];
   const threads = buildThreads(messages);
 
   // Keep selectedThread in sync when messages update
   useEffect(() => {
     if (!selectedThread) return;
-    const thr = threads.find((th) => th.bookingCode === selectedThread.bookingCode);
+    const thr = threads.find((th) => th.threadKey === selectedThread.threadKey);
     if (thr) setSelectedThread(thr);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
@@ -688,11 +778,27 @@ export default function MessagesPage() {
   // Full-screen chat view takes over the whole page
   if (selectedThread) {
     return (
-      <ChatView
-        thread={selectedThread}
-        allMessages={messages}
-        onBack={() => setSelectedThread(null)}
-      />
+      <>
+        <ChatView
+          thread={selectedThread}
+          allMessages={messages}
+          onBack={() => setSelectedThread(null)}
+          onLinkClick={() => setLinkTarget({ threadKey: selectedThread.threadKey, guestName: selectedThread.guestName })}
+        />
+        {linkTarget && (
+          <LinkToBookingModal
+            threadKey={linkTarget.threadKey}
+            guestName={linkTarget.guestName}
+            user={auth.currentUser}
+            locale={locale}
+            onLinked={() => {
+              setLinkTarget(null);
+              // Firestore onSnapshot will refresh threads automatically
+            }}
+            onCancel={() => setLinkTarget(null)}
+          />
+        )}
+      </>
     );
   }
 
@@ -755,7 +861,7 @@ export default function MessagesPage() {
         ) : (
           <div className="space-y-2">
             {threads.map((thread) => (
-              <ThreadItem key={thread.bookingCode} thread={thread} onSelect={setSelectedThread} />
+              <ThreadItem key={thread.threadKey} thread={thread} onSelect={setSelectedThread} />
             ))}
           </div>
         )

@@ -189,6 +189,9 @@ exports.icsSync = onSchedule(
   }
 );
 
+// Scheduled sweepers
+exports.welcomeSweeper = require('./scheduled').welcomeSweeper;
+
 // ---------------------------------------------------------------------------
 // onAirbnbMessageCreated
 //
@@ -233,12 +236,22 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
         if (bookingDoc.exists) booking = { id: bookingDoc.id, ...bookingDoc.data() };
       }
 
-      // Load conversation thread (previous messages in this booking)
+      // Load conversation thread using threadKey so unmatched senders get their
+      // own per-sender thread context instead of lumping with other unknowns.
+      const { buildThreadKey } = require('./lib/thread-key');
+      const threadKey =
+        message.threadKey ||
+        buildThreadKey({
+          bookingCode: message.bookingCode || null,
+          senderEmail: message.senderEmail || message.fromAddress || null,
+          senderName: message.guestName || message.fromName || null,
+        });
+
       let thread = [];
-      if (message.bookingId) {
+      if (threadKey && threadKey !== 'unknown') {
         const threadSnap = await db
           .collection('airbnb_messages')
-          .where('bookingId', '==', message.bookingId)
+          .where('threadKey', '==', threadKey)
           .orderBy('receivedAt', 'asc')
           .limit(10)
           .get();

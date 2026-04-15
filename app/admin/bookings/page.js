@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { orderBy, where } from 'firebase/firestore';
 import { useCollection, useDocument } from '@/hooks/useFirestore';
 import { auth } from '@/lib/firebase';
@@ -8,6 +8,9 @@ import useAuth from '@/hooks/useAuth';
 import { getUnitNames, getUnits } from '@/lib/units';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
+import StatusPill from '@/components/admin/StatusPill';
+import WelcomeMarkSentModal from '@/components/admin/WelcomeMarkSentModal';
+import WelcomeSendLaterModal from '@/components/admin/WelcomeSendLaterModal';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -32,6 +35,27 @@ const UNIT_COLORS = {
 
 function getUnitColor(unit) {
   return UNIT_COLORS[unit] || { accent: 'bg-cafe-300', text: 'text-cafe-700' };
+}
+
+function getPillsForBooking(booking, today) {
+  const pills = [];
+  if (booking.status === 'cancelled') pills.push('cancelled');
+  else if (booking.checkOutDate && booking.checkOutDate < today) pills.push('past');
+  else if (booking.checkInDate && booking.checkOutDate &&
+           booking.checkInDate <= today && today <= booking.checkOutDate) {
+    pills.push('in_house');
+  }
+
+  switch (booking.welcomeStatus) {
+    case 'ready':      pills.push('ready'); break;
+    case 'pending':    pills.push('generating'); break;
+    case 'snoozed':    pills.push('snoozed'); break;
+    case 'sent':       pills.push('sent'); break;
+    case 'skipped':    pills.push('skipped'); break;
+    case 'error':      pills.push('error'); break;
+    default: break;
+  }
+  return pills;
 }
 
 function StatusBadge({ status }) {
@@ -560,6 +584,8 @@ function WelcomeMessagePanel({ booking, user }) {
   const [marking, setMarking] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [skipping, setSkipping] = useState(false);
+  const [showMarkSent, setShowMarkSent] = useState(false);
+  const [showSendLater, setShowSendLater] = useState(false);
 
   const { welcomeStatus, welcomeMessage } = booking;
 
@@ -584,25 +610,44 @@ function WelcomeMessagePanel({ booking, user }) {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  async function handleMarkSent() {
+  async function handleMarkSent(finalText) {
     setMarking(true);
     try {
       const idToken = await user.getIdToken();
-      await fetch(`/api/bookings/${booking.id}`, {
+      const res = await fetch(`/api/bookings/${booking.id}/welcome`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({
-          welcomeStatus: 'sent',
-          welcomeSentAt: new Date().toISOString(),
-        }),
+        body: JSON.stringify({ action: 'mark-sent', text: finalText }),
       });
+      if (!res.ok) throw new Error(`mark-sent failed: ${res.status}`);
+      setShowMarkSent(false);
     } catch (err) {
       console.error('[WelcomeMessagePanel] markSent failed:', err);
+      throw err;
     } finally {
       setMarking(false);
+    }
+  }
+
+  async function handleSnooze(snoozedUntilIso) {
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch(`/api/bookings/${booking.id}/welcome`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ action: 'snooze', snoozedUntil: snoozedUntilIso }),
+      });
+      if (!res.ok) throw new Error(`snooze failed: ${res.status}`);
+      setShowSendLater(false);
+    } catch (err) {
+      console.error('[WelcomeMessagePanel] snooze failed:', err);
+      throw err;
     }
   }
 
@@ -667,8 +712,24 @@ function WelcomeMessagePanel({ booking, user }) {
         )}
       </div>
 
-      {/* Message preview or generating state */}
-      {isPending ? (
+      {/* Message preview, generating state, or error */}
+      {welcomeStatus === 'error' ? (
+        <div className="bg-flamboyan-50 border border-flamboyan-200 rounded-lg px-3 py-3">
+          <p className="text-xs text-flamboyan-700 font-medium mb-1">
+            ⚠ {t(locale, 'admin_book_welcome_error')}
+          </p>
+          {booking.welcomeError && (
+            <p className="text-[11px] text-flamboyan-700/80">{booking.welcomeError}</p>
+          )}
+          <button
+            onClick={handleRegenerate}
+            disabled={regenerating}
+            className="mt-2 px-3 py-1.5 text-xs bg-white border border-flamboyan-300 text-flamboyan-700 rounded-lg hover:bg-flamboyan-100 disabled:opacity-50"
+          >
+            {regenerating ? '…' : t(locale, 'admin_book_welcome_retry')}
+          </button>
+        </div>
+      ) : isPending ? (
         <div className="bg-coqui-50 border border-coqui-100 rounded-lg px-3 py-3 flex items-center gap-2">
           <span className="inline-block w-3.5 h-3.5 border-2 border-coqui-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
           <p className="text-xs text-coqui-700 italic">
@@ -715,7 +776,7 @@ function WelcomeMessagePanel({ booking, user }) {
           {/* Mark as Sent */}
           {!isSkipped && (
             <button
-              onClick={handleMarkSent}
+              onClick={() => setShowMarkSent(true)}
               disabled={marking}
               className="inline-flex items-center gap-1 text-xs font-medium rounded-lg px-3 py-1.5 min-h-[36px] bg-coqui-600 text-white active:bg-coqui-700 transition-all active:scale-[0.98] disabled:opacity-60"
             >
@@ -727,6 +788,16 @@ function WelcomeMessagePanel({ booking, user }) {
                 </svg>
               )}
               {t(locale, 'admin_book_welcome_markSent')}
+            </button>
+          )}
+
+          {/* Send later */}
+          {!isSkipped && (
+            <button
+              onClick={() => setShowSendLater(true)}
+              className="inline-flex items-center gap-1 text-xs font-medium rounded-lg px-3 py-1.5 min-h-[36px] bg-white border border-cafe-200 text-cafe-800 active:bg-cafe-50 transition-all active:scale-[0.98]"
+            >
+              {t(locale, 'admin_book_welcome_sendLater')}
             </button>
           )}
 
@@ -780,6 +851,24 @@ function WelcomeMessagePanel({ booking, user }) {
             {t(locale, 'admin_book_welcome_regenerate')}
           </button>
         </div>
+      )}
+
+      {showMarkSent && (
+        <WelcomeMarkSentModal
+          initialText={welcomeMessage || ''}
+          locale={locale}
+          onConfirm={handleMarkSent}
+          onCancel={() => setShowMarkSent(false)}
+        />
+      )}
+
+      {showSendLater && (
+        <WelcomeSendLaterModal
+          checkInDate={booking.checkInDate}
+          locale={locale}
+          onConfirm={handleSnooze}
+          onCancel={() => setShowSendLater(false)}
+        />
       )}
     </div>
   );
@@ -938,7 +1027,7 @@ export default function BookingsPage() {
   const [newBooking, setNewBooking] = useState(null);
   const [cancelError, setCancelError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [tab, setTab] = useState('active');
+  const [tab, setTab] = useState(null);
 
   const { data: allBookings, loading } = useCollection('bookings', [
     orderBy('checkInDate', 'desc'),
@@ -946,30 +1035,46 @@ export default function BookingsPage() {
 
   const today = todayStr();
 
-  const activeBookings = useMemo(
-    () => allBookings.filter((b) => b.status === 'active' && b.checkOutDate >= today),
-    [allBookings, today]
-  );
-  const upcomingBookings = useMemo(
-    () => allBookings.filter((b) => b.status === 'active' && b.checkInDate > today),
-    [allBookings, today]
-  );
-  const pastBookings = useMemo(
-    () => allBookings.filter((b) => b.status === 'completed' || (b.status === 'active' && b.checkOutDate < today)),
-    [allBookings, today]
-  );
-  const cancelledBookings = useMemo(
-    () => allBookings.filter((b) => b.status === 'cancelled'),
-    [allBookings]
-  );
+  // Derive 4 buckets. A booking with welcomeStatus==='ready' appears in BOTH
+  // Drafts and its time-based bucket (Drafts is a view, not a partition).
+  const tabBuckets = useMemo(() => {
+    const buckets = { drafts: [], inhouse: [], upcoming: [], past: [] };
+    for (const b of allBookings) {
+      if (b.status === 'cancelled' || (b.checkOutDate && b.checkOutDate < today)) {
+        buckets.past.push(b);
+        continue;
+      }
+      if (b.welcomeStatus === 'ready' && b.status === 'active') {
+        buckets.drafts.push(b);
+      }
+      if (b.status === 'active') {
+        if (b.checkInDate && b.checkOutDate && b.checkInDate <= today && today <= b.checkOutDate) {
+          buckets.inhouse.push(b);
+        } else if (b.checkInDate && b.checkInDate > today) {
+          buckets.upcoming.push(b);
+        }
+      }
+    }
+    return buckets;
+  }, [allBookings, today]);
 
   const tabs = [
-    { key: 'active', label: t(locale, 'admin_book_tabActive'), count: activeBookings.length },
-    { key: 'past', label: t(locale, 'admin_book_tabPast'), count: pastBookings.length },
-    { key: 'cancelled', label: t(locale, 'admin_book_tabCancelled'), count: cancelledBookings.length },
+    { key: 'drafts',   label: t(locale, 'admin_book_tab_drafts'),   count: tabBuckets.drafts.length,   accent: true },
+    { key: 'inhouse',  label: t(locale, 'admin_book_tab_inhouse'),  count: tabBuckets.inhouse.length,  accent: false },
+    { key: 'upcoming', label: t(locale, 'admin_book_tab_upcoming'), count: tabBuckets.upcoming.length, accent: false },
+    { key: 'past',     label: t(locale, 'admin_book_tab_past'),     count: tabBuckets.past.length,     accent: false },
   ];
 
-  const displayList = tab === 'active' ? activeBookings : tab === 'past' ? pastBookings : cancelledBookings;
+  const displayList = tabBuckets[tab] || [];
+
+  // Default tab: Drafts if any, else In-house, else Upcoming.
+  useEffect(() => {
+    if (tab !== null) return;
+    if (loading) return;
+    if (tabBuckets.drafts.length > 0) setTab('drafts');
+    else if (tabBuckets.inhouse.length > 0) setTab('inhouse');
+    else setTab('upcoming');
+  }, [loading, tab, tabBuckets]);
 
   const handleCreated = useCallback((booking) => {
     setNewBooking(booking);
@@ -998,11 +1103,13 @@ export default function BookingsPage() {
   }, [user, locale]);
 
   const emptyMessage =
-    tab === 'active'
-      ? t(locale, 'admin_book_emptyActive')
-      : tab === 'past'
-      ? t(locale, 'admin_book_emptyPast')
-      : t(locale, 'admin_book_emptyCancelled');
+    tab === 'drafts'
+      ? t(locale, 'admin_book_emptyDrafts')
+      : tab === 'inhouse'
+      ? t(locale, 'admin_book_emptyInhouse')
+      : tab === 'upcoming'
+      ? t(locale, 'admin_book_emptyUpcoming')
+      : t(locale, 'admin_book_emptyPast');
 
   return (
     <div className="px-4 pt-5 pb-6 max-w-2xl mx-auto space-y-4">
@@ -1035,52 +1142,89 @@ export default function BookingsPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-cafe-100 rounded-lg p-1">
+      <div className="flex gap-1 bg-cafe-100 rounded-lg p-1 overflow-x-auto">
         {tabs.map((tabItem) => (
           <button
             key={tabItem.key}
             onClick={() => setTab(tabItem.key)}
-            className={`flex-1 text-sm font-medium py-2 rounded-md transition-colors ${
+            className={`flex-1 text-sm font-medium py-2 px-2 rounded-md transition-colors whitespace-nowrap ${
               tab === tabItem.key ? 'bg-white text-coqui-900 shadow-sm' : 'text-coqui-800/50'
             }`}
           >
-            {tabItem.label} ({tabItem.count})
+            {tabItem.label}
+            {tabItem.count > 0 && (
+              <span className={`inline-block ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                tabItem.accent ? 'bg-amber-100 text-amber-800' : 'bg-cafe-200 text-coqui-800/70'
+              }`}>{tabItem.count}</span>
+            )}
           </button>
         ))}
       </div>
 
       {/* Booking list */}
-      {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white rounded-xl shadow-brand border border-cafe-100 overflow-hidden">
-              <div className="h-1 bg-cafe-200" />
-              <div className="p-4 animate-pulse space-y-3">
-                <div className="h-4 bg-cafe-100 rounded w-1/3" />
-                <div className="h-3 bg-cafe-100 rounded w-1/2" />
-                <div className="h-8 bg-cafe-100 rounded" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : displayList.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-brand border border-cafe-100 p-8 text-center">
-          <p className="text-coqui-800/50 text-sm">{emptyMessage}</p>
-          {tab === 'active' && (
-            <button
-              onClick={() => setShowCreate(true)}
-              className="text-coqui-600 text-sm font-medium mt-2 inline-block"
-            >
-              {t(locale, 'admin_book_createOne')}
-            </button>
-          )}
-        </div>
+      {tab === null ? (
+        <div className="py-10 text-center text-sm text-coqui-800/40">Loading…</div>
       ) : (
-        <div className="space-y-3">
-          {displayList.map((booking) => (
-            <BookingCard key={booking.id} booking={booking} onCancel={handleCancel} user={user} settings={settings} />
-          ))}
-        </div>
+        <>
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white rounded-xl shadow-brand border border-cafe-100 overflow-hidden">
+                  <div className="h-1 bg-cafe-200" />
+                  <div className="p-4 animate-pulse space-y-3">
+                    <div className="h-4 bg-cafe-100 rounded w-1/3" />
+                    <div className="h-3 bg-cafe-100 rounded w-1/2" />
+                    <div className="h-8 bg-cafe-100 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : displayList.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-brand border border-cafe-100 p-8 text-center">
+              <p className="text-coqui-800/50 text-sm">{emptyMessage}</p>
+              {(tab === 'drafts' || tab === 'upcoming') && (
+                <button
+                  onClick={() => setShowCreate(true)}
+                  className="text-coqui-600 text-sm font-medium mt-2 inline-block"
+                >
+                  {t(locale, 'admin_book_createOne')}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {displayList.map((booking, idx) => {
+                const pills = getPillsForBooking(booking, today);
+                const shouldAutoOpen = tab === 'drafts' && idx === 0;
+                return (
+                  <details
+                    key={booking.id}
+                    open={shouldAutoOpen}
+                    className="bg-white rounded-xl shadow-brand border border-cafe-100 overflow-hidden group"
+                  >
+                    <summary className="flex items-center justify-between gap-2 px-4 py-3 cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-coqui-900 truncate">{booking.guestName || '—'}</div>
+                        <div className="text-xs text-coqui-800/60 mt-0.5 truncate">
+                          📅 {booking.checkInDate} → {booking.checkOutDate} · {booking.unit}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {pills.map((s) => (
+                          <StatusPill key={s} status={s} locale={locale} />
+                        ))}
+                        <span className="text-coqui-800/40 text-xs ml-1 transition-transform group-open:rotate-90">▸</span>
+                      </div>
+                    </summary>
+                    <div className="border-t border-cafe-100">
+                      <BookingCard booking={booking} onCancel={handleCancel} user={user} settings={settings} />
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* Create modal */}

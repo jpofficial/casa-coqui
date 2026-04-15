@@ -106,8 +106,23 @@
         { "fieldPath": "jobId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
-    }
-    ,
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "welcomeStatus", "order": "ASCENDING" },
+        { "fieldPath": "welcomeSnoozedUntil", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "welcomeStatus", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
     {
       "collectionGroup": "bookings",
       "queryScope": "COLLECTION",
@@ -123,6 +138,14 @@
         { "fieldPath": "source", "order": "ASCENDING" },
         { "fieldPath": "unit", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "airbnb_messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "threadKey", "order": "ASCENDING" },
+        { "fieldPath": "receivedAt", "order": "ASCENDING" }
       ]
     }
   ],
