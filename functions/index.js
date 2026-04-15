@@ -207,6 +207,7 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
     document: 'airbnb_messages/{messageId}',
     memory: '512MiB',
     timeoutSeconds: 120,
+    secrets: ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY'],
   },
   async (event) => {
     const snap = event.data;
