@@ -721,18 +721,19 @@ function AirbnbMessagesView() {
 export default function MessagesPage() {
   const { locale } = useLocale();
   const [activeTab, setActiveTab] = useState('inapp');
-  const [messages, setMessages] = useState([]);
+  const [inAppMessages, setInAppMessages] = useState([]);
+  const [airbnbThreadMessages, setAirbnbThreadMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [selectedThread, setSelectedThread] = useState(null);
   const [linkTarget, setLinkTarget] = useState(null); // { threadKey, guestName } or null
 
-  // Subscribe to all in-app messages ordered by newest first
+  // Subscribe to in-app messages (guest-portal chat)
   useEffect(() => {
     const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        setMessages(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setInAppMessages(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
         setLoadingMessages(false);
       },
       (err) => {
@@ -743,6 +744,27 @@ export default function MessagesPage() {
     return unsubscribe;
   }, []);
 
+  // Subscribe to airbnb_messages too — these include welcome drafts (mark-sent,
+  // snoozed, skipped) + parsed Airbnb inbound threads, all grouped by threadKey.
+  useEffect(() => {
+    const q = query(
+      collection(db, 'airbnb_messages'),
+      orderBy('receivedAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        setAirbnbThreadMessages(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+      },
+      (err) => console.error('airbnb_messages subscription error:', err)
+    );
+    return unsubscribe;
+  }, []);
+
+  // Merge both sources. `buildThreads` groups by threadKey (falling back to
+  // bookingCode for legacy in-app docs), so a guest's welcome drafts and
+  // portal chat coalesce into one conversation.
+  const messages = [...inAppMessages, ...airbnbThreadMessages];
   const threads = buildThreads(messages);
 
   // Keep selectedThread in sync when messages update
