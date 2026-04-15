@@ -3,26 +3,38 @@
 import { useState } from 'react';
 import { t } from '@/lib/i18n';
 
-export default function WelcomeMarkSentModal({ open, initialText, locale = 'en', onConfirm, onCancel }) {
+export default function WelcomeMarkSentModal({ initialText, locale = 'en', onConfirm, onCancel }) {
   const [text, setText] = useState(initialText || '');
   const [saving, setSaving] = useState(false);
-
-  if (!open) return null;
+  const [error, setError] = useState('');
 
   async function handleConfirm() {
     if (!text.trim()) return;
     setSaving(true);
+    setError('');
     try {
       await onConfirm(text.trim());
+    } catch (err) {
+      setError(err?.message || 'Failed to mark as sent.');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl max-w-lg w-full p-5 shadow-xl">
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">
+    <div
+      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4"
+      onClick={() => { if (!saving) onCancel(); }}
+      onKeyDown={(e) => { if (e.key === 'Escape' && !saving) onCancel(); }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mark-sent-dialog-title"
+        className="bg-white rounded-2xl max-w-lg w-full p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="mark-sent-dialog-title" className="text-lg font-semibold text-gray-900 mb-1">
           {t(locale, 'admin_book_markSent_title')}
         </h3>
         <p className="text-xs text-gray-500 mb-3">
@@ -32,7 +44,11 @@ export default function WelcomeMarkSentModal({ open, initialText, locale = 'en',
           className="w-full h-48 p-3 border border-gray-300 rounded-lg text-sm font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-coqui-500"
           value={text}
           onChange={(e) => setText(e.target.value)}
+          autoFocus
         />
+        {error && (
+          <p className="text-xs text-red-600 mt-2">{error}</p>
+        )}
         <div className="flex justify-end gap-2 mt-3">
           <button
             onClick={onCancel}

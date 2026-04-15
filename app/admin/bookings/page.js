@@ -624,7 +624,7 @@ function WelcomeMessagePanel({ booking, user }) {
       setShowMarkSent(false);
     } catch (err) {
       console.error('[WelcomeMessagePanel] markSent failed:', err);
-      alert('Failed to mark as sent — check console.');
+      throw err;
     } finally {
       setMarking(false);
     }
@@ -806,13 +806,14 @@ function WelcomeMessagePanel({ booking, user }) {
         </div>
       )}
 
-      <WelcomeMarkSentModal
-        open={showMarkSent}
-        initialText={welcomeMessage || ''}
-        locale={locale}
-        onConfirm={handleMarkSent}
-        onCancel={() => setShowMarkSent(false)}
-      />
+      {showMarkSent && (
+        <WelcomeMarkSentModal
+          initialText={welcomeMessage || ''}
+          locale={locale}
+          onConfirm={handleMarkSent}
+          onCancel={() => setShowMarkSent(false)}
+        />
+      )}
     </div>
   );
 }
