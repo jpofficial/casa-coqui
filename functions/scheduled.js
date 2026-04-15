@@ -11,6 +11,7 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions/v2');
 const { db } = require('./firebaseInit');
+const { FieldValue } = require('firebase-admin/firestore');
 
 /**
  * Write in-app staff_notifications docs for all active admin/cohost users.
@@ -48,6 +49,8 @@ exports.welcomeSweeper = onSchedule(
     schedule: 'every 15 minutes',
     timeZone: 'America/Puerto_Rico',
     memory: '256MiB',
+    region: 'us-east1',
+    timeoutSeconds: 60,
   },
   async () => {
     const now = new Date();
@@ -68,7 +71,7 @@ exports.welcomeSweeper = onSchedule(
       try {
         await doc.ref.update({
           welcomeStatus: 'ready',
-          welcomeSnoozedUntil: null,
+          welcomeSnoozedUntil: FieldValue.delete(),
         });
         await notifyAdminAndCohost({
           title: 'Welcome draft ready',
