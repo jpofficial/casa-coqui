@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { collection, query, orderBy, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
@@ -296,10 +297,28 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
   const [view, setView] = useState('list'); // 'list' | 'calendar'
   const [filter, setFilter] = useState('active'); // 'active' | 'completed' | 'archived'
   const [showForm, setShowForm] = useState(false);
+  const [prefill, setPrefill] = useState({ unit: '', date: '' });
   const [confirm, setConfirm] = useState(null); // { jobId, action: 'archive' | 'delete' }
   const [actionBusy, setActionBusy] = useState(null); // jobId being acted on
   const [selectedJob, setSelectedJob] = useState(null); // job to view in forum
   const [cleaners, setCleaners] = useState([]);
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Auto-open form from deep-link ?new=1&unit=...&date=...
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return;
+    const unit = searchParams.get('unit') || '';
+    const date = searchParams.get('date') || '';
+    setPrefill({ unit, date });
+    setShowForm(true);
+    // Clear params so reload doesn't re-open the form
+    const params = new URLSearchParams(searchParams.toString());
+    ['new', 'unit', 'date', 'bookingId'].forEach((k) => params.delete(k));
+    const qs = params.toString();
+    router.replace(qs ? `/admin/cleaning?${qs}` : '/admin/cleaning', { scroll: false });
+  }, [searchParams, router]);
 
   useEffect(() => {
     const q = query(
@@ -406,8 +425,10 @@ function AdminCleaningDashboard({ user, role, isAdmin }) {
 
       <CleaningJobForm
         open={showForm}
-        onClose={() => setShowForm(false)}
+        onClose={() => { setShowForm(false); setPrefill({ unit: '', date: '' }); }}
         onCreated={() => {}}
+        initialUnit={prefill.unit}
+        initialDate={prefill.date}
       />
 
       {/* View toggle: List / Calendar */}
