@@ -149,10 +149,25 @@ export async function PATCH(request, { params }) {
     }
 
     // action === 'mark-sent'
+    // Idempotency guard: re-tapping Mark-as-Sent must not create duplicate thread entries.
+    if (booking.welcomeStatus === 'sent') {
+      return NextResponse.json({
+        success: true,
+        data: { welcomeStatus: 'sent', alreadySent: true },
+      });
+    }
+
     const finalText = typeof body.text === 'string' ? body.text.trim() : '';
     if (!finalText) {
       return NextResponse.json(
         { success: false, error: 'text is required for mark-sent.' },
+        { status: 400 }
+      );
+    }
+
+    if (finalText.length > 10000) {
+      return NextResponse.json(
+        { success: false, error: 'text exceeds maximum length.' },
         { status: 400 }
       );
     }
