@@ -712,8 +712,24 @@ function WelcomeMessagePanel({ booking, user }) {
         )}
       </div>
 
-      {/* Message preview or generating state */}
-      {isPending ? (
+      {/* Message preview, generating state, or error */}
+      {welcomeStatus === 'error' ? (
+        <div className="bg-flamboyan-50 border border-flamboyan-200 rounded-lg px-3 py-3">
+          <p className="text-xs text-flamboyan-700 font-medium mb-1">
+            ⚠ {t(locale, 'admin_book_welcome_error')}
+          </p>
+          {booking.welcomeError && (
+            <p className="text-[11px] text-flamboyan-700/80">{booking.welcomeError}</p>
+          )}
+          <button
+            onClick={handleRegenerate}
+            disabled={regenerating}
+            className="mt-2 px-3 py-1.5 text-xs bg-white border border-flamboyan-300 text-flamboyan-700 rounded-lg hover:bg-flamboyan-100 disabled:opacity-50"
+          >
+            {regenerating ? '…' : t(locale, 'admin_book_welcome_retry')}
+          </button>
+        </div>
+      ) : isPending ? (
         <div className="bg-coqui-50 border border-coqui-100 rounded-lg px-3 py-3 flex items-center gap-2">
           <span className="inline-block w-3.5 h-3.5 border-2 border-coqui-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
           <p className="text-xs text-coqui-700 italic">
