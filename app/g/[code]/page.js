@@ -18,7 +18,10 @@ import { resolveUnitDisplayName, resolveUnitWifi } from '@/lib/units';
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function formatDate(dateStr, locale) {
   const loc = locale === 'es' ? 'es-PR' : 'en-US';
-  return new Date(dateStr).toLocaleDateString(loc, { month: 'short', day: 'numeric' });
+  // Split YYYY-MM-DD and construct in local time to avoid UTC midnight
+  // shifting the date back one day in PR timezone (UTC-4).
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(loc, { month: 'short', day: 'numeric' });
 }
 
 // ── Copy button (inline, for WiFi) ───────────────────────────────────────────
