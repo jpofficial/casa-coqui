@@ -66,8 +66,10 @@ function MemberCard({ member, isPrimary, canRemove, colorIndex, onRemoved }) {
 
   function formatDate(iso) {
     if (!iso) return '';
-    const d = new Date(iso);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    // Split YYYY-MM-DD to avoid UTC midnight → local timezone off-by-one.
+    const [y, m, d] = String(iso).split('-').map(Number);
+    if (!y || !m || !d) return '';
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
   const isPending = member.status !== 'verified';
