@@ -17,6 +17,7 @@ import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
 import { buildThreadKey, isUnmatchedKey } from '@/lib/thread-key';
 import LinkToBookingModal from '@/components/admin/LinkToBookingModal';
+import RefineDrawer from '@/components/admin/RefineDrawer';
 
 function timeAgo(dateValue, locale) {
   if (!dateValue) return '';
@@ -448,6 +449,7 @@ function AirbnbMessageCard({ message, locale }) {
   const [markSentOpen, setMarkSentOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [refineOpen, setRefineOpen] = useState(false);
 
   const isMatched = Boolean(message.bookingId);
   const hasActions = isMatched && (message.draftStatus === 'ready' || message.draftStatus === 'escalated');
@@ -600,6 +602,18 @@ function AirbnbMessageCard({ message, locale }) {
                     {copied ? t(locale, 'admin_book_copied') : t(locale, 'admin_msg_copyReply')}
                   </button>
                 )}
+                {message.draftStatus === 'ready' && message.draftReply && (
+                  <button
+                    onClick={() => setRefineOpen(true)}
+                    disabled={busy}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors font-medium disabled:opacity-40"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                      <path d="M15.98 1.804a1 1 0 00-1.96 0l-.24 1.192a1 1 0 01-.784.785l-1.192.238a1 1 0 000 1.962l1.192.238a1 1 0 01.785.785l.238 1.192a1 1 0 001.962 0l.238-1.192a1 1 0 01.785-.785l1.192-.238a1 1 0 000-1.962l-1.192-.238a1 1 0 01-.785-.785l-.238-1.192z" />
+                    </svg>
+                    Refine
+                  </button>
+                )}
                 {message.draftStatus === 'ready' && (
                   <button
                     onClick={() => setMarkSentOpen(true)}
@@ -646,6 +660,26 @@ function AirbnbMessageCard({ message, locale }) {
           locale={locale}
         />
       )}
+
+      <RefineDrawer
+        isOpen={refineOpen}
+        onClose={() => setRefineOpen(false)}
+        draft={message.draftReply || ''}
+        context={{
+          type: 'reply',
+          guestName: message.guestName || message.fromName || 'Guest',
+          bookingCode: message.bookingCode,
+          inboundMessage: message.body || '',
+        }}
+        onAccept={async (acceptedDraft) => {
+          const { doc: firestoreDoc, updateDoc } = await import('firebase/firestore');
+          const { db } = await import('@/lib/firebase');
+          await updateDoc(firestoreDoc(db, 'airbnb_messages', message.id), {
+            draftReply: acceptedDraft,
+            draftStatus: 'ready',
+          });
+        }}
+      />
     </>
   );
 }
