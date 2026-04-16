@@ -20,7 +20,7 @@
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const logger = require('firebase-functions/logger');
 
@@ -377,6 +377,118 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
       logger.error(`[onAirbnbMessageCreated] Failed to generate reply for ${messageId}:`, err);
       // Mark as failed but don't throw — the inbound message is safe
       await snap.ref.update({ draftStatus: 'error' }).catch(() => {});
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// onAirbnbMessageSent
+//
+// Firestore update trigger on airbnb_messages/{messageId}.
+// Fires when draftStatus transitions to 'sent'. Compares the AI draft
+// (draftReply) against the human-edited version (editedReply) to extract
+// voice/style rules, then persists them to settings/voice_profile.
+// ---------------------------------------------------------------------------
+exports.onAirbnbMessageSent = onDocumentUpdated(
+  {
+    document: 'airbnb_messages/{messageId}',
+    memory: '256MiB',
+    timeoutSeconds: 60,
+    secrets: ['ANTHROPIC_API_KEY'],
+  },
+  async (event) => {
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+
+    // Only trigger when draftStatus transitions to 'sent' and there's an edit
+    if (before.draftStatus === 'sent' || after.draftStatus !== 'sent') return;
+    if (!after.editedReply || !after.draftReply) return;
+
+    const draft = after.draftReply.trim();
+    const edited = after.editedReply.trim();
+
+    // Skip trivial edits
+    if (draft === edited) return;
+    const draftWords = draft.split(/\s+/);
+    const editedWords = edited.split(/\s+/);
+    const diffCount = Math.abs(draftWords.length - editedWords.length) +
+      draftWords.filter((w, i) => editedWords[i] !== w).length;
+    if (diffCount < 3) return;
+    if (edited.length < 10) return;
+
+    const db = require('firebase-admin').firestore();
+    const Anthropic = require('@anthropic-ai/sdk');
+    const client = new Anthropic();
+
+    // Extract style rules from the diff
+    const extractionResponse = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 512,
+      system: `You analyze differences between an AI draft and a human-edited version to extract voice/style rules. Return a JSON array of concise style rules (strings). Each rule should be specific and actionable. Focus on: word choices, tone, length, punctuation, greeting/sign-off patterns, slang, formality level. Return 1-5 rules max. Only return rules that represent PATTERNS, not one-off edits.`,
+      tools: [{
+        name: 'style_rules',
+        description: 'Extract style rules from the diff between AI draft and human edit',
+        input_schema: {
+          type: 'object',
+          properties: {
+            rules: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Concise style rules extracted from the diff',
+            },
+            isDistinctExample: {
+              type: 'boolean',
+              description: 'True if the edited version is high quality and distinct enough to be a voice example',
+            },
+          },
+          required: ['rules', 'isDistinctExample'],
+        },
+      }],
+      tool_choice: { type: 'tool', name: 'style_rules' },
+      messages: [{
+        role: 'user',
+        content: JSON.stringify({
+          aiDraft: draft,
+          humanEdited: edited,
+          context: after.source === 'welcome_draft' ? 'welcome' : 'reply',
+        }),
+      }],
+    });
+
+    const toolUse = extractionResponse.content.find((b) => b.type === 'tool_use');
+    if (!toolUse) return;
+
+    const { rules, isDistinctExample } = toolUse.input;
+
+    // Load current profile
+    const profileDoc = await db.collection('settings').doc('voice_profile').get();
+    const profile = profileDoc.exists ? profileDoc.data() : { rules: [], examples: [] };
+
+    // Deduplicate and merge rules
+    const existingLower = new Set((profile.rules || []).map((r) => r.toLowerCase().trim()));
+    const uniqueRules = (rules || []).filter((r) => !existingLower.has(r.toLowerCase().trim()));
+
+    const updates = { updatedAt: new Date().toISOString() };
+
+    if (uniqueRules.length > 0) {
+      const merged = [...(profile.rules || []), ...uniqueRules];
+      updates.rules = merged.length > 30 ? merged.slice(merged.length - 30) : merged;
+    }
+
+    if (isDistinctExample && edited.length >= 20) {
+      const newExample = {
+        text: edited,
+        context: after.source === 'welcome_draft' ? 'welcome' : 'reply',
+        language: edited.match(/[áéíóúñ¿¡]/i) ? 'es' : 'en',
+        addedAt: new Date().toISOString(),
+      };
+      const examples = [...(profile.examples || []), newExample];
+      updates.examples = examples.length > 10 ? examples.slice(examples.length - 10) : examples;
+    }
+
+    if (uniqueRules.length > 0 || isDistinctExample) {
+      await db.collection('settings').doc('voice_profile').set(updates, { merge: true });
+      logger.info(`[onAirbnbMessageSent] Voice profile updated: +${uniqueRules.length} rules, example=${isDistinctExample}`);
     }
   }
 );
