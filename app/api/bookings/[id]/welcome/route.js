@@ -83,8 +83,9 @@ export async function POST(request, { params }) {
     });
   } catch (error) {
     console.error('[POST /api/bookings/[id]/welcome]', error);
+    const detail = error?.message || String(error);
     return NextResponse.json(
-      { success: false, error: 'Failed to generate welcome message.' },
+      { success: false, error: 'Failed to generate welcome message.', detail },
       { status: 500 }
     );
   }
