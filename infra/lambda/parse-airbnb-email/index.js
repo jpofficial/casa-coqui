@@ -524,7 +524,7 @@ async function createBookingFromConfirmation(details, firestore, propertySetting
     console.error('Auto-create cleaning job error (non-fatal)', err.message);
   }
 
-  // 8. Write staff notification for admin
+  // 8. Write in-app staff notification + send FCM push for admin/cohost
   try {
     const staffSnap = await firestore
       .collection('users')
@@ -535,19 +535,54 @@ async function createBookingFromConfirmation(details, firestore, propertySetting
     const staffIds = staffSnap.docs.map((d) => d.id);
     const notifTitle = 'New Airbnb Booking';
     const notifBody = `${guestName || 'Guest'} — ${unitName} — ${checkInDate} to ${checkOutDate}`;
+    const notifData = { bookingId: docRef.id, targetPath: '/admin/bookings' };
 
-    for (const staffId of staffIds) {
-      await firestore.collection('staff_notifications').add({
-        recipientId: staffId,
-        title: notifTitle,
-        body: notifBody,
-        type: 'booking',
-        data: { bookingId: docRef.id, targetPath: '/admin/bookings' },
-        read: false,
-        readAt: null,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    }
+    await Promise.all(
+      staffIds.map(async (staffId) => {
+        // In-app notification (bell icon)
+        await firestore.collection('staff_notifications').add({
+          recipientId: staffId,
+          title: notifTitle,
+          body: notifBody,
+          type: 'booking',
+          data: notifData,
+          read: false,
+          readAt: null,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // FCM push to every registered device for this staff member
+        try {
+          const tokensSnap = await firestore
+            .collection('fcm_tokens')
+            .where('staffId', '==', staffId)
+            .get();
+
+          await Promise.all(
+            tokensSnap.docs.map(async (tokenDoc) => {
+              const { token } = tokenDoc.data();
+              if (!token) return;
+              try {
+                await admin.messaging().send({
+                  token,
+                  data: {
+                    title: notifTitle,
+                    body: notifBody,
+                    type: 'booking',
+                    bookingId: docRef.id,
+                    targetPath: '/admin/bookings',
+                  },
+                });
+              } catch (sendErr) {
+                console.warn(`FCM send error for staff ${staffId}:`, sendErr.message);
+              }
+            })
+          );
+        } catch (tokenErr) {
+          console.warn(`FCM token fetch error for staff ${staffId}:`, tokenErr.message);
+        }
+      })
+    );
     console.log('Staff notifications sent', { staffCount: staffIds.length });
   } catch (err) {
     console.error('Staff notification error (non-fatal)', err.message);
