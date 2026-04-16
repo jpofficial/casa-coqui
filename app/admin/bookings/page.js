@@ -11,6 +11,7 @@ import { t } from '@/lib/i18n';
 import StatusPill from '@/components/admin/StatusPill';
 import WelcomeMarkSentModal from '@/components/admin/WelcomeMarkSentModal';
 import WelcomeSendLaterModal from '@/components/admin/WelcomeSendLaterModal';
+import RefineDrawer from '@/components/admin/RefineDrawer';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -586,6 +587,7 @@ function WelcomeMessagePanel({ booking, user }) {
   const [skipping, setSkipping] = useState(false);
   const [showMarkSent, setShowMarkSent] = useState(false);
   const [showSendLater, setShowSendLater] = useState(false);
+  const [refineOpen, setRefineOpen] = useState(false);
 
   const { welcomeStatus, welcomeMessage } = booking;
 
@@ -801,6 +803,19 @@ function WelcomeMessagePanel({ booking, user }) {
             </button>
           )}
 
+          {/* Refine */}
+          {booking.welcomeStatus === 'ready' && (
+            <button
+              onClick={() => setRefineOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors font-medium"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path d="M15.98 1.804a1 1 0 00-1.96 0l-.24 1.192a1 1 0 01-.784.785l-1.192.238a1 1 0 000 1.962l1.192.238a1 1 0 01.785.785l.238 1.192a1 1 0 001.962 0l.238-1.192a1 1 0 01.785-.785l1.192-.238a1 1 0 000-1.962l-1.192-.238a1 1 0 01-.785-.785l-.238-1.192z" />
+              </svg>
+              Refine
+            </button>
+          )}
+
           {/* Regenerate */}
           <button
             onClick={handleRegenerate}
@@ -870,6 +885,25 @@ function WelcomeMessagePanel({ booking, user }) {
           onCancel={() => setShowSendLater(false)}
         />
       )}
+
+      <RefineDrawer
+        isOpen={refineOpen}
+        onClose={() => setRefineOpen(false)}
+        draft={booking.welcomeMessage || ''}
+        context={{
+          type: 'welcome',
+          guestName: booking.guestName,
+          bookingCode: booking.code,
+        }}
+        onAccept={async (acceptedDraft) => {
+          const { doc: firestoreDoc, updateDoc } = await import('firebase/firestore');
+          const { db } = await import('@/lib/firebase');
+          await updateDoc(firestoreDoc(db, 'bookings', booking.id), {
+            welcomeMessage: acceptedDraft,
+            welcomeStatus: 'ready',
+          });
+        }}
+      />
     </div>
   );
 }
