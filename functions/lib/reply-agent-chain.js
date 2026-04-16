@@ -110,8 +110,8 @@ const REASONER_TOOL = {
 // Step 2: Drafter — write the reply following the strategy
 // ---------------------------------------------------------------------------
 
-function buildDrafterPrompt(voicePrompt) {
-  return `${voicePrompt}
+function buildDrafterPrompt(voicePrompt, voiceProfilePrompt) {
+  return `${voicePrompt}${voiceProfilePrompt || ''}
 
 IMPORTANT: You have been given a STRATEGY from the reasoner. Follow it exactly:
 - Use the specified language
@@ -226,7 +226,7 @@ const EVALUATOR_TOOL = {
 // Main function
 // ---------------------------------------------------------------------------
 
-async function generateReplyChain({ message, contextJson, voicePrompt, relevantConversations }) {
+async function generateReplyChain({ message, contextJson, voicePrompt, relevantConversations, voiceProfilePrompt }) {
   const startTime = Date.now();
   const steps = [];
 
@@ -258,7 +258,7 @@ async function generateReplyChain({ message, contextJson, voicePrompt, relevantC
   const drafterResponse = await client.messages.create({
     model: MODEL,
     max_tokens: 512,
-    system: buildDrafterPrompt(voicePrompt),
+    system: buildDrafterPrompt(voicePrompt, voiceProfilePrompt),
     tools: [DRAFTER_TOOL],
     tool_choice: { type: 'tool', name: 'guest_reply' },
     messages: [{ role: 'user', content: drafterInput }],
@@ -284,14 +284,16 @@ async function generateReplyChain({ message, contextJson, voicePrompt, relevantC
     similarity: c.distance != null ? (1 - c.distance).toFixed(2) : null,
   }));
 
-  const evalInput = JSON.stringify({
+  const evalInputObj = {
     draft: draft.reply,
     wordCount: draft.reply.split(/\s+/).length,
     strategy,
     ragMatches: ragContext,
     guestMessage: message.body,
     guestName: message.guestName,
-  });
+  };
+  const evalInput = JSON.stringify(evalInputObj) +
+    (voiceProfilePrompt ? `\n\nADDITIONAL VOICE RULES TO CHECK AGAINST:\n${voiceProfilePrompt}` : '');
 
   const evalResponse = await client.messages.create({
     model: MODEL,
@@ -330,7 +332,7 @@ async function generateReplyChain({ message, contextJson, voicePrompt, relevantC
     const reviseResponse = await client.messages.create({
       model: MODEL,
       max_tokens: 512,
-      system: buildDrafterPrompt(voicePrompt),
+      system: buildDrafterPrompt(voicePrompt, voiceProfilePrompt),
       tools: [DRAFTER_TOOL],
       tool_choice: { type: 'tool', name: 'guest_reply' },
       messages: [{ role: 'user', content: reviseInput }],

@@ -247,14 +247,16 @@ function buildReplyInput({ message, thread, booking, settings, voiceSamples, rel
  * @param {Object[]} params.voiceSamples - Past sent replies for voice matching
  * @returns {Promise<{ reply: string, language: string, shouldEscalate: boolean, escalateReason: string|null }>}
  */
-async function generateReply({ message, thread, booking, settings, voiceSamples, relevantConversations }) {
+async function generateReply({ message, thread, booking, settings, voiceSamples, relevantConversations, voiceProfilePrompt }) {
   const startTime = Date.now();
   const userMessage = buildReplyInput({ message, thread, booking, settings, voiceSamples, relevantConversations });
+
+  const systemWithVoice = SYSTEM_PROMPT + (voiceProfilePrompt || '');
 
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: 512,
-    system: SYSTEM_PROMPT,
+    system: systemWithVoice,
     tools: [REPLY_TOOL],
     tool_choice: { type: 'tool', name: 'guest_reply' },
     messages: [{ role: 'user', content: userMessage }],

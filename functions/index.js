@@ -274,6 +274,27 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
       const settingsDoc = await db.collection('settings').doc('property').get();
       const settings = settingsDoc.exists ? settingsDoc.data() : {};
 
+      // Load voice profile for style injection
+      const voiceProfileDoc = await db.collection('settings').doc('voice_profile').get();
+      const voiceProfile = voiceProfileDoc.exists ? voiceProfileDoc.data() : { rules: [], examples: [] };
+
+      let voiceProfilePrompt = '';
+      if (voiceProfile.rules?.length || voiceProfile.examples?.length) {
+        voiceProfilePrompt = '\n\n## VOICE PROFILE — Learned from host corrections\n';
+        if (voiceProfile.rules?.length) {
+          voiceProfilePrompt += '\nSTYLE RULES (follow these exactly):\n';
+          voiceProfile.rules.forEach((rule, i) => {
+            voiceProfilePrompt += `${i + 1}. ${rule}\n`;
+          });
+        }
+        if (voiceProfile.examples?.length) {
+          voiceProfilePrompt += '\nEXAMPLE MESSAGES (match this tone and style):\n';
+          voiceProfile.examples.forEach((ex, i) => {
+            voiceProfilePrompt += `\n--- Example ${i + 1} (${ex.context || 'general'}, ${ex.language || 'en'}) ---\n${ex.text}\n`;
+          });
+        }
+      }
+
       // RAG retrieval — find relevant past conversations (non-blocking on failure)
       let relevantConversations = [];
       try {
@@ -311,12 +332,13 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
           contextJson,
           voicePrompt: SYSTEM_PROMPT,
           relevantConversations,
+          voiceProfilePrompt,
         });
         logger.info(`[onAirbnbMessageCreated] Chain: voice=${result._agentRun?.voiceScore}/10, steps=${result._agentRun?.steps?.map(s => s.step).join('→')}`);
       } catch (chainErr) {
         logger.warn('[onAirbnbMessageCreated] Chain strategy failed, falling back to single-shot:', chainErr.message);
         result = await generateReply({
-          message: messageWithId, thread, booking, settings, voiceSamples, relevantConversations,
+          message: messageWithId, thread, booking, settings, voiceSamples, relevantConversations, voiceProfilePrompt,
         });
       }
 
