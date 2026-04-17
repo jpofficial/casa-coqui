@@ -107,7 +107,7 @@ async function autoCreateCleaningJob(bookingId, unit, checkOutDate, guestName) {
   return jobRef.id;
 }
 
-async function processFeed(feed) {
+async function processFeed(feed, settings) {
   const stats = { eventsFound: 0, created: 0, updated: 0, cancelled: 0, unchanged: 0, errors: [] };
   const { unitId, unitName, icsUrl } = feed;
 
@@ -212,11 +212,10 @@ async function processFeed(feed) {
 
         // Generate welcome draft (non-blocking)
         try {
-          const settingsForWelcome = settings;
-          const template = settingsForWelcome.welcomeTemplate || null;
+          const template = settings?.welcomeTemplate || null;
           const result = await generateWelcomeMessage({
             booking: { id: ref.id, ...bookingData },
-            settings: settingsForWelcome,
+            settings,
             template,
           });
           await ref.update({
@@ -347,7 +346,7 @@ export async function POST(request) {
     };
 
     for (const feed of feeds) {
-      const stats = await processFeed(feed);
+      const stats = await processFeed(feed, settings);
       totals.eventsFound += stats.eventsFound;
       totals.created += stats.created;
       totals.updated += stats.updated;

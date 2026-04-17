@@ -359,7 +359,8 @@ async function createBookingFromConfirmation(details, firestore, propertySetting
     return null;
   }
 
-  // 1. Deduplicate: skip if booking already exists for this confirmation code
+  // 1. Deduplicate: if booking already exists (e.g. from ICS sync), enrich it
+  //    with the guest name and trigger welcome generation instead of skipping.
   if (confirmationCode) {
     const existing = await firestore
       .collection('bookings')
@@ -368,7 +369,38 @@ async function createBookingFromConfirmation(details, firestore, propertySetting
       .get();
 
     if (!existing.empty) {
-      console.log('Booking already exists for confirmation code — skipping', { confirmationCode, existingId: existing.docs[0].id });
+      const existingDoc = existing.docs[0];
+      const existingData = existingDoc.data();
+      const existingId = existingDoc.id;
+
+      // Enrich: update guest name if the existing record has a generic name
+      const genericNames = ['airbnb guest', 'guest', ''];
+      const existingNameGeneric = genericNames.includes((existingData.guestName || '').toLowerCase().trim());
+      const hasRealName = guestName && !genericNames.includes(guestName.toLowerCase().trim());
+
+      const enrichUpdates = {};
+      if (existingNameGeneric && hasRealName) {
+        enrichUpdates.guestName = guestName.trim();
+        console.log('Enriching existing booking with guest name from email', { existingId, guestName });
+      }
+
+      // Enrich: fill in missing fields from the reservation email
+      if (guestCount && !existingData.guestCount) enrichUpdates.guestCount = guestCount;
+      if (payoutAmount && !existingData.payoutAmount) enrichUpdates.payoutAmount = payoutAmount;
+      if (guestMessage && !existingData.guestMessage) enrichUpdates.guestMessage = guestMessage;
+
+      if (Object.keys(enrichUpdates).length > 0) {
+        enrichUpdates.enrichedFromEmailAt = new Date().toISOString();
+        await firestore.collection('bookings').doc(existingId).update(enrichUpdates);
+      }
+
+      // Trigger welcome generation if still pending
+      if (existingData.welcomeStatus === 'pending' || existingData.welcomeStatus === 'error') {
+        console.log('Triggering welcome generation for enriched booking', { existingId });
+        return { bookingId: existingId, code: existingData.code, enriched: true };
+      }
+
+      console.log('Booking already exists and has welcome message — no action needed', { confirmationCode, existingId });
       return null;
     }
   }
@@ -987,7 +1019,9 @@ exports.handler = async (event) => {
             sesMessageId,
             airbnbConfirmationCode: reservationDetails.confirmationCode || confirmationCode,
             quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
-            reason: result ? 'reservation_confirmation:booking_created' : 'reservation_confirmation:skipped',
+            reason: result
+              ? (result.enriched ? 'reservation_confirmation:booking_enriched' : 'reservation_confirmation:booking_created')
+              : 'reservation_confirmation:skipped',
             bookingId: result?.bookingId || null,
           });
         }
