@@ -39,6 +39,10 @@ tools/pricing/pricing.db-wal
 tools/pricing/reports/
 tools/pricing/logs/
 
+# Graphify — commit graph output, exclude cache
+graphify-out/cache/
+graphify-out/.graphify_python
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
