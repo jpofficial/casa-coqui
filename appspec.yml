@@ -1,0 +1,99 @@
+# Casa Coqui — CodeDeploy appspec.yml (EC2 In-Place Deployment)
+#
+# Scenario: Next.js 14 app deployed to EC2 behind an ALB.
+# Process manager: PM2. Build tool: npm + next build.
+#
+# Lifecycle hook order (EC2 in-place with ALB):
+#   1. BeforeBlockTraffic   — prep for traffic drain
+#   2. BlockTraffic         — (CodeDeploy-managed: deregister from ALB target group)
+#   3. AfterBlockTraffic    — stop the running app
+#   4. BeforeInstall        — clean up previous deployment artifacts
+#   5. Install              — (CodeDeploy-managed: copy revision files to destination)
+#   6. AfterInstall         — install deps, build the app
+#   7. ApplicationStart     — start the new version via PM2
+#   8. ValidateService      — health check (INTENTIONALLY FAILS for rollback study)
+#   9. BeforeAllowTraffic   — warm the app before ALB routes traffic
+#  10. AllowTraffic         — (CodeDeploy-managed: register with ALB target group)
+#  11. AfterAllowTraffic    — post-deploy smoke test
+#
+# DOP-C02 exam note: BlockTraffic/AllowTraffic hooks only exist when
+# the deployment group is associated with an ALB/NLB. Without a load
+# balancer, the lifecycle skips straight from ApplicationStop → BeforeInstall.
+#
+# AIP-C01 crossover: This same appspec pattern applies to EC2-hosted
+# GenAI inference servers (e.g., a FastAPI app calling Bedrock). The
+# ValidateService hook would hit the /invoke endpoint to confirm the
+# model responds before allowing traffic.
+
+version: 0.0
+os: linux
+
+files:
+  # Copy the entire revision to the deployment target directory.
+  # CodeDeploy places these files during the Install phase.
+  - source: /
+    destination: /home/ec2-user/casa-coqui
+    overwrite: true
+
+# File-level permissions (Linux only).
+# DOP-C02 exam note: permissions only apply to files in the 'files' section,
+# NOT to files already on the instance.
+permissions:
+  - object: /home/ec2-user/casa-coqui
+    owner: ec2-user
+    group: ec2-user
+    mode: "755"
+    type:
+      - directory
+  - object: /home/ec2-user/casa-coqui/scripts/codedeploy
+    owner: ec2-user
+    group: ec2-user
+    mode: "755"
+    type:
+      - file
+
+hooks:
+  # ── Phase 1: Drain ──────────────────────────────────────
+  BeforeBlockTraffic:
+    - location: scripts/codedeploy/before_block_traffic.sh
+      timeout: 30
+      runas: ec2-user
+
+  AfterBlockTraffic:
+    - location: scripts/codedeploy/after_block_traffic.sh
+      timeout: 60
+      runas: ec2-user
+
+  # ── Phase 2: Install ────────────────────────────────────
+  BeforeInstall:
+    - location: scripts/codedeploy/before_install.sh
+      timeout: 30
+      runas: ec2-user
+
+  AfterInstall:
+    - location: scripts/codedeploy/after_install.sh
+      timeout: 60
+      runas: ec2-user
+
+  # ── Phase 3: Start ──────────────────────────────────────
+  ApplicationStart:
+    - location: scripts/codedeploy/application_start.sh
+      timeout: 60
+      runas: ec2-user
+
+  # ── Phase 4: Validate ───────────────────────────────────
+  ValidateService:
+    - location: scripts/codedeploy/validate_service.sh
+      timeout: 60
+      runas: ec2-user
+
+  # ── Phase 5: Allow Traffic ──────────────────────────────
+  BeforeAllowTraffic:
+    - location: scripts/codedeploy/before_allow_traffic.sh
+      timeout: 60
+      runas: ec2-user
+
+  AfterAllowTraffic:
+    - location: scripts/codedeploy/after_allow_traffic.sh
+      timeout: 120
+      runas: ec2-user

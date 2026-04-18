@@ -19,6 +19,8 @@ import aws_cdk as cdk
 from stacks.foundation_stack import CasaCoquiFoundationStack
 from stacks.pipeline_stack import CasaCoquiPipelineStack
 from stacks.email_stack import CasaCoquiEmailStack
+from stacks.hosting_stack import CasaCoquiHostingStack
+from stacks.ec2_pipeline_stack import CasaCoquiEc2PipelineStack
 
 
 app = cdk.App()
@@ -87,10 +89,56 @@ pipeline.add_dependency(foundation)
 # logical (Foundation provisions the account baseline first).
 email.add_dependency(foundation)
 
+# ------------------------------------------------------------------
+# EC2 Hosting stack — EC2, ALB, CodeDeploy (already deployed).
+# Referenced by the EC2 pipeline stack below.
+# ------------------------------------------------------------------
+ARTIFACT_BUCKET_NAME = "casacoquifoundationstack-artifactbucket7410c9ef-dylmy0p5mscz"
+PIPELINE_SECRET_ARN = (
+    "arn:aws:secretsmanager:us-east-1:524140443248"
+    ":secret:casa-coqui/pipeline-FNJvCt"
+)
+KMS_KEY_ARN = "arn:aws:kms:us-east-1:524140443248:key/3c534568-f0e6-4d38-b581-d862604669cb"
+
+hosting = CasaCoquiHostingStack(
+    app,
+    "CasaCoquiHostingStack",
+    env=env,
+    artifact_bucket_name=ARTIFACT_BUCKET_NAME,
+    pipeline_secret_arn=PIPELINE_SECRET_ARN,
+    description=(
+        "Casa Coqui EC2 hosting - ALB, CodeDeploy, Route53. "
+        "DOP-C02 exam practice."
+    ),
+)
+
+# EC2 Pipeline stack — CodePipeline + CodeBuild for EC2 deployment.
+# Pulls from ec2-deploy branch, builds in CodeBuild, deploys via CodeDeploy.
+ec2_pipeline = CasaCoquiEc2PipelineStack(
+    app,
+    "CasaCoquiEc2PipelineStack",
+    env=env,
+    artifact_bucket_name=ARTIFACT_BUCKET_NAME,
+    pipeline_secret_arn=PIPELINE_SECRET_ARN,
+    kms_key_arn=KMS_KEY_ARN,
+    github_owner=github_owner,
+    github_repo=github_repo,
+    github_branch="ec2-deploy",
+    description=(
+        "Casa Coqui EC2 CI/CD pipeline - CodePipeline + CodeBuild. "
+        "Lifecycle: rebuildable."
+    ),
+)
+
+# EC2 pipeline depends on hosting (CodeDeploy app must exist first).
+ec2_pipeline.add_dependency(hosting)
+
 cdk.Tags.of(app).add("Project", "casa-coqui")
 cdk.Tags.of(app).add("ManagedBy", "cdk")
 cdk.Tags.of(foundation).add("Lifecycle", "retain")
 cdk.Tags.of(pipeline).add("Lifecycle", "rebuildable")
 cdk.Tags.of(email).add("Lifecycle", "retain")
+cdk.Tags.of(hosting).add("Lifecycle", "rebuildable")
+cdk.Tags.of(ec2_pipeline).add("Lifecycle", "rebuildable")
 
 app.synth()
