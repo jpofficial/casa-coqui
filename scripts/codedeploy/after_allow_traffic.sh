@@ -21,12 +21,14 @@ set -e
 
 HOOK="AfterAllowTraffic"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-ALB_DNS="${ALB_DNS:-casa-coqui-alb-123456.us-east-1.elb.amazonaws.com}"
+ALB_DNS="casa-coqui-alb-1845864504.us-east-1.elb.amazonaws.com"
 
 echo "[$TIMESTAMP] [$HOOK] Running post-deploy smoke test via ALB"
 
-# Test through the ALB (not localhost) to confirm end-to-end routing
-HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${ALB_DNS}/" --max-time 10 2>/dev/null || echo "000")
+# Test through the ALB (HTTPS) to confirm end-to-end routing.
+# -s = silent, -k = allow self-signed/ACM certs from inside VPC,
+# -o /dev/null = discard body, -w "%{http_code}" = output HTTP status.
+HTTP_STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "https://${ALB_DNS}/" --max-time 10 2>/dev/null || echo "000")
 
 echo "[$TIMESTAMP] [$HOOK] ALB smoke test: HTTP $HTTP_STATUS"
 
