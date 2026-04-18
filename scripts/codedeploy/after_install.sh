@@ -46,17 +46,10 @@ chmod 600 "$APP_DIR/.env.local"
 ENV_COUNT=$(wc -l < "$APP_DIR/.env.local")
 echo "[$TIMESTAMP] [$HOOK] Wrote $ENV_COUNT env vars to .env.local"
 
-# ── Rebuild node_modules/.bin symlinks ──
-# CodeBuild zips the artifact, CodeDeploy unzips it on EC2. During this
-# process, symlinks in node_modules/.bin/ get flattened into regular files.
-# npm rebuild recreates the symlinks without reinstalling anything.
-# Without this, `npm start` → `next start` fails with:
-#   "Cannot find module '../server/require-hook'"
-# because .bin/next is a broken flat file instead of a symlink to
-# ../next/dist/bin/next.
-echo "[$TIMESTAMP] [$HOOK] Rebuilding node_modules/.bin symlinks..."
-npm rebuild
-echo "[$TIMESTAMP] [$HOOK] Symlinks rebuilt."
+# NOTE: We do NOT run npm rebuild here. CodeDeploy extracts files as root,
+# so ec2-user can't modify node_modules/.bin/. Instead, application_start.sh
+# calls `node node_modules/next/dist/bin/next start` directly, bypassing
+# the broken .bin symlinks entirely.
 
 echo "[$TIMESTAMP] [$HOOK] Done. App is pre-built — ready for ApplicationStart."
 
