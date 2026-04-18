@@ -229,10 +229,55 @@ class CasaCoquiEc2PipelineStack(Stack):
         # action that triggers an EC2 in-place deployment. It passes the
         # build artifact (zip) to CodeDeploy, which downloads it to the
         # EC2 instance and runs the appspec.yml lifecycle hooks.
+        #
+        # We create an EXPLICIT role for the Deploy action because CDK's
+        # auto-generated role only grants GetDeploymentConfig for OneAtATime.
+        # Our deployment group uses AllAtOnce — so we need to control the
+        # permissions ourselves.
+        # DOP-C02 exam note: Each pipeline action can have its own IAM role.
+        # The pipeline role delegates to action roles via sts:AssumeRole.
+        deploy_action_role = iam.Role(
+            self,
+            "DeployActionRole",
+            assumed_by=iam.ArnPrincipal(f"arn:aws:iam::{self.account}:root"),
+            description="Casa Coqui EC2 pipeline - Deploy action role",
+        )
+        deploy_action_role.add_to_policy(iam.PolicyStatement(
+            actions=[
+                "codedeploy:CreateDeployment",
+                "codedeploy:GetDeployment",
+                "codedeploy:GetApplicationRevision",
+                "codedeploy:RegisterApplicationRevision",
+            ],
+            resources=[
+                f"arn:aws:codedeploy:{self.region}:{self.account}:application:casa-coqui",
+                f"arn:aws:codedeploy:{self.region}:{self.account}:deploymentgroup:casa-coqui/casa-coqui-production",
+            ],
+        ))
+        deploy_action_role.add_to_policy(iam.PolicyStatement(
+            actions=["codedeploy:GetDeploymentConfig"],
+            resources=[
+                f"arn:aws:codedeploy:{self.region}:{self.account}:deploymentconfig:CodeDeployDefault.*",
+            ],
+        ))
+        # The deploy action needs to read the build artifact from S3
+        deploy_action_role.add_to_policy(iam.PolicyStatement(
+            actions=["s3:GetObject*", "s3:GetBucket*", "s3:List*"],
+            resources=[
+                artifact_bucket.bucket_arn,
+                f"{artifact_bucket.bucket_arn}/*",
+            ],
+        ))
+        deploy_action_role.add_to_policy(iam.PolicyStatement(
+            actions=["kms:Decrypt", "kms:DescribeKey"],
+            resources=[kms_key_arn],
+        ))
+
         deploy_action = cp_actions.CodeDeployServerDeployAction(
             action_name="Deploy_EC2",
             deployment_group=deployment_group,
             input=build_artifact,
+            role=deploy_action_role,
             run_order=1,
         )
 
@@ -260,21 +305,6 @@ class CasaCoquiEc2PipelineStack(Stack):
             ],
         )
         pipeline.apply_removal_policy(RemovalPolicy.DESTROY)
-
-        # CDK auto-generates GetDeploymentConfig permission for OneAtATime
-        # (the CDK default), but our hosting stack uses AllAtOnce. Grant
-        # the pipeline role permission for ALL standard deployment configs
-        # so it can trigger any config without IAM errors.
-        # DOP-C02 exam note: Deployment configs (AllAtOnce, HalfAtATime,
-        # OneAtATime) are separate IAM resources with distinct ARNs.
-        pipeline.role.add_to_policy(
-            iam.PolicyStatement(
-                actions=["codedeploy:GetDeploymentConfig"],
-                resources=[
-                    f"arn:aws:codedeploy:{self.region}:{self.account}:deploymentconfig:CodeDeployDefault.*",
-                ],
-            )
-        )
 
         # ------------------------------------------------------------------
         # Outputs
