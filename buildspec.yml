@@ -39,7 +39,11 @@ phases:
   pre_build:
     commands:
       - echo "=== pre_build ==="
-      - npm ci
+      # --include=dev is required because tailwindcss + postcss are devDeps
+      # but needed at build time. NODE_ENV=production skips devDeps by default.
+      # DOP-C02 exam note: This is a common gotcha — build tools in devDeps
+      # won't install when NODE_ENV=production unless you explicitly include them.
+      - npm ci --include=dev
       - echo "node_modules installed. Size:"
       - du -sh node_modules || true
 
