@@ -27,6 +27,11 @@ env:
     NEXT_PUBLIC_FIREBASE_APP_ID: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_APP_ID"
     NEXT_PUBLIC_FIREBASE_VAPID_KEY: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_VAPID_KEY"
     NEXT_PUBLIC_ADMIN_EMAIL: "casa-coqui/pipeline:NEXT_PUBLIC_ADMIN_EMAIL"
+    # Server-side secrets — needed at build time because Next.js evaluates
+    # API routes during "Collecting page data" (static optimization check).
+    # Without these, routes that import firebase-admin or resend will crash.
+    FIREBASE_SERVICE_ACCOUNT_KEY: "casa-coqui/pipeline:FIREBASE_SERVICE_ACCOUNT_KEY"
+    RESEND_API_KEY: "casa-coqui/pipeline:RESEND_API_KEY"
 
 phases:
   install:
