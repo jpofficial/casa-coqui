@@ -261,6 +261,21 @@ class CasaCoquiEc2PipelineStack(Stack):
         )
         pipeline.apply_removal_policy(RemovalPolicy.DESTROY)
 
+        # CDK auto-generates GetDeploymentConfig permission for OneAtATime
+        # (the CDK default), but our hosting stack uses AllAtOnce. Grant
+        # the pipeline role permission for ALL standard deployment configs
+        # so it can trigger any config without IAM errors.
+        # DOP-C02 exam note: Deployment configs (AllAtOnce, HalfAtATime,
+        # OneAtATime) are separate IAM resources with distinct ARNs.
+        pipeline.role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["codedeploy:GetDeploymentConfig"],
+                resources=[
+                    f"arn:aws:codedeploy:{self.region}:{self.account}:deploymentconfig:CodeDeployDefault.*",
+                ],
+            )
+        )
+
         # ------------------------------------------------------------------
         # Outputs
         # ------------------------------------------------------------------
