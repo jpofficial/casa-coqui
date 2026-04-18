@@ -16,8 +16,11 @@ echo "[$TIMESTAMP] [$HOOK] Starting Casa Coqui via PM2"
 
 cd "$APP_DIR"
 
-# Start Next.js in production mode on port 3000
-pm2 start npm --name "casa-coqui" -- start
+# Start Next.js in production mode on port 3000.
+# We call next directly via node instead of `npm start` because
+# CodeDeploy's zip extraction breaks symlinks in node_modules/.bin/.
+# This bypasses the broken .bin/next symlink entirely.
+pm2 start node --name "casa-coqui" -- node_modules/next/dist/bin/next start
 
 # Wait for the process to be online
 sleep 3
