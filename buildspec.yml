@@ -73,9 +73,10 @@ phases:
 artifacts:
   files:
     - "**/*"
-  # DOP-C02 exam note: The artifacts section defines what gets zipped and
-  # uploaded to the S3 artifact bucket. CodeDeploy pulls this zip during
-  # the Install phase and extracts it to the destination in appspec.yml.
+    - ".next/**/*"
+  # DOP-C02 exam note: "**/*" skips dotfiles/dotdirs by default in CodeBuild.
+  # .next/ must be explicitly listed or it won't be included in the artifact.
+  # This is a common gotcha — the build succeeds but the deploy has no output.
 
 cache:
   paths:
