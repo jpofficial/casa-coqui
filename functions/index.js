@@ -162,16 +162,20 @@ exports.cleaningReminder = onSchedule(
 // ---------------------------------------------------------------------------
 // icsSync
 //
-// Scheduled function: runs every 30 minutes.
+// Scheduled function: runs every 5 minutes.
 // Fetches Airbnb ICS calendar feeds, diffs against internal bookings,
 // and creates/updates/cancels bookings + cascades to cleaning jobs.
+//
+// Frequency raised from 30→5 min (2026-04-18) to preserve near-real-time
+// UX after Lambda stopped creating bookings. See
+// docs/superpowers/specs/2026-04-18-parse-airbnb-email-correctness-design.md.
 //
 // To trigger manually via gcloud CLI:
 //   gcloud scheduler jobs run icsSync --location us-east1
 // ---------------------------------------------------------------------------
 exports.icsSync = onSchedule(
   {
-    schedule: '*/30 * * * *', // every 30 minutes
+    schedule: '*/5 * * * *', // every 5 minutes
     timeZone: 'America/Puerto_Rico',
     retryCount: 1,
     memory: '512MiB',
@@ -191,6 +195,7 @@ exports.icsSync = onSchedule(
 
 // Scheduled sweepers
 exports.welcomeSweeper = require('./scheduled').welcomeSweeper;
+exports.lockSweeper = require('./scheduled').lockSweeper;
 
 // ---------------------------------------------------------------------------
 // onAirbnbMessageCreated
