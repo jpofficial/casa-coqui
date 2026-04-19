@@ -446,6 +446,16 @@ async function isDuplicate(firestore, collection, rawEmailS3Key, messageId) {
  * conditional-write reclaim of stale locks. Firestore auto-retries the
  * transaction on contention; concurrent reclaimers serialize.
  */
+
+// Firestore admin SDK surfaces Firestore errors with numeric gRPC status codes.
+// 6 = ALREADY_EXISTS. If the SDK ever switches to string codes like
+// 'already-exists', checking both keeps claimTombstone correct.
+const FIRESTORE_ALREADY_EXISTS_CODES = [6, 'already-exists'];
+
+function isAlreadyExistsError(err) {
+  return FIRESTORE_ALREADY_EXISTS_CODES.includes(err.code);
+}
+
 async function claimTombstone(firestore, objectKey, rfcMessageId) {
   const lockId = sha256(objectKey).slice(0, 32);
   const lockRef = firestore.collection('airbnb_processing_locks').doc(lockId);
@@ -462,7 +472,7 @@ async function claimTombstone(firestore, objectKey, rfcMessageId) {
     });
     return { claimed: true, lockRef };
   } catch (err) {
-    if (err.code !== 6) throw err; // 6 = ALREADY_EXISTS
+    if (!isAlreadyExistsError(err)) throw err;
   }
 
   return await firestore.runTransaction(async (tx) => {
@@ -584,32 +594,17 @@ exports.handler = async (event) => {
       });
 
       // ------------------------------------------------------------------
-      // 3. Classify message type
-      // ------------------------------------------------------------------
-      const messageType = classifyEmail(subject);
-
-      console.log('Email classified', { messageType, subject });
-
-      // ------------------------------------------------------------------
-      // 4. Extract confirmation code + guest name
-      // ------------------------------------------------------------------
-      const confirmationCode =
-        extractConfirmationCode(subject) || extractConfirmationCode(bodyText);
-
-      const guestName =
-        extractGuestNameFromSubject(subject) || fromName || null;
-
-      console.log('Extracted fields', { confirmationCode, guestName });
-
-      // ------------------------------------------------------------------
-      // 5. Get Firestore client
+      // 3. Get Firestore client (hoisted — needed for dedupe + claim below)
       // ------------------------------------------------------------------
       const firestore = await getFirestore();
 
       // ------------------------------------------------------------------
-      // 5b. Dedupe across all three terminal collections before any side
+      // 3b. Dedupe across all three terminal collections before any side
       //     effect. SES → Lambda is at-least-once; a duplicate terminal
       //     record means we already processed this email successfully.
+      //
+      //     Hoisted above classify/extract so the at-most-once guarantee
+      //     holds even if a classifier/extractor is ever changed to do I/O.
       // ------------------------------------------------------------------
       const [msgDup, quarDup] = await Promise.all([
         isDuplicate(firestore, 'airbnb_messages', objectKey, rfcMessageId),
@@ -624,7 +619,7 @@ exports.handler = async (event) => {
       }
 
       // ------------------------------------------------------------------
-      // 5c. Authoritative claim — .create() fails if lock doc exists (CAS).
+      // 3c. Authoritative claim — .create() fails if lock doc exists (CAS).
       //     Crashed invocations leave locks at 'processing'; lockSweeper
       //     (Commit 4) flips them to 'reclaimable' after 5 min.
       // ------------------------------------------------------------------
@@ -636,6 +631,24 @@ exports.handler = async (event) => {
         skippedCount++;
         continue;
       }
+
+      // ------------------------------------------------------------------
+      // 4. Classify message type
+      // ------------------------------------------------------------------
+      const messageType = classifyEmail(subject);
+
+      console.log('Email classified', { messageType, subject });
+
+      // ------------------------------------------------------------------
+      // 5. Extract confirmation code + guest name
+      // ------------------------------------------------------------------
+      const confirmationCode =
+        extractConfirmationCode(subject) || extractConfirmationCode(bodyText);
+
+      const guestName =
+        extractGuestNameFromSubject(subject) || fromName || null;
+
+      console.log('Extracted fields', { confirmationCode, guestName });
 
       // ------------------------------------------------------------------
       // 6. Route reservation confirmations → enrich or quarantine
@@ -829,6 +842,7 @@ exports.handler = async (event) => {
 
       processedCount++;
       await markTombstoneCompleted(claim.lockRef);
+      continue;
     } catch (err) {
       // Log and continue — one bad record should not block subsequent records
       console.error('Failed to process email record', {
