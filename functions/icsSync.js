@@ -18,6 +18,7 @@ const ical = require('node-ical');
 const crypto = require('crypto');
 const { db, messaging } = require('./firebaseInit');
 const { generateWelcomeMessage } = require('./lib/welcome-ai');
+const { extractConfirmationCodeFromVevent } = require('./lib/vevent-confirmation-code');
 
 // Notification strings (CommonJS — can't import ES module)
 const STRINGS = {
@@ -475,12 +476,45 @@ async function processFeed(feed) {
       const checkInDate = vevent.dtstart;
       const checkOutDate = vevent.dtend;
 
-      // Query for existing booking with this externalId
-      const existingSnap = await db
+      // Primary match: VEVENT UID (covers ICS-created bookings).
+      let existingSnap = await db
         .collection('bookings')
         .where('externalId', '==', vevent.uid)
         .where('unit', '==', unitName)
         .get();
+
+      // Fallback match: airbnbConfirmationCode (covers legacy Lambda-created
+      // bookings whose externalId was set to the HM-code rather than the
+      // VEVENT UID). On match, migrate externalId in place so subsequent
+      // syncs use the primary path.
+      if (existingSnap.empty) {
+        const confirmationCode = extractConfirmationCodeFromVevent({
+          summary: vevent.summary,
+          description: vevent.description,
+        });
+
+        if (confirmationCode) {
+          existingSnap = await db
+            .collection('bookings')
+            .where('airbnbConfirmationCode', '==', confirmationCode)
+            .where('unit', '==', unitName)
+            .get();
+
+          if (!existingSnap.empty) {
+            const doc = existingSnap.docs[0];
+            await doc.ref.update({
+              externalId: vevent.uid,
+              source: 'airbnb',
+              migratedFromEmailAt: new Date().toISOString(),
+            });
+            console.log('[icsSync] Migrated legacy Lambda-created booking to VEVENT UID', {
+              bookingId: doc.id,
+              confirmationCode,
+              veventUid: vevent.uid,
+            });
+          }
+        }
+      }
 
       const now = new Date().toISOString();
 

@@ -14,8 +14,12 @@
     "mailparser": "^3.7.1"
   },
   "scripts": {
-    "test": "node -e \"require('./index'); console.log('module loads OK')\""
+    "test": "jest",
+    "test:load": "node -e \"require('./index'); console.log('module loads OK')\""
   },
   "license": "UNLICENSED",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "jest": "^30.3.0"
+  }
 }

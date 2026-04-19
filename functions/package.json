@@ -9,6 +9,7 @@
   },
   "scripts": {
     "lint": "eslint .",
+    "test": "jest",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
     "deploy": "firebase deploy --only functions",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "eslint": "^8.57.0",
-    "eslint-config-google": "^0.14.0"
+    "eslint-config-google": "^0.14.0",
+    "jest": "^30.3.0"
   }
 }
