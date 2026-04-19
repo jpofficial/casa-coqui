@@ -206,6 +206,28 @@ class CasaCoquiHostingStack(Stack):
             ],
         ))
 
+        # Pricing data bucket — read-only access for the systemd sync timer.
+        # Bucket ARN imported from CasaCoquiPricingStack so the cross-stack
+        # dependency is explicit (cdk destroy on pricing will fail while
+        # hosting is still referencing it).
+        # See: docs/superpowers/specs/2026-04-19-pricing-autopilot-codebuild-migration-design.md
+        pricing_bucket_arn = cdk.Fn.import_value("CasaCoquiPricing-BucketArn")
+        ec2_role.add_to_policy(iam.PolicyStatement(
+            sid="ReadPricingBucket",
+            actions=[
+                "s3:GetObject",
+                "s3:GetObjectAttributes",
+                "s3:ListBucket",
+            ],
+            resources=[
+                pricing_bucket_arn,
+                cdk.Fn.sub("${arn}/*", {"arn": pricing_bucket_arn}),
+            ],
+        ))
+        # Pricing bucket uses the same Foundation CMK as the artifact
+        # bucket, so the existing kms:Decrypt grant above already covers
+        # decrypting pricing.db objects.
+
         # ------------------------------------------------------------------
         # 4. EC2 Instance
         # ------------------------------------------------------------------

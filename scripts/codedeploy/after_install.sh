@@ -51,6 +51,29 @@ echo "[$TIMESTAMP] [$HOOK] Wrote $ENV_COUNT env vars to .env.local"
 # calls `node node_modules/next/dist/bin/next start` directly, bypassing
 # the broken .bin symlinks entirely.
 
+echo "[$TIMESTAMP] [$HOOK] Done with secrets. Installing pricing sync..."
+
+# ── Install pricing.db sync service + timer ──
+# These pull pricing.db from S3 on a 30-min cadence so the admin
+# dashboard at /admin/pricing shows fresh fill-rate recommendations
+# whenever CodeBuild produces a new snapshot.
+# See: docs/superpowers/specs/2026-04-19-pricing-autopilot-codebuild-migration-design.md
+
+chmod +x "$APP_DIR/scripts/ec2/sync-pricing-db.sh"
+
+sudo cp "$APP_DIR/scripts/ec2/casa-coqui-pricing-sync.service" /etc/systemd/system/
+sudo cp "$APP_DIR/scripts/ec2/casa-coqui-pricing-sync.timer"   /etc/systemd/system/
+
+sudo systemctl daemon-reload
+sudo systemctl enable casa-coqui-pricing-sync.timer
+sudo systemctl start  casa-coqui-pricing-sync.timer
+
+# Fire an immediate sync so the DB is fresh before ApplicationStart runs
+# PM2. Don't fail the deploy if this sync can't complete — the timer
+# will retry on the normal cadence.
+sudo systemctl start casa-coqui-pricing-sync.service || \
+  echo "[$TIMESTAMP] [$HOOK] WARNING: immediate pricing sync failed; timer will retry"
+
 echo "[$TIMESTAMP] [$HOOK] Done. App is pre-built — ready for ApplicationStart."
 
 exit 0
