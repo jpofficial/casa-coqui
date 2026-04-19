@@ -595,6 +595,59 @@ async function processFeed(feed) {
         const bookingRef = await db.collection('bookings').add(bookingData);
         stats.created++;
 
+        // Reactive drain: consume email-arrived-first enrichment from quarantine.
+        // Non-fatal — drain failure doesn't block booking creation.
+        try {
+          const quarantineSnap = await db
+            .collection('airbnb_messages_quarantine')
+            .where('airbnbConfirmationCode', '==', bookingData.airbnbConfirmationCode || '')
+            .where('reason', '==', 'unmatched_awaiting_ics')
+            .where('status', '==', 'pending')
+            .get();
+
+          if (!quarantineSnap.empty) {
+            const fields = quarantineSnap.docs[0].data().enrichmentFields || {};
+            const genericNames = ['airbnb guest', 'guest', ''];
+            const nameGeneric = genericNames.includes(
+              (bookingData.guestName || '').toLowerCase().trim()
+            );
+
+            const updates = {};
+            if (fields.guestName && nameGeneric) updates.guestName = fields.guestName;
+            if (fields.guestCount && !bookingData.guestCount) updates.guestCount = fields.guestCount;
+            if (fields.payoutAmount && !bookingData.payoutAmount) updates.payoutAmount = fields.payoutAmount;
+            if (fields.guestMessage && !bookingData.guestMessage) updates.guestMessage = fields.guestMessage;
+
+            if (Object.keys(updates).length > 0) {
+              updates.lastEnrichedFromEmailAt = new Date().toISOString();
+              await bookingRef.update(updates);
+            }
+
+            const batch = db.batch();
+            quarantineSnap.docs.forEach((doc) => {
+              batch.update(doc.ref, {
+                status: 'resolved',
+                resolvedAt: new Date().toISOString(),
+                resolvedBy: 'icsSync:drain',
+                resolvedBookingId: bookingRef.id,
+              });
+            });
+            await batch.commit();
+
+            console.log('reactive drain applied email enrichment', {
+              bookingId: bookingRef.id,
+              airbnbConfirmationCode: bookingData.airbnbConfirmationCode,
+              fieldsUpdated: Object.keys(updates),
+              quarantineDocsResolved: quarantineSnap.size,
+            });
+          }
+        } catch (err) {
+          console.error('Reactive drain failed (non-fatal)', {
+            bookingId: bookingRef.id,
+            error: err.message,
+          });
+        }
+
         // Auto-create cleaning job
         await autoCreateCleaningJob(bookingRef.id, unitName, checkOutDate, guestName);
 

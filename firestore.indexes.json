@@ -9,6 +9,15 @@
       ]
     },
     {
+      "collectionGroup": "airbnb_messages_quarantine",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "airbnbConfirmationCode", "order": "ASCENDING" },
+        { "fieldPath": "reason", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "assignments",
       "queryScope": "COLLECTION",
       "fields": [
