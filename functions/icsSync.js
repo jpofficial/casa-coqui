@@ -247,6 +247,17 @@ async function generateWelcomeDraft(bookingRef, bookingData) {
       template,
     });
 
+    // Defense-in-depth: the generator's internal guard returns skipped:true for
+    // terminal states. The welcomeStatus !== 'pending' pre-check above should
+    // normally prevent that, but if anyone regresses the pre-check we must not
+    // clobber the terminal state here.
+    if (result.skipped) {
+      console.log('[icsSync] welcome generator skipped (terminal state) — not writing', {
+        bookingId: bookingRef.id,
+      });
+      return;
+    }
+
     // Update booking with draft
     await bookingRef.update({
       welcomeStatus: 'ready',

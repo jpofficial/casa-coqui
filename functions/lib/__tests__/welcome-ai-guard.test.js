@@ -1,9 +1,26 @@
 'use strict';
 
-// The guard is synchronous and short-circuits before any API call.
-// Mock firebase-admin + anthropic so the require doesn't fail in test env.
-jest.mock('firebase-admin', () => ({}));
-jest.mock('@anthropic-ai/sdk', () => ({ default: jest.fn() }));
+// Mock the Anthropic SDK so `new Anthropic()` returns a client with a stubbed
+// messages.create() that mimics a valid tool_use response. This lets
+// non-terminal test cases run through the full generator and assert
+// `skipped` is falsy on the real happy path — not via a try/catch that would
+// have passed even if the guard were removed entirely.
+jest.mock('@anthropic-ai/sdk', () => {
+  const mockCreate = jest.fn().mockResolvedValue({
+    content: [
+      {
+        type: 'tool_use',
+        input: { message: 'test welcome', language: 'en' },
+      },
+    ],
+    usage: { input_tokens: 10, output_tokens: 20 },
+  });
+  return {
+    default: jest.fn().mockImplementation(() => ({
+      messages: { create: mockCreate },
+    })),
+  };
+});
 
 const { generateWelcomeMessage, TERMINAL_WELCOME_STATES } = require('../welcome-ai');
 
@@ -31,47 +48,32 @@ describe('generateWelcomeMessage terminal-state guard', () => {
   );
 
   test('does not skip when welcomeStatus is pending', async () => {
-    // Can't easily test the full generation without mocking Anthropic further.
-    // We only assert the guard does NOT early-return.
-    // Replace generateWelcomeMessage body in implementation to throw a sentinel
-    // after the guard; if we hit it, the guard didn't short-circuit.
-    // For this test we just assert skipped is not set.
-    // (If the function would error later, we tolerate that — the guard passed.)
-    try {
-      const result = await generateWelcomeMessage({
-        booking: { id: 'b1', welcomeStatus: 'pending' },
-        settings: {},
-        template: null,
-      });
-      expect(result.skipped).toBeFalsy();
-    } catch {
-      // Non-guard error — acceptable, guard passed.
-    }
+    const result = await generateWelcomeMessage({
+      booking: { id: 'b1', welcomeStatus: 'pending' },
+      settings: {},
+      template: null,
+    });
+    expect(result.skipped).toBeFalsy();
+    expect(result.message).toBe('test welcome');
   });
 
   test('does not skip when welcomeStatus is undefined (seed-script bookings)', async () => {
-    try {
-      const result = await generateWelcomeMessage({
-        booking: { id: 'b1' /* no welcomeStatus */ },
-        settings: {},
-        template: null,
-      });
-      expect(result.skipped).toBeFalsy();
-    } catch {
-      // Non-guard error — acceptable, guard passed.
-    }
+    const result = await generateWelcomeMessage({
+      booking: { id: 'b1' /* no welcomeStatus */ },
+      settings: {},
+      template: null,
+    });
+    expect(result.skipped).toBeFalsy();
+    expect(result.message).toBe('test welcome');
   });
 
   test('does not skip when welcomeStatus is error (retry path)', async () => {
-    try {
-      const result = await generateWelcomeMessage({
-        booking: { id: 'b1', welcomeStatus: 'error' },
-        settings: {},
-        template: null,
-      });
-      expect(result.skipped).toBeFalsy();
-    } catch {
-      // Non-guard error — acceptable, guard passed.
-    }
+    const result = await generateWelcomeMessage({
+      booking: { id: 'b1', welcomeStatus: 'error' },
+      settings: {},
+      template: null,
+    });
+    expect(result.skipped).toBeFalsy();
+    expect(result.message).toBe('test welcome');
   });
 });
