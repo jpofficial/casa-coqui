@@ -21,6 +21,7 @@ from stacks.pipeline_stack import CasaCoquiPipelineStack
 from stacks.email_stack import CasaCoquiEmailStack
 from stacks.hosting_stack import CasaCoquiHostingStack
 from stacks.ec2_pipeline_stack import CasaCoquiEc2PipelineStack
+from stacks.pricing_stack import CasaCoquiPricingStack
 
 
 app = cdk.App()
@@ -133,6 +134,31 @@ ec2_pipeline = CasaCoquiEc2PipelineStack(
 # EC2 pipeline depends on hosting (CodeDeploy app must exist first).
 ec2_pipeline.add_dependency(hosting)
 
+# ------------------------------------------------------------------
+# Pricing stack — autopilot CodeBuild + S3 + EventBridge Scheduler.
+# Replaces the Mac mini launchd runner so fill-rate recommendations
+# reach the dashboard on a reliable schedule. See
+# docs/superpowers/specs/2026-04-19-pricing-autopilot-codebuild-migration-design.md.
+# ------------------------------------------------------------------
+pricing = CasaCoquiPricingStack(
+    app,
+    "CasaCoquiPricingStack",
+    env=env,
+    cmk=foundation.cmk,
+    notifications_topic=foundation.notifications_topic,
+    github_owner=github_owner,
+    github_repo=github_repo,
+    # Pricing autopilot runs against main — it scrapes + analyzes and
+    # doesn't consume unreleased app code, so branch selection is
+    # independent of the ec2-deploy deployment branch.
+    github_branch="main",
+    description=(
+        "Casa Coqui pricing autopilot — CodeBuild + S3 + EventBridge Scheduler. "
+        "Lifecycle: rebuildable."
+    ),
+)
+pricing.add_dependency(foundation)
+
 cdk.Tags.of(app).add("Project", "casa-coqui")
 cdk.Tags.of(app).add("ManagedBy", "cdk")
 cdk.Tags.of(foundation).add("Lifecycle", "retain")
@@ -140,5 +166,6 @@ cdk.Tags.of(pipeline).add("Lifecycle", "rebuildable")
 cdk.Tags.of(email).add("Lifecycle", "retain")
 cdk.Tags.of(hosting).add("Lifecycle", "rebuildable")
 cdk.Tags.of(ec2_pipeline).add("Lifecycle", "rebuildable")
+cdk.Tags.of(pricing).add("Lifecycle", "rebuildable")
 
 app.synth()
