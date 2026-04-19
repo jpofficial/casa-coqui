@@ -33,6 +33,7 @@ const SKIP_SCRAPE = args.includes('--skip-scrape');
 const DRY_RUN = args.includes('--dry-run');
 const HEADFUL = args.includes('--headful');
 const DAYS = parseInt(getArg('days') || '30');
+const S3_SYNC = args.includes('--s3-sync');
 
 // Trigger detection: env var (set by launchd/dashboard), or heuristic
 const TRIGGER = process.env.AUTOPILOT_TRIGGER ||
@@ -452,6 +453,15 @@ async function main() {
         }
       }
     }
+  }
+
+  // S3 sync — produce a consistent snapshot via better-sqlite3 backup API.
+  // .backup() checkpoints the WAL and produces a single-file snapshot
+  // safe to upload as an atomic artifact.
+  if (S3_SYNC) {
+    const snapshotPath = path.join(path.dirname(DB_PATH), 'pricing.db.snapshot');
+    await db.backup(snapshotPath);
+    console.log(`Snapshot written: ${snapshotPath}`);
   }
 
   closeDb();

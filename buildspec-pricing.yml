@@ -1,0 +1,121 @@
+version: 0.2
+
+# Casa Coqui — Pricing Autopilot build
+#
+# Purpose: keep both units booked at the best sustainable rate by running
+# the occupancy-aware pricing engine on a reliable schedule. Spec:
+# docs/superpowers/specs/2026-04-19-pricing-autopilot-codebuild-migration-design.md
+#
+# Runtime: Node 20.
+# Schedule: twice weekly via EventBridge Scheduler (see pricing_stack.py).
+# Output: tools/pricing/pricing.db.snapshot → S3 as pricing.db.
+#
+# This buildspec intentionally sets PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
+# (inverse of the main web-build buildspec-build.yml). The pricing build
+# needs Chromium to run the scraper; the web build does not.
+#
+# No Secrets Manager references. The autopilot does not call Anthropic
+# or Firebase — scraping and decision-engine analysis are self-contained
+# against the local SQLite file.
+
+env:
+  variables:
+    NODE_ENV: "production"
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "0"
+    AUTOPILOT_TRIGGER: "codebuild"
+  shell: bash
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - node --version
+      - npm --version
+      - echo "Installing root dependencies (pricing autopilot only)"
+      # --include=dev because playwright is a devDependency at root.
+      # The rest of devDeps (eslint, tailwind, postcss) are tiny and not
+      # worth a second package manifest to exclude.
+      - npm ci --include=dev --no-audit --no-fund --prefer-offline
+      - echo "Installing Chromium for Playwright"
+      - npx playwright install --with-deps chromium
+
+  pre_build:
+    commands:
+      - echo "=== pre_build ==="
+      - mkdir -p tools/pricing
+      # Pull the current pricing.db from S3 if it exists. First run ever
+      # will miss (expected — autopilot.js creates a new DB on demand).
+      - |
+        if aws s3api head-object \
+            --bucket "$PRICING_BUCKET" \
+            --key pricing.db >/dev/null 2>&1; then
+          echo "Downloading existing pricing.db from s3://$PRICING_BUCKET/pricing.db"
+          aws s3 cp "s3://$PRICING_BUCKET/pricing.db" tools/pricing/pricing.db
+          ls -la tools/pricing/pricing.db
+        else
+          echo "No existing pricing.db in S3 — first run or reset."
+        fi
+
+  build:
+    commands:
+      - echo "=== build ==="
+      - echo "Running autopilot with --s3-sync"
+      - node tools/pricing/scripts/autopilot.js --s3-sync | tee tools/pricing/autopilot-run.log
+
+  post_build:
+    commands:
+      - echo "=== post_build ==="
+      # db.backup() produced pricing.db.snapshot — verify and move to
+      # the artifact output path. If missing, autopilot crashed before
+      # reaching the snapshot step; fail the build so the artifact block
+      # does NOT overwrite the last-good pricing.db in S3.
+      - |
+        if [ ! -f tools/pricing/pricing.db.snapshot ]; then
+          echo "FATAL: pricing.db.snapshot missing after autopilot. Check autopilot-run.log."
+          exit 1
+        fi
+      - ls -la tools/pricing/pricing.db.snapshot
+      # Upload run log separately — regardless of success state up to here.
+      - RUN_DATE=$(date -u +"%Y-%m-%d")
+      - |
+        aws s3 cp tools/pricing/autopilot-run.log \
+          "s3://$PRICING_BUCKET/runs/$RUN_DATE/autopilot.log" \
+          --content-type "text/plain"
+      # Emit a small JSON summary parsed from the run log.
+      - |
+        node -e "
+        const fs = require('fs');
+        const log = fs.readFileSync('tools/pricing/autopilot-run.log', 'utf8');
+        const m = (re) => (log.match(re) || [])[1] || null;
+        const report = {
+          trigger: 'codebuild',
+          runDate: '$RUN_DATE',
+          scrapeOk: parseInt(m(/Scrape:\s+(\d+) OK/) || '0'),
+          scrapeErrors: parseInt(m(/Scrape:.*?(\d+) errors/) || '0'),
+          analysisOk: parseInt(m(/Analysis:\s+(\d+) recommendations/) || '0'),
+          durationS: parseFloat(m(/Duration:\s+([\d.]+)s/) || '0'),
+          runId: m(/Run ID:\s+(\w+)/),
+          warnings: (log.match(/- \[\w+\][^\n]*/g) || []),
+        };
+        fs.writeFileSync('tools/pricing/build-report.json', JSON.stringify(report, null, 2));
+        "
+      - |
+        aws s3 cp tools/pricing/build-report.json \
+          "s3://$PRICING_BUCKET/runs/$RUN_DATE/build-report.json" \
+          --content-type "application/json"
+
+artifacts:
+  base-directory: tools/pricing
+  files:
+    - pricing.db.snapshot
+  name: pricing-db-$(date +%Y-%m-%d)
+  # discard-paths: yes so the artifact key in S3 is just "pricing.db"
+  # (see pricing_stack.py Artifacts.s3 name config).
+  discard-paths: yes
+
+cache:
+  paths:
+    - "node_modules/**/*"
+    - "/root/.npm/**/*"
+    - "/root/.cache/ms-playwright/**/*"
