@@ -152,6 +152,13 @@ pricing = CasaCoquiPricingStack(
     # Next.js app deploys from. Keeps the autopilot JS (decision engine,
     # scrapers) in sync with the code the EC2 reader will run against.
     github_branch="ec2-deploy",
+    # Reuses the existing AWS CodeConnection (same one pipeline_stack and
+    # ec2_pipeline_stack consume). `aws codebuild list-source-credentials`
+    # is the source of truth for this ARN.
+    codeconnection_arn=(
+        "arn:aws:codeconnections:us-east-1:524140443248"
+        ":connection/beb59a0a-315f-4a9b-b179-4d8fa4c7a1c5"
+    ),
     description=(
         "Casa Coqui pricing autopilot — CodeBuild + S3 + EventBridge Scheduler. "
         "Lifecycle: rebuildable."

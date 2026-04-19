@@ -69,6 +69,7 @@ class CasaCoquiPricingStack(Stack):
         github_owner: str,
         github_repo: str,
         github_branch: str,
+        codeconnection_arn: str,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -148,6 +149,17 @@ class CasaCoquiPricingStack(Stack):
             )
         )
 
+        # Allow CodeBuild to use the existing AWS CodeConnection for GitHub
+        # source access. Same connection that CasaCoquiPipelineStack and
+        # CasaCoquiEc2PipelineStack use for their pipeline source actions.
+        codebuild_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="UseCodeConnection",
+                actions=["codeconnections:UseConnection"],
+                resources=[codeconnection_arn],
+            )
+        )
+
         # ------------------------------------------------------------------
         # 4. CodeBuild project
         # ------------------------------------------------------------------
@@ -172,7 +184,12 @@ class CasaCoquiPricingStack(Stack):
                 "buildspec-pricing.yml"
             ),
             environment=codebuild.BuildEnvironment(
-                build_image=codebuild.LinuxBuildImage.AMAZON_LINUX_2_5,
+                # Ubuntu 22.04-based image (aws/codebuild/standard:7.0).
+                # Playwright officially supports Ubuntu — Amazon Linux
+                # does not have apt-get, which Playwright's `install
+                # --with-deps` step invokes to pull Chromium's runtime
+                # system libraries.
+                build_image=codebuild.LinuxBuildImage.STANDARD_7_0,
                 compute_type=codebuild.ComputeType.MEDIUM,
                 privileged=False,
                 environment_variables={
@@ -201,6 +218,20 @@ class CasaCoquiPricingStack(Stack):
                 package_zip=False,
                 encryption=True,
             ),
+        )
+
+        # L1 escape hatch — override source Auth to use CodeConnections
+        # (AWS-managed modern GitHub auth) instead of classic OAuth.
+        # codebuild.Source.git_hub() defaults to OAUTH auth, but this
+        # account uses CodeConnections (same pattern as pipeline_stack
+        # and ec2_pipeline_stack). Wire them together so no separate
+        # GitHub PAT or OAuth App install is needed.
+        cfn_project = self.project.node.default_child
+        cfn_project.add_property_override(
+            "Source.Auth.Type", "CODECONNECTIONS"
+        )
+        cfn_project.add_property_override(
+            "Source.Auth.Resource", codeconnection_arn
         )
 
         # ------------------------------------------------------------------
