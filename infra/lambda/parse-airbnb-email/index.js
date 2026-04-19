@@ -78,6 +78,10 @@ async function getFirestore() {
 
 const crypto = require('crypto');
 
+function sha256(input) {
+  return crypto.createHash('sha256').update(input).digest('hex');
+}
+
 /**
  * @typedef {'reservation_confirmation' | 'guest_message' | 'payout' | 'review_request' | 'policy_update' | 'unknown'} MessageType
  */
@@ -432,6 +436,64 @@ async function isDuplicate(firestore, collection, rawEmailS3Key, messageId) {
   return false;
 }
 
+/**
+ * Claim a processing lock for this email. Returns { claimed: bool, lockRef }.
+ *
+ * Fast path: .create() is the Firestore primitive that fails with
+ * ALREADY_EXISTS if the doc exists — gives us CAS on first claim.
+ *
+ * Slow path (lock exists): runTransaction gives CAS on the read-then-
+ * conditional-write reclaim of stale locks. Firestore auto-retries the
+ * transaction on contention; concurrent reclaimers serialize.
+ */
+async function claimTombstone(firestore, objectKey, rfcMessageId) {
+  const lockId = sha256(objectKey).slice(0, 32);
+  const lockRef = firestore.collection('airbnb_processing_locks').doc(lockId);
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  try {
+    await lockRef.create({
+      rawEmailS3Key: objectKey,
+      messageId: rfcMessageId || null,
+      status: 'processing',
+      claimedAt: admin.firestore.FieldValue.serverTimestamp(),
+      claimedBy: process.env.AWS_LAMBDA_REQUEST_ID || 'unknown',
+      expiresAt,
+    });
+    return { claimed: true, lockRef };
+  } catch (err) {
+    if (err.code !== 6) throw err; // 6 = ALREADY_EXISTS
+  }
+
+  return await firestore.runTransaction(async (tx) => {
+    const snap = await tx.get(lockRef);
+    const data = snap.data() || {};
+    const claimedAtMs = data.claimedAt?.toMillis?.() || 0;
+    const staleThresholdMs = Date.now() - 5 * 60 * 1000;
+    const isStale =
+      (data.status === 'processing' && claimedAtMs < staleThresholdMs) ||
+      data.status === 'reclaimable';
+
+    if (!isStale) return { claimed: false, lockRef };
+
+    tx.update(lockRef, {
+      status: 'processing',
+      claimedAt: admin.firestore.FieldValue.serverTimestamp(),
+      claimedBy: process.env.AWS_LAMBDA_REQUEST_ID || 'unknown',
+      reclaimedFrom: data.claimedBy || 'unknown',
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+    return { claimed: true, lockRef };
+  });
+}
+
+async function markTombstoneCompleted(lockRef) {
+  await lockRef.update({
+    status: 'completed',
+    completedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // S3 helper: stream → Buffer
 // ---------------------------------------------------------------------------
@@ -545,6 +607,37 @@ exports.handler = async (event) => {
       const firestore = await getFirestore();
 
       // ------------------------------------------------------------------
+      // 5b. Dedupe across all three terminal collections before any side
+      //     effect. SES → Lambda is at-least-once; a duplicate terminal
+      //     record means we already processed this email successfully.
+      // ------------------------------------------------------------------
+      const [msgDup, quarDup] = await Promise.all([
+        isDuplicate(firestore, 'airbnb_messages', objectKey, rfcMessageId),
+        isDuplicate(firestore, 'airbnb_messages_quarantine', objectKey, rfcMessageId),
+      ]);
+      if (msgDup || quarDup) {
+        console.log('duplicate — terminal record exists, skipping', {
+          sesMessageId, objectKey,
+        });
+        skippedCount++;
+        continue;
+      }
+
+      // ------------------------------------------------------------------
+      // 5c. Authoritative claim — .create() fails if lock doc exists (CAS).
+      //     Crashed invocations leave locks at 'processing'; lockSweeper
+      //     (Commit 4) flips them to 'reclaimable' after 5 min.
+      // ------------------------------------------------------------------
+      const claim = await claimTombstone(firestore, objectKey, rfcMessageId);
+      if (!claim.claimed) {
+        console.log('duplicate — lock held by another invocation', {
+          sesMessageId, objectKey,
+        });
+        skippedCount++;
+        continue;
+      }
+
+      // ------------------------------------------------------------------
       // 6. Route reservation confirmations → enrich or quarantine
       //    Lambda NEVER creates bookings. ICS is the sole booking creator.
       //    (See docs/superpowers/specs/2026-04-18-parse-airbnb-email-correctness-design.md)
@@ -572,6 +665,7 @@ exports.handler = async (event) => {
             airbnbConfirmationCode: confirmationCode,
           });
           quarantinedCount++;
+          await markTombstoneCompleted(claim.lockRef);
           continue;
         }
 
@@ -598,6 +692,7 @@ exports.handler = async (event) => {
         }
 
         processedCount++;
+        await markTombstoneCompleted(claim.lockRef);
         continue;
       }
 
@@ -606,19 +701,6 @@ exports.handler = async (event) => {
       // ------------------------------------------------------------------
       if (messageType !== 'guest_message') {
         console.log('Non-guest message — routing to quarantine', { messageType });
-
-        const alreadyQuarantined = await isDuplicate(
-          firestore,
-          'airbnb_messages_quarantine',
-          objectKey,
-          rfcMessageId
-        );
-
-        if (alreadyQuarantined) {
-          console.log('Duplicate quarantine record — skipping', { objectKey, rfcMessageId });
-          skippedCount++;
-          continue;
-        }
 
         await firestore.collection('airbnb_messages_quarantine').add({
           messageType,
@@ -637,27 +719,12 @@ exports.handler = async (event) => {
 
         console.log('Written to airbnb_messages_quarantine', { messageType, objectKey });
         quarantinedCount++;
+        await markTombstoneCompleted(claim.lockRef);
         continue;
       }
 
       // ------------------------------------------------------------------
-      // 7. Idempotency check against airbnb_messages
-      // ------------------------------------------------------------------
-      const alreadyProcessed = await isDuplicate(
-        firestore,
-        'airbnb_messages',
-        objectKey,
-        rfcMessageId
-      );
-
-      if (alreadyProcessed) {
-        console.log('Duplicate airbnb_messages record — skipping', { objectKey, rfcMessageId });
-        skippedCount++;
-        continue;
-      }
-
-      // ------------------------------------------------------------------
-      // 8. Match to a booking
+      // 7. Match to a booking
       // ------------------------------------------------------------------
       const booking = await findMatchingBooking(firestore, confirmationCode);
 
@@ -667,65 +734,56 @@ exports.handler = async (event) => {
           guestName,
         });
 
-        // Idempotency check against airbnb_messages
-        const alreadyWritten = await isDuplicate(
-          firestore,
-          'airbnb_messages',
-          objectKey,
-          rfcMessageId
-        );
+        // Write to airbnb_messages with null bookingId so it appears in admin UI
+        await firestore.collection('airbnb_messages').add({
+          bookingId: null,
+          guestName: guestName || null,
+          direction: 'inbound',
+          body: bodyText.slice(0, 8000),
+          receivedAt: admin.firestore.Timestamp.fromDate(receivedAt),
+          rawEmailS3Key: objectKey,
+          messageId: rfcMessageId,
+          sesMessageId,
+          airbnbConfirmationCode: confirmationCode || null,
+          subject,
+          fromName,
+          fromAddress,
+          read: false,
+          draftReply: null,
+          draftStatus: 'pending',
+          draftedAt: null,
+          sentAt: null,
+          editedReply: null,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          threadKey: buildThreadKey({
+            bookingCode: null,
+            senderEmail: fromAddress,
+            senderName: guestName || fromName,
+          }),
+          source: 'inbound',
+        });
 
-        if (!alreadyWritten) {
-          // Write to airbnb_messages with null bookingId so it appears in admin UI
-          await firestore.collection('airbnb_messages').add({
-            bookingId: null,
-            guestName: guestName || null,
-            direction: 'inbound',
-            body: bodyText.slice(0, 8000),
-            receivedAt: admin.firestore.Timestamp.fromDate(receivedAt),
-            rawEmailS3Key: objectKey,
-            messageId: rfcMessageId,
-            sesMessageId,
-            airbnbConfirmationCode: confirmationCode || null,
-            subject,
-            fromName,
-            fromAddress,
-            read: false,
-            draftReply: null,
-            draftStatus: 'pending',
-            draftedAt: null,
-            sentAt: null,
-            editedReply: null,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            threadKey: buildThreadKey({
-              bookingCode: null,
-              senderEmail: fromAddress,
-              senderName: guestName || fromName,
-            }),
-            source: 'inbound',
-          });
+        console.log('Written unmatched guest_message to airbnb_messages');
 
-          console.log('Written unmatched guest_message to airbnb_messages');
-
-          // Also archive to quarantine for record-keeping
-          await firestore.collection('airbnb_messages_quarantine').add({
-            messageType: 'guest_message',
-            subject,
-            fromName,
-            fromAddress,
-            body: bodyText.slice(0, 4000),
-            receivedAt: admin.firestore.Timestamp.fromDate(receivedAt),
-            rawEmailS3Key: objectKey,
-            messageId: rfcMessageId,
-            sesMessageId,
-            airbnbConfirmationCode: confirmationCode,
-            guestName,
-            quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
-            reason: 'no_matching_booking',
-          });
-        }
+        // Also archive to quarantine for record-keeping
+        await firestore.collection('airbnb_messages_quarantine').add({
+          messageType: 'guest_message',
+          subject,
+          fromName,
+          fromAddress,
+          body: bodyText.slice(0, 4000),
+          receivedAt: admin.firestore.Timestamp.fromDate(receivedAt),
+          rawEmailS3Key: objectKey,
+          messageId: rfcMessageId,
+          sesMessageId,
+          airbnbConfirmationCode: confirmationCode,
+          guestName,
+          quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
+          reason: 'no_matching_booking',
+        });
 
         processedCount++;
+        await markTombstoneCompleted(claim.lockRef);
         continue;
       }
 
@@ -770,6 +828,7 @@ exports.handler = async (event) => {
       });
 
       processedCount++;
+      await markTombstoneCompleted(claim.lockRef);
     } catch (err) {
       // Log and continue — one bad record should not block subsequent records
       console.error('Failed to process email record', {
