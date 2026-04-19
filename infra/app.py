@@ -148,10 +148,10 @@ pricing = CasaCoquiPricingStack(
     notifications_topic=foundation.notifications_topic,
     github_owner=github_owner,
     github_repo=github_repo,
-    # Pricing autopilot runs against main — it scrapes + analyzes and
-    # doesn't consume unreleased app code, so branch selection is
-    # independent of the ec2-deploy deployment branch.
-    github_branch="main",
+    # Pricing autopilot builds from ec2-deploy — the same branch the
+    # Next.js app deploys from. Keeps the autopilot JS (decision engine,
+    # scrapers) in sync with the code the EC2 reader will run against.
+    github_branch="ec2-deploy",
     description=(
         "Casa Coqui pricing autopilot — CodeBuild + S3 + EventBridge Scheduler. "
         "Lifecycle: rebuildable."
