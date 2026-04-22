@@ -92,6 +92,8 @@ The property's canonical timezone is `America/Puerto_Rico` (UTC−4, no DST). Ha
 
 If live and broken: apply the equivalent fix. If dormant but producing historical bad data: covered by the backfill.
 
+**Audit result (2026-04-22):** Lambda *does* write `checkInDate` / `checkOutDate` (contrary to preliminary grep in the plan doc). However it derives them via `parseShortDate` — a text-regex parser over the human-readable email body (e.g. "Check-in Sat, May 23"). `parseShortDate` constructs YYYY-MM-DD directly from parsed month/day/year integers without `toISOString()`, and the Lambda does not import `node-ical` or parse VEVENT text. It is immune to the bug fixed here. No Lambda patch needed. Historical bookings created by Lambda are unaffected by the VEVENT-parser bug, so the backfill script will find their dates already correct and skip them.
+
 ### Backfill script — `scripts/fix-airbnb-dates.js`
 
 Re-derive correct dates from the live ICS feed rather than applying a blind `+1 day` shift. Safer because some bookings may have been hand-edited, imported via a different path, or carry dates that are correct by coincidence.
