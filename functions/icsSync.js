@@ -433,8 +433,9 @@ async function processFeed(feed) {
   for (const [, event] of Object.entries(events)) {
     if (event.type !== 'VEVENT') continue;
 
-    const dtstart = veventDateToYMD(event.start);
-    const dtend = veventDateToYMD(event.end);
+    const isDateOnly = event.datetype === 'date';
+    const dtstart = veventDateToYMD(event.start, { dateOnly: isDateOnly });
+    const dtend = veventDateToYMD(event.end, { dateOnly: isDateOnly });
     if (!dtstart || !dtend) continue;
 
     // Skip events too far in the past
