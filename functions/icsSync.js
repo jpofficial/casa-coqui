@@ -67,14 +67,7 @@ function nt(locale, key, params = {}) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Convert VEVENT date to YYYY-MM-DD string */
-function veventDateToYMD(dt) {
-  if (!dt) return null;
-  // node-ical returns Date objects or { tz, val } objects
-  const d = dt instanceof Date ? dt : new Date(dt);
-  if (isNaN(d.getTime())) return null;
-  return d.toISOString().split('T')[0];
-}
+const { veventDateToYMD } = require('./lib/ics-date');
 
 /** Compute SHA-256 hash for change detection */
 function computeSyncHash(uid, dtstart, dtend, summary) {
@@ -440,8 +433,9 @@ async function processFeed(feed) {
   for (const [, event] of Object.entries(events)) {
     if (event.type !== 'VEVENT') continue;
 
-    const dtstart = veventDateToYMD(event.start);
-    const dtend = veventDateToYMD(event.end);
+    const isDateOnly = event.datetype === 'date';
+    const dtstart = veventDateToYMD(event.start, { dateOnly: isDateOnly });
+    const dtend = veventDateToYMD(event.end, { dateOnly: isDateOnly });
     if (!dtstart || !dtend) continue;
 
     // Skip events too far in the past
