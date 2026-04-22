@@ -67,14 +67,7 @@ function nt(locale, key, params = {}) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Convert VEVENT date to YYYY-MM-DD string */
-function veventDateToYMD(dt) {
-  if (!dt) return null;
-  // node-ical returns Date objects or { tz, val } objects
-  const d = dt instanceof Date ? dt : new Date(dt);
-  if (isNaN(d.getTime())) return null;
-  return d.toISOString().split('T')[0];
-}
+const { veventDateToYMD } = require('./lib/ics-date');
 
 /** Compute SHA-256 hash for change detection */
 function computeSyncHash(uid, dtstart, dtend, summary) {
