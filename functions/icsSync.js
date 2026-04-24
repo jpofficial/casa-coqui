@@ -18,6 +18,7 @@ const ical = require('node-ical');
 const crypto = require('crypto');
 const { db, messaging } = require('./firebaseInit');
 const { generateWelcomeMessage } = require('./lib/welcome-ai');
+const { extractConfirmationCodeFromVevent } = require('./lib/vevent-confirmation-code');
 
 // Notification strings (CommonJS — can't import ES module)
 const STRINGS = {
@@ -238,6 +239,17 @@ async function generateWelcomeDraft(bookingRef, bookingData) {
       settings,
       template,
     });
+
+    // Defense-in-depth: the generator's internal guard returns skipped:true for
+    // terminal states. The welcomeStatus !== 'pending' pre-check above should
+    // normally prevent that, but if anyone regresses the pre-check we must not
+    // clobber the terminal state here.
+    if (result.skipped) {
+      console.log('[icsSync] welcome generator skipped (terminal state) — not writing', {
+        bookingId: bookingRef.id,
+      });
+      return;
+    }
 
     // Update booking with draft
     await bookingRef.update({
@@ -469,12 +481,45 @@ async function processFeed(feed) {
       const checkInDate = vevent.dtstart;
       const checkOutDate = vevent.dtend;
 
-      // Query for existing booking with this externalId
-      const existingSnap = await db
+      // Primary match: VEVENT UID (covers ICS-created bookings).
+      let existingSnap = await db
         .collection('bookings')
         .where('externalId', '==', vevent.uid)
         .where('unit', '==', unitName)
         .get();
+
+      // Fallback match: airbnbConfirmationCode (covers legacy Lambda-created
+      // bookings whose externalId was set to the HM-code rather than the
+      // VEVENT UID). On match, migrate externalId in place so subsequent
+      // syncs use the primary path.
+      if (existingSnap.empty) {
+        const confirmationCode = extractConfirmationCodeFromVevent({
+          summary: vevent.summary,
+          description: vevent.description,
+        });
+
+        if (confirmationCode) {
+          existingSnap = await db
+            .collection('bookings')
+            .where('airbnbConfirmationCode', '==', confirmationCode)
+            .where('unit', '==', unitName)
+            .get();
+
+          if (!existingSnap.empty) {
+            const doc = existingSnap.docs[0];
+            await doc.ref.update({
+              externalId: vevent.uid,
+              source: 'airbnb',
+              migratedFromEmailAt: new Date().toISOString(),
+            });
+            console.log('[icsSync] Migrated legacy Lambda-created booking to VEVENT UID', {
+              bookingId: doc.id,
+              confirmationCode,
+              veventUid: vevent.uid,
+            });
+          }
+        }
+      }
 
       const now = new Date().toISOString();
 
@@ -543,6 +588,59 @@ async function processFeed(feed) {
 
         const bookingRef = await db.collection('bookings').add(bookingData);
         stats.created++;
+
+        // Reactive drain: consume email-arrived-first enrichment from quarantine.
+        // Non-fatal — drain failure doesn't block booking creation.
+        try {
+          const quarantineSnap = await db
+            .collection('airbnb_messages_quarantine')
+            .where('airbnbConfirmationCode', '==', bookingData.airbnbConfirmationCode || '')
+            .where('reason', '==', 'unmatched_awaiting_ics')
+            .where('status', '==', 'pending')
+            .get();
+
+          if (!quarantineSnap.empty) {
+            const fields = quarantineSnap.docs[0].data().enrichmentFields || {};
+            const genericNames = ['airbnb guest', 'guest', ''];
+            const nameGeneric = genericNames.includes(
+              (bookingData.guestName || '').toLowerCase().trim()
+            );
+
+            const updates = {};
+            if (fields.guestName && nameGeneric) updates.guestName = fields.guestName;
+            if (fields.guestCount && !bookingData.guestCount) updates.guestCount = fields.guestCount;
+            if (fields.payoutAmount && !bookingData.payoutAmount) updates.payoutAmount = fields.payoutAmount;
+            if (fields.guestMessage && !bookingData.guestMessage) updates.guestMessage = fields.guestMessage;
+
+            if (Object.keys(updates).length > 0) {
+              updates.lastEnrichedFromEmailAt = new Date().toISOString();
+              await bookingRef.update(updates);
+            }
+
+            const batch = db.batch();
+            quarantineSnap.docs.forEach((doc) => {
+              batch.update(doc.ref, {
+                status: 'resolved',
+                resolvedAt: new Date().toISOString(),
+                resolvedBy: 'icsSync:drain',
+                resolvedBookingId: bookingRef.id,
+              });
+            });
+            await batch.commit();
+
+            console.log('reactive drain applied email enrichment', {
+              bookingId: bookingRef.id,
+              airbnbConfirmationCode: bookingData.airbnbConfirmationCode,
+              fieldsUpdated: Object.keys(updates),
+              quarantineDocsResolved: quarantineSnap.size,
+            });
+          }
+        } catch (err) {
+          console.error('Reactive drain failed (non-fatal)', {
+            bookingId: bookingRef.id,
+            error: err.message,
+          });
+        }
 
         // Auto-create cleaning job
         await autoCreateCleaningJob(bookingRef.id, unitName, checkOutDate, guestName);

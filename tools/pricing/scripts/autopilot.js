@@ -16,7 +16,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { getDb, closeDb, getCompetitorsForUnit, DB_PATH, purgeUnitSnapshots, archiveMarketData, saveRunObservations } = require('../lib/db');
+const { getDb, closeDb, getCompetitorsForUnit, DB_PATH, purgeUnitSnapshots, archiveMarketData, saveRunObservations, saveCalendarAvailability } = require('../lib/db');
 const { generateDateRange } = require('../lib/dates');
 const { analyzeDateMultiStay } = require('../lib/multi-stay');
 const { saveRecommendationV2 } = require('../lib/db');
@@ -33,6 +33,7 @@ const SKIP_SCRAPE = args.includes('--skip-scrape');
 const DRY_RUN = args.includes('--dry-run');
 const HEADFUL = args.includes('--headful');
 const DAYS = parseInt(getArg('days') || '30');
+const S3_SYNC = args.includes('--s3-sync');
 
 // Trigger detection: env var (set by launchd/dashboard), or heuristic
 const TRIGGER = process.env.AUTOPILOT_TRIGGER ||
@@ -104,7 +105,7 @@ async function main() {
       scrapeStartMs = Date.now();
 
       // Dynamically load market-research (has playwright dependency)
-      const { launchBrowser, createContext, computeDateRangesV2, scrapeSearchResults, scrapeListingDetails } = require('../lib/market-research');
+      const { launchBrowser, createContext, computeDateRangesV2, scrapeSearchResults, scrapeListingDetails, getRelevantMonths } = require('../lib/market-research');
       const { computeTcpn } = require('../lib/normalize');
 
       const browser = await launchBrowser({ headful: HEADFUL });
@@ -127,6 +128,15 @@ async function main() {
 
         // Accumulate observations for Layer 2 append-only capture
         const unitObservations = [];
+        // Accumulate calendar_availability rows for the current unit's scrape.
+        // Capturing calendar alongside price snapshots is what keeps the
+        // demand_signal fresh — without this, `calendar_availability` stays
+        // stale and the Rate Calendar's "tight/mixed/open" reflects last scrape.
+        const unitCalendarRows = [];
+        // Relevant months = today through today+60d, matching the analysis horizon.
+        const calendarStart = new Date().toISOString().slice(0, 10);
+        const calendarEnd = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
+        const relevantMonths = getRelevantMonths(calendarStart, calendarEnd);
 
         console.log(`  ${unitId}: Searching Airbnb...`);
 
@@ -182,7 +192,7 @@ async function main() {
             console.log(`    [${i + 1}/${listings.length}] ${listing.name || listing.airbnb_id}`);
 
             try {
-              const details = await scrapeListingDetails(page, listing.airbnb_id, dateRanges, (msg) => console.log(`      ${msg}`));
+              const details = await scrapeListingDetails(page, listing.airbnb_id, dateRanges, (msg) => console.log(`      ${msg}`), { captureCalendar: true });
 
               // Skip listings that exceed the bedroom ceiling (null bedrooms = unknown, skip to be safe)
               if (config.max_bedrooms) {
@@ -255,6 +265,29 @@ async function main() {
                 }
               }
 
+              // Collect calendar availability rows (filtered to the relevant
+              // 60-day forward window) for post-loop flush.
+              if (details.calendarRaw && details.calendarRaw.length > 0) {
+                const comp = getCompId.get(details.airbnb_id);
+                if (comp) {
+                  for (const day of details.calendarRaw) {
+                    if (!relevantMonths.has(day.date.slice(0, 7))) continue;
+                    unitCalendarRows.push({
+                      runId, runSource: 'autopilot',
+                      competitorId: comp.id, airbnbId: details.airbnb_id,
+                      listingName: details.name || listing.name || null,
+                      listingUrl: details.url || null,
+                      date: day.date,
+                      rawStatus: day.rawStatus,
+                      displayStatus: day.displayStatus,
+                      minNights: day.minNights, maxNights: day.maxNights,
+                      availableForCheckin: day.availableForCheckin,
+                      availableForCheckout: day.availableForCheckout,
+                    });
+                  }
+                }
+              }
+
               scrapeOk++;
               console.log(`      OK — $${details.base_rate || '?'}/night`);
             } catch (err) {
@@ -266,6 +299,13 @@ async function main() {
           if (unitObservations.length > 0) {
             saveRunObservations(db, unitObservations);
             console.log(`  ${unitId}: Saved ${unitObservations.length} raw observations.`);
+          }
+          // Flush calendar availability rows for this unit. These power the
+          // Rate Calendar's demand_signal + per-comp booked badges and must
+          // be refreshed each scheduled run to avoid stale occupancy data.
+          if (unitCalendarRows.length > 0) {
+            saveCalendarAvailability(db, unitCalendarRows);
+            console.log(`  ${unitId}: Saved ${unitCalendarRows.length} calendar_availability rows.`);
           }
         } catch (err) {
           console.log(`  ${unitId}: Scrape failed — ${err.message}`);
@@ -452,6 +492,15 @@ async function main() {
         }
       }
     }
+  }
+
+  // S3 sync — produce a consistent snapshot via better-sqlite3 backup API.
+  // .backup() checkpoints the WAL and produces a single-file snapshot
+  // safe to upload as an atomic artifact.
+  if (S3_SYNC) {
+    const snapshotPath = path.join(path.dirname(DB_PATH), 'pricing.db.snapshot');
+    await db.backup(snapshotPath);
+    console.log(`Snapshot written: ${snapshotPath}`);
   }
 
   closeDb();

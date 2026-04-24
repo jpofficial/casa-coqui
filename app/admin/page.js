@@ -208,8 +208,12 @@ function StatusBadge({ status }) {
 
 function formatDate(dateStr, locale) {
   if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString(locale === 'es' ? 'es' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  // Parse YYYY-MM-DD in local time, not UTC — new Date('2026-04-20') = UTC
+  // midnight = prior-day evening in Puerto Rico (AST = UTC-4), shifting display
+  // by one day.
+  const [y, m, d] = String(dateStr).slice(0, 10).split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString(locale === 'es' ? 'es' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function AdminDashboard() {

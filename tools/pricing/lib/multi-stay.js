@@ -12,7 +12,7 @@
 
 const { percentile, trimOutliers, computePercentileRank, computeConfidence, coefficientOfVariation } = require('./stats');
 const { computeTcpn, tcpnToNightlyRate } = require('./normalize');
-const { getCompSnapshotsV2 } = require('./db');
+const { getCompSnapshotsV2, getLatestCompSnapshotsV2 } = require('./db');
 const { getSeason, getLeadTimeAdjustment } = require('./seasons');
 const { getDayOfWeek, isHoliday } = require('./dates');
 const { classifyMarketTrend, makeDecision, summarizeDecisions } = require('./decision-engine');
@@ -49,13 +49,23 @@ function analyzeDateMultiStay(db, unitId, date, opts = {}) {
   // Get my rate
   const myRate = db.prepare('SELECT * FROM my_rates WHERE unit_id = ? AND check_date = ?').get(unitId, date);
 
-  // 1. For each stay length, gather comp TCPN values from snapshots_v2
+  // 1. For each stay length, gather comp TCPN values from snapshots_v2.
+  //    The scraper captures one check_date per run (research_config.checkout_date),
+  //    so exact-date snapshots only exist for that one day out of the ~30-day
+  //    analysis window. For dates without an exact snapshot, fall back to the
+  //    most-recent snapshot per competitor so every date gets a recommendation
+  //    (flagged as a stale estimate in the reasoning field + reduced confidence).
   const stayData = {};
   let totalComps = 0;
   let newestCapturedAt = null;
+  let usedFallbackSnapshot = false;
 
   for (const nights of STAY_LENGTHS) {
-    const snapshots = getCompSnapshotsV2(db, unitId, date, nights);
+    let snapshots = getCompSnapshotsV2(db, unitId, date, nights);
+    if (snapshots.length === 0) {
+      snapshots = getLatestCompSnapshotsV2(db, unitId, nights);
+      if (snapshots.length > 0) usedFallbackSnapshot = true;
+    }
     if (snapshots.length === 0) {
       stayData[nights] = { tcpns: [], trimmed: [], marketTcpn: null };
       continue;
@@ -206,6 +216,18 @@ function analyzeDateMultiStay(db, unitId, date, opts = {}) {
   let reasoning = decision.decisionReason;
   reasoning += ` Based on ${totalComps} listings. Season: ${season.name} (P${season.target_pctl}).`;
   if (holidayAdjusted) reasoning += ` ${holiday.name} premium applied.`;
+  if (usedFallbackSnapshot) {
+    reasoning += ' Estimated from latest available snapshot (this date was not directly scraped).';
+  }
+
+  // When we used a fallback snapshot (data wasn't actually for this date),
+  // haircut the confidence score to reflect the estimate nature. Clamp the
+  // reduction at 30 points so the verdict can still be actionable, but
+  // clearly less certain than directly-captured data.
+  let finalConfidence = confidenceResult.score;
+  if (usedFallbackSnapshot) {
+    finalConfidence = Math.max(0, finalConfidence - 30);
+  }
 
   return buildMultiStayResult({
     date, dayOfWeek, holiday, season, leadTimeDays, myRate,
@@ -222,7 +244,7 @@ function analyzeDateMultiStay(db, unitId, date, opts = {}) {
     stretch: round2(stretch),
     verdict,
     reasoning: reasoning.trim(),
-    confidence: confidenceResult.score,
+    confidence: finalConfidence,
     percentile: pctRank,
     compCount: totalComps,
     demandSignal: availability.signal,

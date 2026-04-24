@@ -1,0 +1,87 @@
+version: 0.2
+
+# Casa Coqui — CodeBuild build phase (EC2 deployment)
+#
+# Runtime: Node 20 on general1.small (3GB RAM — free tier: 100 min/month)
+# Purpose: Build the Next.js app in CodeBuild where there's enough RAM,
+#          then output the pre-built artifact for CodeDeploy to ship to EC2.
+#
+# DOP-C02 exam note: This buildspec demonstrates three env variable types:
+#   - variables: plaintext, visible in logs (non-sensitive)
+#   - secrets-manager: pulled from Secrets Manager at build time (sensitive)
+#   - parameter-store: pulled from SSM Parameter Store (not used here but exam-relevant)
+#
+# DOP-C02 exam note: CodeBuild outputs go to the S3 artifact bucket. CodeDeploy
+# picks them up from there. This is the standard build/deploy separation pattern.
+
+env:
+  variables:
+    NODE_ENV: "production"
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+  secrets-manager:
+    NEXT_PUBLIC_FIREBASE_API_KEY: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_API_KEY"
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN"
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_PROJECT_ID"
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET"
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"
+    NEXT_PUBLIC_FIREBASE_APP_ID: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_APP_ID"
+    NEXT_PUBLIC_FIREBASE_VAPID_KEY: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_VAPID_KEY"
+    NEXT_PUBLIC_ADMIN_EMAIL: "casa-coqui/pipeline:NEXT_PUBLIC_ADMIN_EMAIL"
+    # Server-side secrets — needed at build time because Next.js evaluates
+    # API routes during "Collecting page data" (static optimization check).
+    # Without these, routes that import firebase-admin or resend will crash.
+    FIREBASE_SERVICE_ACCOUNT_KEY: "casa-coqui/pipeline:FIREBASE_SERVICE_ACCOUNT_KEY"
+    RESEND_API_KEY: "casa-coqui/pipeline:RESEND_API_KEY"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - echo "=== install ==="
+      - echo "Node $(node --version) | npm $(npm --version)"
+
+  pre_build:
+    commands:
+      - echo "=== pre_build ==="
+      # --include=dev is required because tailwindcss + postcss are devDeps
+      # but needed at build time. NODE_ENV=production skips devDeps by default.
+      # DOP-C02 exam note: This is a common gotcha — build tools in devDeps
+      # won't install when NODE_ENV=production unless you explicitly include them.
+      - npm ci --include=dev
+      - echo "node_modules installed. Size:"
+      - du -sh node_modules || true
+
+  build:
+    commands:
+      - echo "=== build ==="
+      - npm run build
+      - echo "Build complete. .next size:"
+      - du -sh .next || true
+
+  post_build:
+    commands:
+      - echo "=== post_build ==="
+      # Prune devDependencies — EC2 doesn't need tailwind/postcss/eslint at runtime.
+      # DOP-C02 exam note: Reducing artifact size speeds up CodeDeploy's S3 download
+      # and the Install hook's file copy on the EC2 instance.
+      - npm prune --omit=dev
+      - echo "Pruned node_modules size:"
+      - du -sh node_modules || true
+      - echo "Build artifact ready for CodeDeploy."
+
+artifacts:
+  files:
+    - "**/*"
+    - ".next/**/*"
+  # DOP-C02 exam note: "**/*" skips dotfiles/dotdirs by default in CodeBuild.
+  # .next/ must be explicitly listed or it won't be included in the artifact.
+  # This is a common gotcha — the build succeeds but the deploy has no output.
+
+cache:
+  paths:
+    - "node_modules/**/*"
+  # DOP-C02 exam note: CodeBuild caching stores node_modules in S3 between
+  # builds. Subsequent builds skip npm ci if the cache is fresh, cutting
+  # build time from ~3 min to ~30 seconds. The cache key is derived from
+  # the paths listed here.
