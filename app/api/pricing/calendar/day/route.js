@@ -15,7 +15,7 @@ function validUnit(s) {
 }
 
 export async function GET(request) {
-  const authResult = await requireRole(request, ['admin', 'cohost']);
+  const authResult = await requireRole(request, ['admin']);
   if (authResult.error) return authResult.error;
 
   const url = new URL(request.url);
@@ -68,7 +68,8 @@ export async function GET(request) {
       db.prepare(
         `UPDATE recommendations_v2
          SET lede_text = ?, lede_generated_at = datetime('now')
-         WHERE unit_id = ? AND check_date = ?`
+         WHERE unit_id = ? AND check_date = ?
+           AND (lede_generated_at IS NULL OR lede_generated_at < generated_at)`
       ).run(lede, unit, date);
     }
 

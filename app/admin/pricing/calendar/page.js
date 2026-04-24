@@ -35,7 +35,7 @@ export default function RateCalendarPage() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user || !['admin', 'cohost'].includes(role)) router.replace('/admin/login');
+    if (!user || !role === 'admin') router.replace('/admin/login');
   }, [user, role, loading, router]);
 
   // Fetch month data whenever unit or month changes
@@ -88,7 +88,7 @@ export default function RateCalendarPage() {
   };
 
   if (loading) return <div className="p-6 text-sm text-gray-500">Loading…</div>;
-  if (!user || !['admin', 'cohost'].includes(role)) return null;
+  if (!user || !role === 'admin') return null;
 
   const days = monthData?.days || [];
   const lastRun = monthData?.lastRun;

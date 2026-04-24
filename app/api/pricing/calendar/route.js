@@ -14,7 +14,7 @@ function validUnit(s) {
 }
 
 export async function GET(request) {
-  const authResult = await requireRole(request, ['admin', 'cohost']);
+  const authResult = await requireRole(request, ['admin']);
   if (authResult.error) return authResult.error;
 
   const url = new URL(request.url);
