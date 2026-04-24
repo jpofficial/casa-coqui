@@ -200,6 +200,40 @@ function getCompBookedSummaryForDate(db, unitId, date) {
 }
 
 /**
+ * Top N competitors for a unit on a given date, by nightly rate desc.
+ * Joins snapshots_v2 (for price) with calendar_availability (for booked flag).
+ * @param {Object} opts { stayNights=2, limit=5 }
+ * @returns {Array<{ airbnb_id, name, bedrooms, nightly_rate, booked, listing_url }>}
+ */
+function getTopCompsForDate(db, unitId, date, { stayNights = 2, limit = 5 } = {}) {
+  return db.prepare(`
+    SELECT
+      c.airbnb_id,
+      c.name,
+      c.bedrooms,
+      c.url AS listing_url,
+      s.nightly_rate,
+      s.available AS snap_available,
+      COALESCE(ca.display_status, 'unknown') AS status
+    FROM competitors c
+    LEFT JOIN snapshots_v2 s ON s.competitor_id = c.id AND s.check_date = ? AND s.stay_nights = ?
+    LEFT JOIN calendar_availability ca ON ca.competitor_id = c.id AND ca.date = ?
+      AND ca.id = (SELECT MAX(id) FROM calendar_availability WHERE competitor_id = c.id AND date = ?)
+    WHERE c.comp_unit = ? AND c.active = 1
+    ORDER BY s.nightly_rate DESC NULLS LAST
+    LIMIT ?
+  `).all(date, stayNights, date, date, unitId, limit).map(r => ({
+    airbnb_id: r.airbnb_id,
+    name: r.name,
+    bedrooms: r.bedrooms,
+    listing_url: r.listing_url,
+    nightly_rate: r.nightly_rate,
+    // Prefer calendar_availability signal; fall back to snapshots_v2.available (0 = booked).
+    booked: r.status === 'not_available' || (r.status === 'unknown' && r.snap_available === 0),
+  })).filter(r => r.nightly_rate != null);
+}
+
+/**
  * Purge only snapshots_v2 for a unit's competitors.
  */
 function purgeUnitSnapshots(db, unitId) {
@@ -1094,6 +1128,7 @@ module.exports = {
   getRecommendationsForMonth,
   getRecommendationForDate,
   getCompBookedSummaryForDate,
+  getTopCompsForDate,
   purgeUnitSnapshots, purgeUnitRecommendations,
   archiveMarketData, getMarketHistory, getAvailabilityHistory, getAutopilotRuns, recordRateHistory,
   getRunList, getRunById, getRunRecSummary, getRunMarketSummary,
