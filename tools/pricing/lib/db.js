@@ -89,6 +89,48 @@ function getCompSnapshotsV2(db, unitId, date, stayNights) {
   return db.prepare(query).all(...params);
 }
 
+/**
+ * Fallback: latest snapshot per competitor for a unit, optionally filtered by stay_nights.
+ *
+ * Used when no exact-date snapshots exist. The scrape only captures one check_date
+ * per run (by design — research_config.checkout_date is the anchor), so analyzing
+ * a forward window of 30 dates would otherwise find data for only 1. Callers may
+ * fall back to this helper to get directionally-useful data for dates that weren't
+ * explicitly scraped. The per-comp snapshot chosen is the newest by captured_at.
+ */
+function getLatestCompSnapshotsV2(db, unitId, stayNights) {
+  const comps = getCompetitorsForUnit(unitId);
+  if (comps.length === 0) return [];
+  const compIds = comps.map(c => c.id);
+  const placeholders = compIds.map(() => '?').join(',');
+
+  let query = `
+    SELECT sv.*, c.name as comp_name, c.cleaning_fee as comp_cleaning_fee
+    FROM snapshots_v2 sv
+    JOIN competitors c ON sv.competitor_id = c.id
+    WHERE sv.competitor_id IN (${placeholders})
+      AND sv.available = 1
+  `;
+  const params = [...compIds];
+
+  if (stayNights != null) {
+    query += ' AND sv.stay_nights = ?';
+    params.push(stayNights);
+  }
+
+  query += ` AND sv.id IN (
+    SELECT MAX(id) FROM snapshots_v2
+    WHERE competitor_id IN (${placeholders})
+      AND available = 1
+      ${stayNights != null ? 'AND stay_nights = ?' : ''}
+    GROUP BY competitor_id
+  )`;
+  params.push(...compIds);
+  if (stayNights != null) params.push(stayNights);
+
+  return db.prepare(query).all(...params);
+}
+
 /** Save a recommendation_v2 record (upsert) */
 function saveRecommendationV2(db, rec, runId = null) {
   db.prepare(`
@@ -1040,7 +1082,7 @@ function getCalendarBookingSummary(db, unitId, opts = {}) {
 
 module.exports = {
   getDb, initDb, closeDb, logAction, getCompetitor, getCompetitorsForUnit, getHoliday, DB_PATH,
-  getCompSnapshotsV2, saveRecommendationV2, getSeasons, getLatestAutopilotRun, getRecommendationsV2,
+  getCompSnapshotsV2, getLatestCompSnapshotsV2, saveRecommendationV2, getSeasons, getLatestAutopilotRun, getRecommendationsV2,
   purgeUnitSnapshots, purgeUnitRecommendations,
   archiveMarketData, getMarketHistory, getAvailabilityHistory, getAutopilotRuns, recordRateHistory,
   getRunList, getRunById, getRunRecSummary, getRunMarketSummary,
