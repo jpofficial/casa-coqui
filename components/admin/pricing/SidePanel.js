@@ -30,7 +30,7 @@ export default function SidePanel({ unit, date, payload, loading, compSet }) {
         <div className="text-xs text-gray-500">{formatLongDate(date)} · {unit === 'unit-a' ? 'Unit A' : 'Unit B'}</div>
         <div className="text-4xl font-extrabold text-gray-300 mt-2">—</div>
         <p className="mt-4 text-sm text-gray-600 leading-relaxed">
-          We don't have a recommendation for this night. This usually means data is older than 14 days,
+          We don&apos;t have a recommendation for this night. This usually means data is older than 14 days,
           or fewer than 3 comps were captured for this date.
         </p>
         {payload.lastRun && (
