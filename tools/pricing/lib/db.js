@@ -165,6 +165,18 @@ function getRecommendationsForMonth(db, unitId, month) {
 }
 
 /**
+ * Get a single recommendation row for (unit, date).
+ * @returns {Object|null}
+ */
+function getRecommendationForDate(db, unitId, checkDate) {
+  return db.prepare(`
+    SELECT * FROM recommendations_v2
+    WHERE unit_id = ? AND check_date = ?
+    LIMIT 1
+  `).get(unitId, checkDate) || null;
+}
+
+/**
  * Purge only snapshots_v2 for a unit's competitors.
  */
 function purgeUnitSnapshots(db, unitId) {
@@ -1057,6 +1069,7 @@ module.exports = {
   getDb, initDb, closeDb, logAction, getCompetitor, getCompetitorsForUnit, getHoliday, DB_PATH,
   getCompSnapshotsV2, saveRecommendationV2, getSeasons, getLatestAutopilotRun, getRecommendationsV2,
   getRecommendationsForMonth,
+  getRecommendationForDate,
   purgeUnitSnapshots, purgeUnitRecommendations,
   archiveMarketData, getMarketHistory, getAvailabilityHistory, getAutopilotRuns, recordRateHistory,
   getRunList, getRunById, getRunRecSummary, getRunMarketSummary,
