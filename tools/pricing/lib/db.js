@@ -177,6 +177,29 @@ function getRecommendationForDate(db, unitId, checkDate) {
 }
 
 /**
+ * For a unit + date, return how many active comps are tracked and how many are booked.
+ * Uses the latest available calendar_availability per (competitor, date).
+ * @returns {{ total: number, booked: number, pct: number }}
+ */
+function getCompBookedSummaryForDate(db, unitId, date) {
+  const rows = db.prepare(`
+    SELECT ca.display_status
+    FROM calendar_availability ca
+    JOIN competitors c ON c.id = ca.competitor_id
+    WHERE c.comp_unit = ? AND c.active = 1 AND ca.date = ?
+    AND ca.id IN (
+      SELECT MAX(id) FROM calendar_availability
+      WHERE date = ?
+      GROUP BY competitor_id
+    )
+  `).all(unitId, date, date);
+  const total = rows.length;
+  const booked = rows.filter(r => r.display_status === 'not_available').length;
+  const pct = total === 0 ? 0 : Math.round((booked / total) * 100);
+  return { total, booked, pct };
+}
+
+/**
  * Purge only snapshots_v2 for a unit's competitors.
  */
 function purgeUnitSnapshots(db, unitId) {
@@ -1070,6 +1093,7 @@ module.exports = {
   getCompSnapshotsV2, saveRecommendationV2, getSeasons, getLatestAutopilotRun, getRecommendationsV2,
   getRecommendationsForMonth,
   getRecommendationForDate,
+  getCompBookedSummaryForDate,
   purgeUnitSnapshots, purgeUnitRecommendations,
   archiveMarketData, getMarketHistory, getAvailabilityHistory, getAutopilotRuns, recordRateHistory,
   getRunList, getRunById, getRunRecSummary, getRunMarketSummary,
