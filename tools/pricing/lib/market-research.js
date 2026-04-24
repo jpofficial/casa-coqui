@@ -335,63 +335,126 @@ async function scrapeSearchResults(page, config, onProgress) {
 }
 
 async function extractSearchListings(page) {
-  // Strategy 1: Extract from data-deferred-state JSON
-  const jsonListings = await page.evaluate(() => {
+  // Primary strategy: read the card DOM.
+  //
+  // Airbnb's 2026 PDP deferred-state no longer contains a traversable price
+  // (all price fields null until a separate XHR resolves, which itself returns
+  // null when the listing isn't bookable for the queried dates). But the
+  // SEARCH page puts the price directly in an aria-label on each card:
+  //
+  //   <span aria-label="$2,005 for 7 nights, originally $2,183">
+  //
+  // aria-label is part of Airbnb's accessibility contract — the most stable
+  // signal we can read. It also gives us the stay length AND any discount, so
+  // we can derive a clean nightly rate without guessing.
+  const domListings = await page.evaluate(() => {
     const results = [];
-    const scripts = document.querySelectorAll('script[id^="data-deferred-state"]');
-    for (const script of scripts) {
-      try {
-        const json = JSON.parse(script.textContent);
-        const str = JSON.stringify(json);
-        // Find search results in the JSON
-        const listingMatches = str.matchAll(/"listing"\s*:\s*\{[^]*?"id"\s*:\s*"(\d+)"[^]*?"name"\s*:\s*"([^"]*?)"/g);
-        for (const m of listingMatches) {
-          results.push({ airbnb_id: m[1], name: m[2] });
-        }
-      } catch { /* skip */ }
-    }
-    return results;
-  });
-
-  if (jsonListings.length > 0) return jsonListings;
-
-  // Strategy 2: DOM fallback — listing cards
-  return page.evaluate(() => {
-    const results = [];
-    // Airbnb listing cards have links to /rooms/{id}
-    const links = document.querySelectorAll('a[href*="/rooms/"]');
     const seen = new Set();
+    // Anchor tags inside cards link to /rooms/{id}. Walk up to a card-like
+    // container so we can query price/rating within the card's subtree.
+    const links = document.querySelectorAll('a[href*="/rooms/"]');
     for (const link of links) {
       const href = link.getAttribute('href') || '';
       const idMatch = href.match(/\/rooms\/(\d+)/);
       if (!idMatch) continue;
       const airbnbId = idMatch[1];
       if (seen.has(airbnbId)) continue;
-      seen.add(airbnbId);
 
-      // Try to get name from nearby text
-      const card = link.closest('[data-testid]') || link.closest('[role="group"]') || link.parentElement;
-      const name = card?.querySelector('[data-testid="listing-card-title"]')?.textContent?.trim()
-        || card?.querySelector('[id^="title_"]')?.textContent?.trim()
+      const card = link.closest('[data-testid="card-container"]')
+        || link.closest('[role="group"]')
+        || link.parentElement;
+      if (!card) continue;
+
+      // Price: prefer the aria-label on the price span — stable across redesigns.
+      //   "$2,005 for 7 nights, originally $2,183"  — discounted
+      //   "$2,465 for 7 nights"                     — no discount
+      let base_rate = null;
+      let total_cost = null;
+      let nights = null;
+      let original_cost = null;
+
+      // Priority 1: aria-label — most reliable, carries discount info
+      //   Discounted: "$2,005 for 7 nights, originally $2,183"
+      //   Used when the listing has a promoted discount.
+      const priceSpan = card.querySelector('[aria-label*="for"][aria-label*="night"]');
+      const aria = priceSpan?.getAttribute('aria-label') || '';
+      const priceMatch = aria.match(/\$([\d,]+)\s+for\s+(\d+)\s+nights?(?:,\s+originally\s+\$([\d,]+))?/i);
+      if (priceMatch) {
+        total_cost = Number(priceMatch[1].replace(/,/g, ''));
+        nights = Number(priceMatch[2]);
+        if (priceMatch[3]) original_cost = Number(priceMatch[3].replace(/,/g, ''));
+        if (total_cost && nights) base_rate = Math.round(total_cost / nights);
+      }
+
+      // Priority 2: price-availability-row text for non-discounted cards
+      //   Airbnb omits the aria-label on cards without a promoted discount.
+      //   The row's visible text includes "$X for N nights" regardless.
+      //   Example: "$5,267Show price breakdown for 6 nights$5,267 for 6 nights"
+      if (!base_rate) {
+        const rowText = card.querySelector('[data-testid="price-availability-row"]')?.textContent || '';
+        const rowMatch = rowText.match(/\$([\d,]+)\s+for\s+(\d+)\s+nights?/i);
+        if (rowMatch) {
+          total_cost = Number(rowMatch[1].replace(/,/g, ''));
+          nights = Number(rowMatch[2]);
+          if (total_cost && nights) base_rate = Math.round(total_cost / nights);
+        }
+      }
+
+      // Priority 3: legacy DOM text — "$X/night" pattern from the old layout
+      if (!base_rate) {
+        const priceText = card.textContent || '';
+        const legacy = priceText.match(/\$(\d+)\s*(?:\/\s*)?night/i);
+        if (legacy) base_rate = Number(legacy[1]);
+      }
+
+      // Name
+      const name = card.querySelector('[data-testid="listing-card-title"]')?.textContent?.trim()
+        || card.querySelector('[id^="title_"]')?.textContent?.trim()
         || '';
 
-      // Try to get rate
-      const priceText = card?.textContent || '';
-      const rateMatch = priceText.match(/\$(\d+)\s*(?:\/\s*)?night/i);
-      const rate = rateMatch ? Number(rateMatch[1]) : null;
-
-      // Try to get rating
+      // Rating / reviews — pattern "4.9 (123)" still renders per card
+      const priceText = card.textContent || '';
       const ratingMatch = priceText.match(/([\d.]+)\s*\((\d+)\)/);
       const rating = ratingMatch ? Number(ratingMatch[1]) : null;
       const reviewCount = ratingMatch ? Number(ratingMatch[2]) : null;
 
+      // Skip cards that didn't yield a listing id/price pairing we can use.
+      // Some anchor tags inside cards link to /rooms/{id} without being a
+      // primary listing card (e.g. "similar listings" row at the bottom).
+      if (!base_rate && !name) continue;
+
+      seen.add(airbnbId);
       results.push({
         airbnb_id: airbnbId,
         name: name || `Listing ${airbnbId}`,
-        base_rate: rate,
+        base_rate,
+        total_cost,
+        nights,
+        original_cost,
         rating,
         review_count: reviewCount,
       });
+    }
+    return results;
+  });
+
+  if (domListings.length > 0) return domListings;
+
+  // Legacy fallback: JSON regex path. Kept as belt-and-braces for the
+  // (unlikely) case that the DOM scrape finds zero cards — e.g. a totally
+  // restructured search layout. Returns only id + name (no price).
+  return page.evaluate(() => {
+    const results = [];
+    const scripts = document.querySelectorAll('script[id^="data-deferred-state"]');
+    for (const script of scripts) {
+      try {
+        const json = JSON.parse(script.textContent);
+        const str = JSON.stringify(json);
+        const listingMatches = str.matchAll(/"listing"\s*:\s*\{[^]*?"id"\s*:\s*"(\d+)"[^]*?"name"\s*:\s*"([^"]*?)"/g);
+        for (const m of listingMatches) {
+          results.push({ airbnb_id: m[1], name: m[2] });
+        }
+      } catch { /* skip */ }
     }
     return results;
   });

@@ -229,6 +229,12 @@ async function main() {
 
                 const comp = getCompId.get(details.airbnb_id);
                 if (comp) {
+                  // Primary path: PDP per-range price extraction.
+                  // Currently broken against Airbnb's 2026 PDP (extractPriceFromJson
+                  // regex targets keys that are null or absent). Kept in place so a
+                  // future price-extraction fix gets richer per-date data
+                  // automatically, but this loop is effectively a no-op today.
+                  let pdpSnapshotCount = 0;
                   for (const range of dateRanges) {
                     const price = details.prices[range.label];
                     if (price && price.nightly_rate && !price.error) {
@@ -242,6 +248,7 @@ async function main() {
                         price.nightly_rate, fee, total, tcpn,
                         runId
                       );
+                      pdpSnapshotCount++;
 
                       // Accumulate for Layer 2 raw capture
                       if (runId) {
@@ -260,6 +267,49 @@ async function main() {
                           dayType: getDayOfWeek(range.checkin),
                         });
                       }
+                    }
+                  }
+
+                  // Fallback path: search-page aria-label price capture.
+                  // When the PDP loop produced no snapshots, use the base_rate
+                  // pulled from the search result card. This is stored as a
+                  // 2-night synthetic snapshot (anchor stay in multi-stay.js) so
+                  // getCompSnapshotsV2(…, 2) and the B1-A fallback helper find it.
+                  // The nightly_rate itself is real — we're just labeling the
+                  // snapshot with the canonical anchor stay length.
+                  // TEMP DIAG: log whether search-page fallback path fires and with what data.
+                  // Remove once B5/B6 pipeline is confirmed producing real recs in AWS.
+                  console.log(`      [B6-DIAG] pdpCount=${pdpSnapshotCount} search.base_rate=${listing.base_rate ?? 'null'} search.nights=${listing.nights ?? 'null'} search.total=${listing.total_cost ?? 'null'}`);
+
+                  if (pdpSnapshotCount === 0 && listing.base_rate) {
+                    const anchorNights = 2;
+                    const anchorCheckin = dateRanges[0].checkin;
+                    const fee = details.cleaning_fee || 0;
+                    const total = listing.base_rate * anchorNights + fee;
+                    const tcpn = computeTcpn(listing.base_rate, fee, anchorNights);
+
+                    insertSnapshotV2.run(
+                      comp.id, anchorCheckin, anchorNights,
+                      getDayOfWeek(anchorCheckin),
+                      listing.base_rate, fee, total, tcpn,
+                      runId
+                    );
+
+                    if (runId) {
+                      unitObservations.push({
+                        runId, runSource: 'autopilot', compUnit: unitId,
+                        competitorId: comp.id, airbnbId: details.airbnb_id,
+                        listingName: details.name || listing.name || null,
+                        listingUrl: details.url || null,
+                        bedrooms: details.bedrooms || null, bathrooms: details.bathrooms || null,
+                        rating: details.rating || listing.rating || null,
+                        reviewCount: details.review_count || listing.review_count || null,
+                        superhost: details.superhost || false,
+                        checkDate: anchorCheckin, stayNights: anchorNights,
+                        nightlyRate: listing.base_rate, cleaningFee: fee,
+                        totalCost: total, tcpn, available: 1,
+                        dayType: getDayOfWeek(anchorCheckin),
+                      });
                     }
                   }
                 }
