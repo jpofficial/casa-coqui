@@ -232,6 +232,39 @@ function getTopCompsForDate(db, unitId, date, { stayNights = 2, limit = 5 } = {}
 }
 
 /**
+ * Most recent autopilot run summary (for UI meta lines).
+ * @returns {Object|null}
+ */
+function getLatestRunMeta(db) {
+  return db.prepare(`
+    SELECT id, started_at, status, trigger, comps_active, recs_written
+    FROM autopilot_runs
+    ORDER BY started_at DESC
+    LIMIT 1
+  `).get() || null;
+}
+
+/**
+ * Summarize the active comp set for a unit.
+ * Used for page-header meta lines and the side-panel "Comp set" row.
+ * @returns {{ count:number, minBedrooms:number|null, maxBedrooms:number|null, avgBedrooms:number|null }}
+ */
+function getCompSetSummaryForUnit(db, unitId) {
+  const row = db.prepare(`
+    SELECT COUNT(*) AS count, MIN(bedrooms) AS minBedrooms, MAX(bedrooms) AS maxBedrooms, AVG(bedrooms) AS avgBedrooms
+    FROM competitors
+    WHERE comp_unit = ? AND active = 1
+  `).get(unitId);
+  if (!row || row.count === 0) return { count: 0, minBedrooms: null, maxBedrooms: null, avgBedrooms: null };
+  return {
+    count: row.count,
+    minBedrooms: row.minBedrooms,
+    maxBedrooms: row.maxBedrooms,
+    avgBedrooms: row.avgBedrooms == null ? null : Math.round(row.avgBedrooms * 10) / 10,
+  };
+}
+
+/**
  * Purge only snapshots_v2 for a unit's competitors.
  */
 function purgeUnitSnapshots(db, unitId) {
@@ -1127,6 +1160,8 @@ module.exports = {
   getRecommendationForDate,
   getCompBookedSummaryForDate,
   getTopCompsForDate,
+  getLatestRunMeta,
+  getCompSetSummaryForUnit,
   purgeUnitSnapshots, purgeUnitRecommendations,
   archiveMarketData, getMarketHistory, getAvailabilityHistory, getAutopilotRuns, recordRateHistory,
   getRunList, getRunById, getRunRecSummary, getRunMarketSummary,
