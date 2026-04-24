@@ -150,6 +150,21 @@ function getRecommendationsV2(db, unitId, days = 30) {
 }
 
 /**
+ * Get all recommendations for a unit within a calendar month.
+ * @param {Database} db
+ * @param {string} unitId  e.g. 'unit-a'
+ * @param {string} month   'YYYY-MM'
+ * @returns {Array<Object>} recommendations_v2 rows sorted by check_date
+ */
+function getRecommendationsForMonth(db, unitId, month) {
+  return db.prepare(`
+    SELECT * FROM recommendations_v2
+    WHERE unit_id = ? AND check_date LIKE ?
+    ORDER BY check_date ASC
+  `).all(unitId, `${month}-%`);
+}
+
+/**
  * Purge only snapshots_v2 for a unit's competitors.
  */
 function purgeUnitSnapshots(db, unitId) {
@@ -1041,6 +1056,7 @@ function getCalendarBookingSummary(db, unitId, opts = {}) {
 module.exports = {
   getDb, initDb, closeDb, logAction, getCompetitor, getCompetitorsForUnit, getHoliday, DB_PATH,
   getCompSnapshotsV2, saveRecommendationV2, getSeasons, getLatestAutopilotRun, getRecommendationsV2,
+  getRecommendationsForMonth,
   purgeUnitSnapshots, purgeUnitRecommendations,
   archiveMarketData, getMarketHistory, getAvailabilityHistory, getAutopilotRuns, recordRateHistory,
   getRunList, getRunById, getRunRecSummary, getRunMarketSummary,
