@@ -66,7 +66,7 @@ const {
 const db = getDb();
 const schemaPath = path.join(__dirname, '..', 'schema.sql');
 db.exec(fs.readFileSync(schemaPath, 'utf8'));
-for (const mig of ['migrate-v3.sql', 'migrate-v4.sql', 'migrate-v5.sql', 'migrate-v6.sql', 'migrate-v7.sql', 'migrate-v8.sql', 'migrate-v9.sql', 'migrate-v10.sql', 'migrate-v11.sql', 'migrate-v12.sql', 'migrate-v13.sql', 'migrate-v14.sql']) {
+for (const mig of ['migrate-v3.sql', 'migrate-v4.sql', 'migrate-v5.sql', 'migrate-v6.sql', 'migrate-v7.sql', 'migrate-v8.sql', 'migrate-v9.sql', 'migrate-v10.sql', 'migrate-v11.sql', 'migrate-v12.sql', 'migrate-v13.sql', 'migrate-v14.sql', 'migrate-v15.sql']) {
   const migPath = path.join(__dirname, '..', mig);
   try {
     const sql = fs.readFileSync(migPath, 'utf8');
