@@ -213,7 +213,6 @@ function getTopCompsForDate(db, unitId, date, { stayNights = 2, limit = 5 } = {}
       c.bedrooms,
       c.url AS listing_url,
       s.nightly_rate,
-      s.available AS snap_available,
       COALESCE(ca.display_status, 'unknown') AS status
     FROM competitors c
     LEFT JOIN snapshots_v2 s ON s.competitor_id = c.id AND s.check_date = ? AND s.stay_nights = ?
@@ -228,8 +227,7 @@ function getTopCompsForDate(db, unitId, date, { stayNights = 2, limit = 5 } = {}
     bedrooms: r.bedrooms,
     listing_url: r.listing_url,
     nightly_rate: r.nightly_rate,
-    // Prefer calendar_availability signal; fall back to snapshots_v2.available (0 = booked).
-    booked: r.status === 'not_available' || (r.status === 'unknown' && r.snap_available === 0),
+    booked: r.status === 'not_available',
   })).filter(r => r.nightly_rate != null);
 }
 
