@@ -277,6 +277,10 @@ async function main() {
                   // getCompSnapshotsV2(…, 2) and the B1-A fallback helper find it.
                   // The nightly_rate itself is real — we're just labeling the
                   // snapshot with the canonical anchor stay length.
+                  // TEMP DIAG: log whether search-page fallback path fires and with what data.
+                  // Remove once B5/B6 pipeline is confirmed producing real recs in AWS.
+                  console.log(`      [B6-DIAG] pdpCount=${pdpSnapshotCount} search.base_rate=${listing.base_rate ?? 'null'} search.nights=${listing.nights ?? 'null'} search.total=${listing.total_cost ?? 'null'}`);
+
                   if (pdpSnapshotCount === 0 && listing.base_rate) {
                     const anchorNights = 2;
                     const anchorCheckin = dateRanges[0].checkin;
