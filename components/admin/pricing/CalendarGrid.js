@@ -15,6 +15,8 @@ function buildMonthCells(month, daysByDate) {
     cells.push(daysByDate.get(dateStr) || { date: dateStr, has_data: false });
   }
   for (let i = 0; i < trailing; i++) cells.push(null);
+  // Pad to a stable 42 cells so the grid height doesn't jump between months.
+  while (cells.length < 42) cells.push(null);
   return cells;
 }
 
