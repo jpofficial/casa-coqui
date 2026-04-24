@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import useAuth from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
@@ -58,25 +58,27 @@ export default function RateCalendarPage() {
   }, [unit, month, user]);
 
   // Fetch day data whenever selectedDate or unit changes
-  const fetchDay = useCallback(async () => {
+  useEffect(() => {
     if (!user || !selectedDate) return;
+    let cancelled = false;
     setDayLoading(true);
     setDayData(null);
-    try {
-      const token = await auth.currentUser.getIdToken();
-      const res = await fetch(`/api/pricing/calendar/day?unit=${unit}&date=${selectedDate}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json();
-      if (json.success) setDayData(json.data);
-    } catch (err) {
-      console.error('[rate-calendar] day fetch failed:', err);
-    } finally {
-      setDayLoading(false);
-    }
+    (async () => {
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const res = await fetch(`/api/pricing/calendar/day?unit=${unit}&date=${selectedDate}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (!cancelled && json.success) setDayData(json.data);
+      } catch (err) {
+        if (!cancelled) console.error('[rate-calendar] day fetch failed:', err);
+      } finally {
+        if (!cancelled) setDayLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [unit, selectedDate, user]);
-
-  useEffect(() => { fetchDay(); }, [fetchDay]);
 
   const handleSelect = (date) => {
     setSelectedDate(date);
