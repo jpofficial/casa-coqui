@@ -502,6 +502,46 @@ async function scrapeListingDetails(page, airbnbId, dateRanges, onProgress, opts
         continue;
       }
 
+      // TEMP DIAGNOSTIC (B5 investigation) — log what CodeBuild actually sees.
+      // Remove once root cause of $?/night on AWS is found.
+      if (onProgress) {
+        try {
+          const diag = await page.evaluate(() => {
+            const scripts = document.querySelectorAll('script[id^="data-deferred-state"]');
+            const first = scripts[0];
+            const txt = first ? first.textContent : '';
+            let parseOk = false;
+            let hasPriceItems = false;
+            let hasTotalPrice = false;
+            let hasBasePrice = false;
+            if (txt) {
+              try {
+                JSON.parse(txt);
+                parseOk = true;
+                hasPriceItems = txt.includes('"priceItems"');
+                hasTotalPrice = txt.includes('"totalPrice"');
+                hasBasePrice = txt.includes('"basePrice"');
+              } catch {}
+            }
+            const legacyMatches = document.querySelectorAll('script[data-deferred-state]').length;
+            return {
+              title: document.title.slice(0, 60),
+              htmlLen: document.documentElement.outerHTML.length,
+              newMatches: scripts.length,
+              legacyMatches,
+              deferredLen: txt.length,
+              parseOk,
+              hasPriceItems,
+              hasTotalPrice,
+              hasBasePrice,
+            };
+          });
+          onProgress(`    DIAG ${range.label}: title="${diag.title}" html=${diag.htmlLen} scripts=${diag.newMatches}(legacy=${diag.legacyMatches}) deferredLen=${diag.deferredLen} parse=${diag.parseOk} pi=${diag.hasPriceItems} tp=${diag.hasTotalPrice} bp=${diag.hasBasePrice}`);
+        } catch (e) {
+          onProgress(`    DIAG ${range.label}: evaluate failed: ${e.message}`);
+        }
+      }
+
       // On first visit, extract full details + resolve calendar
       if (i === 0) {
         const deferredData = await page.evaluate(() => {
