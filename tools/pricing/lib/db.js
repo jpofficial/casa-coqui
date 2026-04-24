@@ -233,6 +233,8 @@ function getTopCompsForDate(db, unitId, date, { stayNights = 2, limit = 5 } = {}
 
 /**
  * Most recent autopilot run summary (for UI meta lines).
+ * Returns an allowlisted subset safe to ship to the UI (no SELECT *, no experimental
+ * columns). For internal callers that want the full row, use `getLatestAutopilotRun`.
  * @returns {Object|null}
  */
 function getLatestRunMeta(db) {
