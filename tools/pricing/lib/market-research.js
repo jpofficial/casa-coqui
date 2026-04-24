@@ -338,7 +338,7 @@ async function extractSearchListings(page) {
   // Strategy 1: Extract from data-deferred-state JSON
   const jsonListings = await page.evaluate(() => {
     const results = [];
-    const scripts = document.querySelectorAll('script[data-deferred-state]');
+    const scripts = document.querySelectorAll('script[id^="data-deferred-state"]');
     for (const script of scripts) {
       try {
         const json = JSON.parse(script.textContent);
@@ -505,7 +505,7 @@ async function scrapeListingDetails(page, airbnbId, dateRanges, onProgress, opts
       // On first visit, extract full details + resolve calendar
       if (i === 0) {
         const deferredData = await page.evaluate(() => {
-          const script = document.querySelector('script[data-deferred-state]');
+          const script = document.querySelector('script[id^="data-deferred-state"]');
           if (!script) return null;
           try { return JSON.parse(script.textContent); } catch { return null; }
         });
@@ -555,7 +555,7 @@ async function scrapeListingDetails(page, airbnbId, dateRanges, onProgress, opts
 
       // Extract price for this date range
       const priceData = await page.evaluate(() => {
-        const script = document.querySelector('script[data-deferred-state]');
+        const script = document.querySelector('script[id^="data-deferred-state"]');
         if (!script) return null;
         try { return JSON.parse(script.textContent); } catch { return null; }
       });
