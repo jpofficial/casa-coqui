@@ -207,17 +207,16 @@ class CasaCoquiPricingStack(Stack):
                     log_group=log_group,
                 ),
             ),
-            # CodeBuild artifacts block uploads to S3 on build success only.
-            # On failure, the artifact upload is skipped → last-good
-            # pricing.db in S3 is preserved. This is the atomicity
-            # guarantee for the reader.
-            artifacts=codebuild.Artifacts.s3(
-                bucket=self.pricing_bucket,
-                include_build_id=False,
-                name="pricing.db",
-                package_zip=False,
-                encryption=True,
-            ),
+            # No CodeBuild artifacts — the buildspec uploads pricing.db
+            # directly via `aws s3 cp` in post_build. The prior
+            # Artifacts.s3(name="pricing.db") config combined with a
+            # buildspec file named pricing.db.snapshot produced the
+            # nested key "pricing.db/pricing.db.snapshot" that the EC2
+            # systemd sync could not read. Explicit upload in the
+            # buildspec gives us exact control over the final key and
+            # still preserves the atomicity guarantee (the "snapshot
+            # missing → exit 1" guard runs before the cp).
+            artifacts=codebuild.Artifacts.no_artifacts(),
         )
 
         # L1 escape hatch — override source Auth to use CodeConnections

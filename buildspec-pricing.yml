@@ -76,6 +76,16 @@ phases:
           exit 1
         fi
       - ls -la tools/pricing/pricing.db.snapshot
+      # Upload pricing.db.snapshot to the root key s3://$PRICING_BUCKET/pricing.db.
+      # Explicit aws s3 cp (not CodeBuild artifacts) so the key is exactly "pricing.db"
+      # — the prior artifacts-block approach produced the nested key
+      # "pricing.db/pricing.db.snapshot" which EC2 systemd sync could not find.
+      # Atomicity is preserved by the "if missing → exit 1" guard above: a partial
+      # or failed run never reaches this upload.
+      - |
+        aws s3 cp tools/pricing/pricing.db.snapshot \
+          "s3://$PRICING_BUCKET/pricing.db" \
+          --content-type "application/x-sqlite3"
       # Upload run log separately — regardless of success state up to here.
       - RUN_DATE=$(date -u +"%Y-%m-%d")
       - |
@@ -105,14 +115,10 @@ phases:
           "s3://$PRICING_BUCKET/runs/$RUN_DATE/build-report.json" \
           --content-type "application/json"
 
-artifacts:
-  base-directory: tools/pricing
-  files:
-    - pricing.db.snapshot
-  name: pricing-db-$(date +%Y-%m-%d)
-  # discard-paths: yes so the artifact key in S3 is just "pricing.db"
-  # (see pricing_stack.py Artifacts.s3 name config).
-  discard-paths: yes
+# No CodeBuild artifacts block. We upload pricing.db directly via aws s3 cp
+# in post_build to control the S3 key precisely. The prior artifacts config
+# produced a nested key "pricing.db/pricing.db.snapshot" that the EC2 sync
+# could not read.
 
 cache:
   paths:
