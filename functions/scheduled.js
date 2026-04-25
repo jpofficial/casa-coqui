@@ -105,3 +105,48 @@ exports.welcomeSweeper = onSchedule(
     }
   }
 );
+
+// ---------------------------------------------------------------------------
+// lockSweeper
+//
+// Flips airbnb_processing_locks from status:'processing' → 'reclaimable' when
+// claimedAt is older than LOCK_STALE_THRESHOLD_MS. Crashed Lambda invocations
+// leave locks in 'processing'; the next Lambda to see the lock can reclaim
+// via its transactional slow-path once this sweeper marks it reclaimable.
+// ---------------------------------------------------------------------------
+const LOCK_STALE_THRESHOLD_MS = 5 * 60 * 1000;
+
+exports.lockSweeper = onSchedule(
+  {
+    schedule: 'every 15 minutes',
+    timeZone: 'America/Puerto_Rico',
+    memory: '256MiB',
+    region: 'us-east1',
+    timeoutSeconds: 60,
+  },
+  async () => {
+    const cutoff = new Date(Date.now() - LOCK_STALE_THRESHOLD_MS);
+    const snap = await db
+      .collection('airbnb_processing_locks')
+      .where('status', '==', 'processing')
+      .where('claimedAt', '<', cutoff)
+      .limit(50)
+      .get();
+
+    if (snap.empty) {
+      logger.info('[lockSweeper] no stale tombstones');
+      return;
+    }
+
+    const batch = db.batch();
+    snap.docs.forEach((doc) => {
+      batch.update(doc.ref, {
+        status: 'reclaimable',
+        reclaimedAt: new Date().toISOString(),
+      });
+    });
+    await batch.commit();
+
+    logger.info(`[lockSweeper] reclaimed ${snap.size} stale tombstones`);
+  }
+);

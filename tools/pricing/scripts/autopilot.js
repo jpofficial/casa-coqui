@@ -16,7 +16,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { getDb, closeDb, getCompetitorsForUnit, DB_PATH, purgeUnitSnapshots, archiveMarketData, saveRunObservations } = require('../lib/db');
+const { getDb, closeDb, getCompetitorsForUnit, DB_PATH, purgeUnitSnapshots, archiveMarketData, saveRunObservations, saveCalendarAvailability } = require('../lib/db');
 const { generateDateRange } = require('../lib/dates');
 const { analyzeDateMultiStay } = require('../lib/multi-stay');
 const { saveRecommendationV2 } = require('../lib/db');
@@ -33,6 +33,7 @@ const SKIP_SCRAPE = args.includes('--skip-scrape');
 const DRY_RUN = args.includes('--dry-run');
 const HEADFUL = args.includes('--headful');
 const DAYS = parseInt(getArg('days') || '30');
+const S3_SYNC = args.includes('--s3-sync');
 
 // Trigger detection: env var (set by launchd/dashboard), or heuristic
 const TRIGGER = process.env.AUTOPILOT_TRIGGER ||
@@ -104,7 +105,7 @@ async function main() {
       scrapeStartMs = Date.now();
 
       // Dynamically load market-research (has playwright dependency)
-      const { launchBrowser, createContext, computeDateRangesV2, scrapeSearchResults, scrapeListingDetails } = require('../lib/market-research');
+      const { launchBrowser, createContext, computeDateRangesV2, scrapeSearchResults, scrapeListingDetails, getRelevantMonths } = require('../lib/market-research');
       const { computeTcpn } = require('../lib/normalize');
 
       const browser = await launchBrowser({ headful: HEADFUL });
@@ -127,6 +128,15 @@ async function main() {
 
         // Accumulate observations for Layer 2 append-only capture
         const unitObservations = [];
+        // Accumulate calendar_availability rows for the current unit's scrape.
+        // Capturing calendar alongside price snapshots is what keeps the
+        // demand_signal fresh — without this, `calendar_availability` stays
+        // stale and the Rate Calendar's "tight/mixed/open" reflects last scrape.
+        const unitCalendarRows = [];
+        // Relevant months = today through today+60d, matching the analysis horizon.
+        const calendarStart = new Date().toISOString().slice(0, 10);
+        const calendarEnd = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
+        const relevantMonths = getRelevantMonths(calendarStart, calendarEnd);
 
         console.log(`  ${unitId}: Searching Airbnb...`);
 
@@ -182,7 +192,7 @@ async function main() {
             console.log(`    [${i + 1}/${listings.length}] ${listing.name || listing.airbnb_id}`);
 
             try {
-              const details = await scrapeListingDetails(page, listing.airbnb_id, dateRanges, (msg) => console.log(`      ${msg}`));
+              const details = await scrapeListingDetails(page, listing.airbnb_id, dateRanges, (msg) => console.log(`      ${msg}`), { captureCalendar: true });
 
               // Skip listings that exceed the bedroom ceiling (null bedrooms = unknown, skip to be safe)
               if (config.max_bedrooms) {
@@ -219,6 +229,12 @@ async function main() {
 
                 const comp = getCompId.get(details.airbnb_id);
                 if (comp) {
+                  // Primary path: PDP per-range price extraction.
+                  // Currently broken against Airbnb's 2026 PDP (extractPriceFromJson
+                  // regex targets keys that are null or absent). Kept in place so a
+                  // future price-extraction fix gets richer per-date data
+                  // automatically, but this loop is effectively a no-op today.
+                  let pdpSnapshotCount = 0;
                   for (const range of dateRanges) {
                     const price = details.prices[range.label];
                     if (price && price.nightly_rate && !price.error) {
@@ -232,6 +248,7 @@ async function main() {
                         price.nightly_rate, fee, total, tcpn,
                         runId
                       );
+                      pdpSnapshotCount++;
 
                       // Accumulate for Layer 2 raw capture
                       if (runId) {
@@ -252,6 +269,68 @@ async function main() {
                       }
                     }
                   }
+
+                  // Fallback path: search-page aria-label price capture.
+                  // When the PDP loop produced no snapshots, use the base_rate
+                  // pulled from the search result card. This is stored as a
+                  // 2-night synthetic snapshot (anchor stay in multi-stay.js) so
+                  // getCompSnapshotsV2(…, 2) and the B1-A fallback helper find it.
+                  // The nightly_rate itself is real — we're just labeling the
+                  // snapshot with the canonical anchor stay length.
+                  if (pdpSnapshotCount === 0 && listing.base_rate) {
+                    const anchorNights = 2;
+                    const anchorCheckin = dateRanges[0].checkin;
+                    const fee = details.cleaning_fee || 0;
+                    const total = listing.base_rate * anchorNights + fee;
+                    const tcpn = computeTcpn(listing.base_rate, fee, anchorNights);
+
+                    insertSnapshotV2.run(
+                      comp.id, anchorCheckin, anchorNights,
+                      getDayOfWeek(anchorCheckin),
+                      listing.base_rate, fee, total, tcpn,
+                      runId
+                    );
+
+                    if (runId) {
+                      unitObservations.push({
+                        runId, runSource: 'autopilot', compUnit: unitId,
+                        competitorId: comp.id, airbnbId: details.airbnb_id,
+                        listingName: details.name || listing.name || null,
+                        listingUrl: details.url || null,
+                        bedrooms: details.bedrooms || null, bathrooms: details.bathrooms || null,
+                        rating: details.rating || listing.rating || null,
+                        reviewCount: details.review_count || listing.review_count || null,
+                        superhost: details.superhost || false,
+                        checkDate: anchorCheckin, stayNights: anchorNights,
+                        nightlyRate: listing.base_rate, cleaningFee: fee,
+                        totalCost: total, tcpn, available: 1,
+                        dayType: getDayOfWeek(anchorCheckin),
+                      });
+                    }
+                  }
+                }
+              }
+
+              // Collect calendar availability rows (filtered to the relevant
+              // 60-day forward window) for post-loop flush.
+              if (details.calendarRaw && details.calendarRaw.length > 0) {
+                const comp = getCompId.get(details.airbnb_id);
+                if (comp) {
+                  for (const day of details.calendarRaw) {
+                    if (!relevantMonths.has(day.date.slice(0, 7))) continue;
+                    unitCalendarRows.push({
+                      runId, runSource: 'autopilot',
+                      competitorId: comp.id, airbnbId: details.airbnb_id,
+                      listingName: details.name || listing.name || null,
+                      listingUrl: details.url || null,
+                      date: day.date,
+                      rawStatus: day.rawStatus,
+                      displayStatus: day.displayStatus,
+                      minNights: day.minNights, maxNights: day.maxNights,
+                      availableForCheckin: day.availableForCheckin,
+                      availableForCheckout: day.availableForCheckout,
+                    });
+                  }
                 }
               }
 
@@ -266,6 +345,13 @@ async function main() {
           if (unitObservations.length > 0) {
             saveRunObservations(db, unitObservations);
             console.log(`  ${unitId}: Saved ${unitObservations.length} raw observations.`);
+          }
+          // Flush calendar availability rows for this unit. These power the
+          // Rate Calendar's demand_signal + per-comp booked badges and must
+          // be refreshed each scheduled run to avoid stale occupancy data.
+          if (unitCalendarRows.length > 0) {
+            saveCalendarAvailability(db, unitCalendarRows);
+            console.log(`  ${unitId}: Saved ${unitCalendarRows.length} calendar_availability rows.`);
           }
         } catch (err) {
           console.log(`  ${unitId}: Scrape failed — ${err.message}`);
@@ -452,6 +538,15 @@ async function main() {
         }
       }
     }
+  }
+
+  // S3 sync — produce a consistent snapshot via better-sqlite3 backup API.
+  // .backup() checkpoints the WAL and produces a single-file snapshot
+  // safe to upload as an atomic artifact.
+  if (S3_SYNC) {
+    const snapshotPath = path.join(path.dirname(DB_PATH), 'pricing.db.snapshot');
+    await db.backup(snapshotPath);
+    console.log(`Snapshot written: ${snapshotPath}`);
   }
 
   closeDb();
