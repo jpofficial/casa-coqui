@@ -206,6 +206,20 @@ async function main() {
                 }
               }
 
+              // Skip listings outside the configured price band. Airbnb's
+              // search price_min/price_max URL params are soft ranking
+              // signals and routinely return out-of-band listings; this is
+              // the authoritative band check.
+              const gateRate = details.base_rate || listing.base_rate || null;
+              if (config.max_price && gateRate != null && gateRate > config.max_price) {
+                console.log(`      ✗ Skipped — $${gateRate}/night exceeds max $${config.max_price}`);
+                continue;
+              }
+              if (config.min_price && gateRate != null && gateRate < config.min_price) {
+                console.log(`      ✗ Skipped — $${gateRate}/night below min $${config.min_price}`);
+                continue;
+              }
+
               if (!DRY_RUN) {
                 // Upsert competitor
                 upsertComp.run({

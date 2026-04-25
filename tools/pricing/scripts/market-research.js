@@ -252,6 +252,20 @@ async function main() {
           }
         }
 
+        // Skip listings outside the configured price band (Airbnb's URL
+        // price params are soft ranking signals — band must be enforced here).
+        const gateRate = details.base_rate || listing.base_rate || null;
+        if (config.max_price && gateRate != null && gateRate > config.max_price) {
+          scrapedSummary.push({ name: details.name || listing.name || listing.airbnb_id, bedrooms: details.bedrooms, rate: gateRate, rating: details.rating || listing.rating, status: `skipped ($${gateRate} > max $${config.max_price})` });
+          console.log(`  ✗ Skipped — $${gateRate}/night exceeds max $${config.max_price}`);
+          continue;
+        }
+        if (config.min_price && gateRate != null && gateRate < config.min_price) {
+          scrapedSummary.push({ name: details.name || listing.name || listing.airbnb_id, bedrooms: details.bedrooms, rate: gateRate, rating: details.rating || listing.rating, status: `skipped ($${gateRate} < min $${config.min_price})` });
+          console.log(`  ✗ Skipped — $${gateRate}/night below min $${config.min_price}`);
+          continue;
+        }
+
         // Upsert competitor
         const compData = {
           airbnb_id: details.airbnb_id,
