@@ -360,10 +360,17 @@ async function extractSearchListings(page) {
       const airbnbId = idMatch[1];
       if (seen.has(airbnbId)) continue;
 
-      const card = link.closest('[data-testid="card-container"]')
-        || link.closest('[role="group"]')
-        || link.parentElement;
+      // Walk up to the per-listing card boundary. Earlier versions used
+      // `link.closest('[role="group"]')` which fell through to a grid-wide
+      // container that wraps ALL listings — every card.querySelector then
+      // read the same first match in the grid, producing identical prices
+      // across many listings. Climb until we find the largest ancestor
+      // that still contains exactly one `/rooms/` anchor.
+      let card = link.closest('[data-testid="card-container"]') || link.parentElement;
       if (!card) continue;
+      while (card.parentElement && card.parentElement.querySelectorAll('a[href*="/rooms/"]').length === 1) {
+        card = card.parentElement;
+      }
 
       // Price: prefer the aria-label on the price span — stable across redesigns.
       //   "$2,005 for 7 nights, originally $2,183"  — discounted
