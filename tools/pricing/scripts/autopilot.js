@@ -92,6 +92,13 @@ async function main() {
   }
 
   let scrapeOk = 0, scrapeErrors = 0, analysisOk = 0;
+  let scrapeSkipped = 0;
+  // Counts for each filter rule that short-circuited a listing via `continue`.
+  // Without this, runs where every listing is filtered out (e.g. B6 fed wrong
+  // prices into the band gate) recorded scrape_ok=0, scrape_errors=0 and were
+  // indistinguishable from no-op runs.
+  const skipReasons = { bedrooms_unknown: 0, bedrooms_over: 0, price_over: 0, price_under: 0 };
+  let analyzeErrors = 0;
   let compsFound = 0, compsActive = 0;
   let totalHistoryRows = 0, totalAvailRows = 0;
   let scrapeStartMs = null, scrapeEndMs = null;
@@ -198,10 +205,14 @@ async function main() {
               if (config.max_bedrooms) {
                 if (details.bedrooms == null) {
                   console.log(`      ✗ Skipped — bedrooms unknown, cannot verify ≤ ${config.max_bedrooms}BR ceiling`);
+                  skipReasons.bedrooms_unknown++;
+                  scrapeSkipped++;
                   continue;
                 }
                 if (details.bedrooms > config.max_bedrooms) {
                   console.log(`      ✗ Skipped — ${details.bedrooms}BR exceeds max ${config.max_bedrooms}BR`);
+                  skipReasons.bedrooms_over++;
+                  scrapeSkipped++;
                   continue;
                 }
               }
@@ -213,10 +224,14 @@ async function main() {
               const gateRate = details.base_rate || listing.base_rate || null;
               if (config.max_price && gateRate != null && gateRate > config.max_price) {
                 console.log(`      ✗ Skipped — $${gateRate}/night exceeds max $${config.max_price}`);
+                skipReasons.price_over++;
+                scrapeSkipped++;
                 continue;
               }
               if (config.min_price && gateRate != null && gateRate < config.min_price) {
                 console.log(`      ✗ Skipped — $${gateRate}/night below min $${config.min_price}`);
+                skipReasons.price_under++;
+                scrapeSkipped++;
                 continue;
               }
 
@@ -378,6 +393,23 @@ async function main() {
         warnings.push({ code: 'scrape_majority_fail', unit: null, message: `${scrapeErrors} errors vs ${scrapeOk} OK` });
       }
 
+      // Zero-capture detector: listings were found but every one was filtered
+      // out before producing a snapshot. Apr 25–27 runs hit this silently when
+      // the B6 walker fed wrong prices into the band gate (40 listings → 40
+      // skips → scrape_ok=0, scrape_errors=0 looked indistinguishable from
+      // no-op). Always flag this as a warning so it can't recur silently.
+      if (scrapeOk === 0 && (scrapeSkipped + scrapeErrors) > 0) {
+        const breakdown = Object.entries(skipReasons)
+          .filter(([, n]) => n > 0)
+          .map(([k, n]) => `${k}=${n}`)
+          .join(', ');
+        warnings.push({
+          code: 'scrape_zero_captures',
+          unit: null,
+          message: `0 snapshots captured — ${scrapeSkipped} skipped (${breakdown || 'none'}), ${scrapeErrors} errored`,
+        });
+      }
+
       await context.close();
       await browser.close();
       scrapeEndMs = Date.now();
@@ -434,6 +466,7 @@ async function main() {
           }
         } catch (err) {
           console.log(`    ${date}: Error — ${err.message}`);
+          analyzeErrors++;
         }
       }
 
@@ -445,6 +478,9 @@ async function main() {
     const totalDates = dates.length * unitIds.length;
     if (totalDates > 0 && insufficientCount / totalDates > 0.3) {
       warnings.push({ code: 'low_confidence', unit: null, message: `${insufficientCount}/${totalDates} dates had insufficient data` });
+    }
+    if (analyzeErrors > 0) {
+      warnings.push({ code: 'analyze_errors', unit: null, message: `${analyzeErrors} per-date analyze exceptions swallowed` });
     }
 
     analyzeEndMs = Date.now();
@@ -526,7 +562,7 @@ async function main() {
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log('=== Summary ===');
   console.log(`  Trigger:   ${TRIGGER}`);
-  console.log(`  Scrape:    ${scrapeOk} OK, ${scrapeErrors} errors`);
+  console.log(`  Scrape:    ${scrapeOk} OK, ${scrapeSkipped} skipped, ${scrapeErrors} errors`);
   console.log(`  Analysis:  ${analysisOk} recommendations`);
   console.log(`  Comps:     ${compsFound} found, ${compsActive} active`);
   console.log(`  Duration:  ${duration}s`);
