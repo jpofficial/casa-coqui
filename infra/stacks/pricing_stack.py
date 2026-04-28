@@ -199,7 +199,7 @@ class CasaCoquiPricingStack(Stack):
                 },
             ),
             role=codebuild_role,
-            timeout=Duration.minutes(60),
+            timeout=Duration.minutes(90),
             concurrent_build_limit=1,
             logging=codebuild.LoggingOptions(
                 cloud_watch=codebuild.CloudWatchLoggingOptions(

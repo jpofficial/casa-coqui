@@ -35,6 +35,15 @@ const HEADFUL = args.includes('--headful');
 const DAYS = parseInt(getArg('days') || '30');
 const S3_SYNC = args.includes('--s3-sync');
 
+// Rolling-date offsets (days from today) for the per-date snapshot pass.
+// Anchor pass populates today's snapshot via the standard search + PDP visit;
+// these additional offsets re-run scrapeSearchResults at later check-ins so
+// each rolling date's snapshot reflects that date's market price (not the
+// anchor-day extrapolation). PDP price extraction is broken by anti-bot
+// (Apr 2026 finding), so search-card prices are the only reliable per-date
+// signal we have.
+const ROLLING_OFFSET_DAYS = [7, 14, 21, 28];
+
 // Trigger detection: env var (set by launchd/dashboard), or heuristic
 const TRIGGER = process.env.AUTOPILOT_TRIGGER ||
   (process.ppid === 1 ? 'scheduled' : 'terminal');
@@ -381,6 +390,66 @@ async function main() {
           if (unitCalendarRows.length > 0) {
             saveCalendarAvailability(db, unitCalendarRows);
             console.log(`  ${unitId}: Saved ${unitCalendarRows.length} calendar_availability rows.`);
+          }
+
+          // Rolling-date pass: re-run scrapeSearchResults at later check-in
+          // dates and snapshot the search-card price for each comp we already
+          // know about. This is the only reliable way to get per-date price
+          // data — Airbnb's 2026 PDP serves null prices to automated sessions
+          // (anti-bot), so the per-listing PDP loop above only produces the
+          // anchor-day snapshot. Without this pass, analyze relies on the
+          // B1-A "latest snapshot" fallback for every non-anchor date.
+          for (const offsetDays of ROLLING_OFFSET_DAYS) {
+            const rollingCheckin = new Date(Date.now() + offsetDays * 86400000)
+              .toISOString().slice(0, 10);
+            const rollingCheckout = new Date(Date.now() + (offsetDays + 2) * 86400000)
+              .toISOString().slice(0, 10);
+            const rollingConfig = {
+              ...config,
+              start_date: rollingCheckin,
+              checkout_date: rollingCheckout,
+            };
+
+            console.log(`  ${unitId}: Rolling search +${offsetDays}d (${rollingCheckin} → ${rollingCheckout})`);
+            let rollingListings;
+            try {
+              rollingListings = await scrapeSearchResults(page, rollingConfig, (msg) => console.log(`    ${msg}`));
+            } catch (err) {
+              console.log(`    Rolling +${offsetDays}d failed: ${err.message}`);
+              warnings.push({
+                code: 'rolling_search_fail',
+                unit: unitId,
+                message: `+${offsetDays}d: ${err.message}`,
+              });
+              continue;
+            }
+
+            if (DRY_RUN) {
+              console.log(`    +${offsetDays}d: ${rollingListings.length} cards (dry-run, no save)`);
+              continue;
+            }
+
+            const dayType = getDayOfWeek(rollingCheckin);
+            let rollingSaved = 0;
+            for (const card of rollingListings) {
+              const comp = getCompId.get(card.airbnb_id);
+              if (!comp) continue; // Not a known comp — skip (anchor pass establishes the active set).
+              if (!card.base_rate) continue;
+
+              const compRow = db.prepare('SELECT cleaning_fee FROM competitors WHERE id = ?').get(comp.id);
+              const fee = compRow?.cleaning_fee || 0;
+              const total = card.total_cost || (card.base_rate * 2 + fee);
+              const tcpn = computeTcpn(card.base_rate, fee, 2);
+
+              insertSnapshotV2.run(
+                comp.id, rollingCheckin, 2,
+                dayType,
+                card.base_rate, fee, total, tcpn,
+                runId
+              );
+              rollingSaved++;
+            }
+            console.log(`  ${unitId}: Saved ${rollingSaved} rolling snapshots at +${offsetDays}d`);
           }
         } catch (err) {
           console.log(`  ${unitId}: Scrape failed — ${err.message}`);
