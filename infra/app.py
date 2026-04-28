@@ -148,10 +148,13 @@ pricing = CasaCoquiPricingStack(
     notifications_topic=foundation.notifications_topic,
     github_owner=github_owner,
     github_repo=github_repo,
-    # Pricing autopilot builds from ec2-deploy — the same branch the
-    # Next.js app deploys from. Keeps the autopilot JS (decision engine,
-    # scrapers) in sync with the code the EC2 reader will run against.
-    github_branch="ec2-deploy",
+    # Pricing autopilot builds from main — the canonical branch with all
+    # pricing fixes. The legacy ec2-deploy branch was the merge source
+    # during the EC2 migration and has been folded back into main; tracking
+    # main keeps the autopilot JS (decision engine, scrapers) in sync with
+    # the live state. Manual builds with --source-version main were the
+    # only thing keeping production current before this change.
+    github_branch="main",
     # Reuses the existing AWS CodeConnection (same one pipeline_stack and
     # ec2_pipeline_stack consume). `aws codebuild list-source-credentials`
     # is the source of truth for this ARN.
