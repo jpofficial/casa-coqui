@@ -212,11 +212,9 @@ class CasaCoquiPricingStack(Stack):
             # Artifacts.s3(name="pricing.db") config combined with a
             # buildspec file named pricing.db.snapshot produced the
             # nested key "pricing.db/pricing.db.snapshot" that the EC2
-            # systemd sync could not read. Explicit upload in the
-            # buildspec gives us exact control over the final key and
-            # still preserves the atomicity guarantee (the "snapshot
-            # missing → exit 1" guard runs before the cp).
-            artifacts=codebuild.Artifacts.no_artifacts(),
+            # systemd sync could not read. Omitting the artifacts param
+            # defaults to NoArtifacts, giving the buildspec exact control
+            # over the final S3 key via its explicit cp upload.
         )
 
         # L1 escape hatch — override source Auth to use CodeConnections
