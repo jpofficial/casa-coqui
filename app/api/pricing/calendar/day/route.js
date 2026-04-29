@@ -5,6 +5,8 @@ import { generateRateLede } from '@/lib/pricing-ai';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// Lede generation calls Anthropic; same-reason as advisor route.
+export const maxDuration = 60;
 
 function validDate(s) {
   return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);

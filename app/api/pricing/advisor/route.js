@@ -14,6 +14,12 @@ import {
   gatherBookedVsAvailableEvidence,
 } from '@/lib/pricing-evidence';
 
+// Evidence gathering + Anthropic call can take 5-30s. Default Vercel
+// function timeout (10s on Hobby) cuts the response off mid-stream and
+// the browser sees "unexpected end of JSON input".
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 // ---------------------------------------------------------------------------
 // Evidence intent detection (deterministic, no LLM call)
 //

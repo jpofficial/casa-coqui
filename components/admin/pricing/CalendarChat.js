@@ -44,10 +44,25 @@ export default function CalendarChat({ unit }) {
         },
         body: JSON.stringify({ unit, query, history }),
       });
-      const json = await res.json();
-      const answer = json?.success
-        ? json.data?.answer || 'No answer returned.'
-        : json?.error || 'Something went wrong.';
+
+      // Read as text first so we can surface auth-redirects, empty 504s,
+      // and HTML error pages instead of throwing "unexpected end of JSON".
+      const raw = await res.text();
+      let json = null;
+      if (raw) {
+        try { json = JSON.parse(raw); } catch { /* not JSON */ }
+      }
+
+      let answer;
+      if (json?.success) {
+        answer = json.data?.answer || 'No answer returned.';
+      } else if (json?.error) {
+        answer = json.error;
+      } else if (!res.ok) {
+        answer = `Server error (${res.status}). ${raw ? raw.slice(0, 160) : 'No response body.'}`;
+      } else {
+        answer = 'Empty response from server. Please try again.';
+      }
       setMessages((m) => [...m, { role: 'assistant', text: answer }]);
     } catch (err) {
       setMessages((m) => [
@@ -127,7 +142,7 @@ export default function CalendarChat({ unit }) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about pricing, comps, trends…"
           disabled={sending}
-          className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-50"
+          className="flex-1 text-sm text-gray-900 placeholder-gray-400 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-50"
         />
         <button
           type="submit"
