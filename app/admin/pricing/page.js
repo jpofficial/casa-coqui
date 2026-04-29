@@ -3460,6 +3460,12 @@ export default function PricingPage() {
         <h1 className="text-xl font-display text-coqui-900">
           {t(locale, 'admin_pricing_title')}
         </h1>
+        <a
+          href="/admin/pricing/calendar"
+          className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+        >
+          Rate calendar →
+        </a>
       </div>
 
       {/* Tabs */}
