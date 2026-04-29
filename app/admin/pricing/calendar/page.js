@@ -10,6 +10,7 @@ import Legend from '@/components/admin/pricing/Legend';
 import CalendarGrid from '@/components/admin/pricing/CalendarGrid';
 import SidePanel from '@/components/admin/pricing/SidePanel';
 import BottomSheet from '@/components/admin/pricing/BottomSheet';
+import CalendarChat from '@/components/admin/pricing/CalendarChat';
 
 function todayStrPR() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Puerto_Rico' });
@@ -131,7 +132,7 @@ export default function RateCalendarPage() {
 
       {/* Body */}
       <div className="grid md:grid-cols-[1fr_360px] min-h-[620px]">
-        <div className="p-6">
+        <div className="p-6 space-y-6">
           <CalendarGrid
             month={month}
             days={days}
@@ -139,6 +140,7 @@ export default function RateCalendarPage() {
             todayStr={todayStr}
             onSelect={handleSelect}
           />
+          <CalendarChat unit={unit} />
         </div>
         <div className="hidden md:block border-l border-gray-100 bg-white">
           <SidePanel unit={unit} date={selectedDate} payload={dayData} loading={dayLoading} compSet={compSet} />

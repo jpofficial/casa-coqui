@@ -26,7 +26,7 @@ const EVIDENCE_INTENTS = [
   { pattern: /\brun\s*#?\d+|run\s+id\s+\d+|specific\s+run|last\s+run|previous\s+run|latest\s+run/i, handler: 'runDetail' },
   // runsForMonth requires explicit "run(s)" keyword — prevents "for april" from hijacking other intents
   { pattern: /\bruns?\b.*\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{4}-\d{2})\b|\bruns?\s+(for|in|from|during)\b/i, handler: 'runsForMonth' },
-  { pattern: /\bcheapest|\bmost\s+affordable|\bbest\s+deal|\blowest\s+price|\bbudget/i, handler: 'cheapest' },
+  { pattern: /\bcheapest|\bmost\s+affordable|\bbest\s+deal|\bbudget|\b(lowest|low)\s+(price|priced|rate|comp|listing|property|cost)|\bwho.?s\s+(cheapest|lowest)/i, handler: 'cheapest' },
   { pattern: /\bwho.*getting\s+booked|\bbooked\s+vs|\bwhy\s+not\s+booking|\bwho.*booking|\bactually.*booked/i, handler: 'bookedAnalysis' },
   { pattern: /\bcompare|\bcomparison|\bvs\b|\bversus|\bagainst|\bcross.?comp|\brankings?\b/i, handler: 'comparison' },
   { pattern: /\bcompet.*pric|\bprice.*compet|\brate.*compet|\bcompet.*rate|\bwho.*raised|\bwho.*lower|\bprice\s+mov/i, handler: 'competitorPricing' },
