@@ -4,7 +4,11 @@ const fs = require('fs');
 
 // Use process.cwd() so both CLI scripts and Next.js API routes
 // (where webpack rewrites __dirname to .next/server/...) hit the same file.
-const DB_PATH = path.join(process.cwd(), 'tools', 'pricing', 'pricing.db');
+// PRICING_DB_PATH env var override exists for Vercel serverless functions
+// where the bundled DB lives under /var/task (read-only FS) and we have
+// to operate on a /tmp copy so SQLite's WAL journaling can write.
+const DB_PATH = process.env.PRICING_DB_PATH
+  || path.join(process.cwd(), 'tools', 'pricing', 'pricing.db');
 const SCHEMA_PATH = path.join(process.cwd(), 'tools', 'pricing', 'schema.sql');
 
 let _db = null;
