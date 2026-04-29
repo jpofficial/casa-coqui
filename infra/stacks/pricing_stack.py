@@ -160,6 +160,35 @@ class CasaCoquiPricingStack(Stack):
             )
         )
 
+        # Read the Vercel deploy hook URL from SSM after a successful run
+        # so casa-coqui.cc auto-rebuilds with fresh pricing.db. Stored as
+        # a SecureString — buildspec calls aws ssm get-parameter with
+        # --with-decryption. Param missing is handled gracefully in the
+        # buildspec; this grant just authorizes the read when the user
+        # populates the param.
+        codebuild_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="ReadVercelDeployHookParam",
+                actions=["ssm:GetParameter"],
+                resources=[
+                    f"arn:aws:ssm:{self.region}:{self.account}"
+                    f":parameter/casa-coqui/pricing/vercel-deploy-hook"
+                ],
+            )
+        )
+        # SSM SecureString uses AWS-managed alias/aws/ssm by default;
+        # explicit kms:Decrypt for that alias lets get-parameter
+        # --with-decryption succeed.
+        codebuild_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="DecryptSsmDefaultKey",
+                actions=["kms:Decrypt"],
+                resources=[
+                    f"arn:aws:kms:{self.region}:{self.account}:alias/aws/ssm"
+                ],
+            )
+        )
+
         # ------------------------------------------------------------------
         # 4. CodeBuild project
         # ------------------------------------------------------------------

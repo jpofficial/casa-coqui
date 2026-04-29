@@ -114,6 +114,32 @@ phases:
         aws s3 cp tools/pricing/build-report.json \
           "s3://$PRICING_BUCKET/runs/$RUN_DATE/build-report.json" \
           --content-type "application/json"
+      # Trigger Vercel rebuild so casa-coqui.cc (Vercel-hosted) picks up
+      # the new pricing.db. The Vercel build's prebuild hook (scripts/
+      # fetch-pricing-db.sh) will pull this same S3 object into the
+      # function bundle. Without this, Vercel data goes stale 3-4 days
+      # between scrapes — staleness ends only when someone pushes or
+      # clicks redeploy.
+      #
+      # The hook URL is stored as an SSM SecureString. Param missing →
+      # silent skip (e.g. before user-side setup completes). Curl error
+      # → log and continue (autopilot succeeded; Vercel can be retried).
+      - |
+        VERCEL_HOOK=$(aws ssm get-parameter \
+          --name "/casa-coqui/pricing/vercel-deploy-hook" \
+          --with-decryption \
+          --query Parameter.Value \
+          --output text 2>/dev/null || echo "")
+        if [ -z "$VERCEL_HOOK" ] || [ "$VERCEL_HOOK" = "None" ]; then
+          echo "[vercel-redeploy] No deploy hook in SSM; skipping."
+        else
+          echo "[vercel-redeploy] Triggering Vercel rebuild..."
+          if curl -fsS -X POST "$VERCEL_HOOK" >/dev/null 2>&1; then
+            echo "[vercel-redeploy] Triggered."
+          else
+            echo "[vercel-redeploy] curl failed; pricing data uploaded but Vercel not refreshed."
+          fi
+        fi
 
 # No CodeBuild artifacts block. We upload pricing.db directly via aws s3 cp
 # in post_build to control the S3 key precisely. The prior artifacts config
