@@ -65,12 +65,18 @@ export async function GET(request) {
       (rec.generated_at && rec.lede_generated_at < rec.generated_at);
     if (!lede || stale) {
       lede = await generateRateLede({ rec, comps });
-      db.prepare(
-        `UPDATE recommendations_v2
-         SET lede_text = ?, lede_generated_at = datetime('now')
-         WHERE unit_id = ? AND check_date = ?
-           AND (lede_generated_at IS NULL OR lede_generated_at < generated_at)`
-      ).run(lede, unit, date);
+      // Skip cache write when the DB was opened read-only (Vercel runtime
+      // copy in /tmp). The autopilot regenerates ledes during the next
+      // scrape, and a serverless write would throw "attempt to write a
+      // readonly database" — bringing down the whole endpoint.
+      if (!process.env.PRICING_DB_PATH) {
+        db.prepare(
+          `UPDATE recommendations_v2
+           SET lede_text = ?, lede_generated_at = datetime('now')
+           WHERE unit_id = ? AND check_date = ?
+             AND (lede_generated_at IS NULL OR lede_generated_at < generated_at)`
+        ).run(lede, unit, date);
+      }
     }
 
     // Parse reasoning JSON for optional factors (weekday multiplier, trend).
