@@ -192,6 +192,123 @@ function getRecommendationsV2(db, unitId, days = 30) {
 }
 
 /**
+ * Get all recommendations for a unit within a calendar month.
+ * @param {Database} db
+ * @param {string} unitId  e.g. 'unit-a'
+ * @param {string} month   'YYYY-MM'
+ * @returns {Array<Object>} recommendations_v2 rows sorted by check_date
+ */
+function getRecommendationsForMonth(db, unitId, month) {
+  return db.prepare(`
+    SELECT * FROM recommendations_v2
+    WHERE unit_id = ? AND check_date LIKE ?
+    ORDER BY check_date ASC
+  `).all(unitId, `${month}-%`);
+}
+
+/**
+ * Get a single recommendation row for (unit, date).
+ * @returns {Object|null}
+ */
+function getRecommendationForDate(db, unitId, checkDate) {
+  return db.prepare(`
+    SELECT * FROM recommendations_v2
+    WHERE unit_id = ? AND check_date = ?
+    LIMIT 1
+  `).get(unitId, checkDate) || null;
+}
+
+/**
+ * For a unit + date, return how many active comps are tracked and how many are booked.
+ * Uses the latest available calendar_availability per (competitor, date).
+ * @returns {{ total: number, booked: number, pct: number }}
+ */
+function getCompBookedSummaryForDate(db, unitId, date) {
+  const rows = db.prepare(`
+    SELECT ca.display_status
+    FROM calendar_availability ca
+    JOIN competitors c ON c.id = ca.competitor_id
+    WHERE c.comp_unit = ? AND c.active = 1 AND ca.date = ?
+    AND ca.id IN (
+      SELECT MAX(id) FROM calendar_availability
+      WHERE date = ?
+      GROUP BY competitor_id
+    )
+  `).all(unitId, date, date);
+  const total = rows.length;
+  const booked = rows.filter(r => r.display_status === 'not_available').length;
+  const pct = total === 0 ? 0 : Math.round((booked / total) * 100);
+  return { total, booked, pct };
+}
+
+/**
+ * Top N competitors for a unit on a given date, by nightly rate desc.
+ * Joins snapshots_v2 (for price) with calendar_availability (for booked flag).
+ * @param {Object} opts { stayNights=2, limit=5 }
+ * @returns {Array<{ airbnb_id, name, bedrooms, nightly_rate, booked, listing_url }>}
+ */
+function getTopCompsForDate(db, unitId, date, { stayNights = 2, limit = 5 } = {}) {
+  return db.prepare(`
+    SELECT
+      c.airbnb_id,
+      c.name,
+      c.bedrooms,
+      c.url AS listing_url,
+      s.nightly_rate,
+      COALESCE(ca.display_status, 'unknown') AS status
+    FROM competitors c
+    LEFT JOIN snapshots_v2 s ON s.competitor_id = c.id AND s.check_date = ? AND s.stay_nights = ?
+    LEFT JOIN calendar_availability ca ON ca.competitor_id = c.id AND ca.date = ?
+      AND ca.id = (SELECT MAX(id) FROM calendar_availability WHERE competitor_id = c.id AND date = ?)
+    WHERE c.comp_unit = ? AND c.active = 1
+    ORDER BY s.nightly_rate DESC NULLS LAST
+    LIMIT ?
+  `).all(date, stayNights, date, date, unitId, limit).map(r => ({
+    airbnb_id: r.airbnb_id,
+    name: r.name,
+    bedrooms: r.bedrooms,
+    listing_url: r.listing_url,
+    nightly_rate: r.nightly_rate,
+    booked: r.status === 'not_available',
+  })).filter(r => r.nightly_rate != null);
+}
+
+/**
+ * Most recent autopilot run summary (for UI meta lines).
+ * Returns an allowlisted subset safe to ship to the UI (no SELECT *, no experimental
+ * columns). For internal callers that want the full row, use `getLatestAutopilotRun`.
+ * @returns {Object|null}
+ */
+function getLatestRunMeta(db) {
+  return db.prepare(`
+    SELECT id, started_at, status, trigger, comps_active, recs_written
+    FROM autopilot_runs
+    ORDER BY started_at DESC
+    LIMIT 1
+  `).get() || null;
+}
+
+/**
+ * Summarize the active comp set for a unit.
+ * Used for page-header meta lines and the side-panel "Comp set" row.
+ * @returns {{ count:number, minBedrooms:number|null, maxBedrooms:number|null, avgBedrooms:number|null }}
+ */
+function getCompSetSummaryForUnit(db, unitId) {
+  const row = db.prepare(`
+    SELECT COUNT(*) AS count, MIN(bedrooms) AS minBedrooms, MAX(bedrooms) AS maxBedrooms, AVG(bedrooms) AS avgBedrooms
+    FROM competitors
+    WHERE comp_unit = ? AND active = 1
+  `).get(unitId);
+  if (!row || row.count === 0) return { count: 0, minBedrooms: null, maxBedrooms: null, avgBedrooms: null };
+  return {
+    count: row.count,
+    minBedrooms: row.minBedrooms,
+    maxBedrooms: row.maxBedrooms,
+    avgBedrooms: row.avgBedrooms == null ? null : Math.round(row.avgBedrooms * 10) / 10,
+  };
+}
+
+/**
  * Purge only snapshots_v2 for a unit's competitors.
  */
 function purgeUnitSnapshots(db, unitId) {
@@ -1083,6 +1200,12 @@ function getCalendarBookingSummary(db, unitId, opts = {}) {
 module.exports = {
   getDb, initDb, closeDb, logAction, getCompetitor, getCompetitorsForUnit, getHoliday, DB_PATH,
   getCompSnapshotsV2, getLatestCompSnapshotsV2, saveRecommendationV2, getSeasons, getLatestAutopilotRun, getRecommendationsV2,
+  getRecommendationsForMonth,
+  getRecommendationForDate,
+  getCompBookedSummaryForDate,
+  getTopCompsForDate,
+  getLatestRunMeta,
+  getCompSetSummaryForUnit,
   purgeUnitSnapshots, purgeUnitRecommendations,
   archiveMarketData, getMarketHistory, getAvailabilityHistory, getAutopilotRuns, recordRateHistory,
   getRunList, getRunById, getRunRecSummary, getRunMarketSummary,
