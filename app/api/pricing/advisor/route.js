@@ -104,6 +104,18 @@ function extractMonth(query) {
 // ---------------------------------------------------------------------------
 
 async function handleEvidenceQuery(db, unit, query, history = []) {
+  try {
+    return await handleEvidenceQueryInner(db, unit, query, history);
+  } catch (err) {
+    console.error('[advisor/evidence] error:', err);
+    return NextResponse.json(
+      { success: false, error: err?.message || 'evidence query failed' },
+      { status: 500 }
+    );
+  }
+}
+
+async function handleEvidenceQueryInner(db, unit, query, history = []) {
   const intent = detectIntent(query);
 
   // Extract date range from query (e.g. "for April" → { dateFrom: '2026-04-01', dateTo: '2026-05-01' })
@@ -184,7 +196,12 @@ export async function POST(request) {
     // Evidence query mode — unit is nullable (null = both units)
     if (query) {
       const db = getDb();
-      return handleEvidenceQuery(db, unit || null, query, history || []);
+      // `return await` is intentional: a bare `return` of an async call
+      // escapes the outer try/catch (the function has already resolved
+      // to a thenable). Without await, an exception inside
+      // handleEvidenceQuery becomes an unhandled rejection → Next.js
+      // serves a bare 500 with no body and the chat shows "no response".
+      return await handleEvidenceQuery(db, unit || null, query, history || []);
     }
 
     // Recommendation + chat flows default to unit-a when unspecified
