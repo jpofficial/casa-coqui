@@ -13,12 +13,23 @@ const SCHEMA_PATH = path.join(process.cwd(), 'tools', 'pricing', 'schema.sql');
 
 let _db = null;
 
-/** Get or create the database connection */
+/** Get or create the database connection.
+ *
+ * When PRICING_DB_PATH is set, the caller (lib/pricing-db.js on Vercel)
+ * has staged a read-only copy elsewhere — open in readonly mode and skip
+ * the WAL pragma. WAL needs to write a -wal sidecar file in the same
+ * directory; that fails on Vercel's read-only /var/task and isn't
+ * necessary for a read-only consumer anyway. */
 function getDb() {
   if (_db) return _db;
-  _db = new Database(DB_PATH);
-  _db.pragma('journal_mode = WAL');
-  _db.pragma('foreign_keys = ON');
+  const isReadonly = !!process.env.PRICING_DB_PATH;
+  _db = isReadonly
+    ? new Database(DB_PATH, { readonly: true, fileMustExist: true })
+    : new Database(DB_PATH);
+  if (!isReadonly) {
+    _db.pragma('journal_mode = WAL');
+    _db.pragma('foreign_keys = ON');
+  }
   return _db;
 }
 
