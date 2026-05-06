@@ -9,6 +9,15 @@
       ]
     },
     {
+      "collectionGroup": "airbnb_messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "direction", "order": "ASCENDING" },
+        { "fieldPath": "draftStatus", "order": "ASCENDING" },
+        { "fieldPath": "sentAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "airbnb_messages_quarantine",
       "queryScope": "COLLECTION",
       "fields": [

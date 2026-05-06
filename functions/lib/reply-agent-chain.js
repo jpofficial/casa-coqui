@@ -16,7 +16,7 @@
 
 const Anthropic = require('@anthropic-ai/sdk').default;
 
-const client = new Anthropic();
+const client = new Anthropic({ maxRetries: 4 });
 const MODEL = 'claude-haiku-4-5-20251001';
 
 // ---------------------------------------------------------------------------

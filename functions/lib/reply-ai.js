@@ -12,7 +12,7 @@
 const Anthropic = require('@anthropic-ai/sdk').default;
 const { filterRAGResults } = require('./rag-filter');
 
-const client = new Anthropic(); // reads ANTHROPIC_API_KEY from env
+const client = new Anthropic({ maxRetries: 4 }); // SDK honors retry-after; default 2 was too few for org-wide rate windows
 const MODEL = 'claude-haiku-4-5-20251001';
 
 // ---------------------------------------------------------------------------

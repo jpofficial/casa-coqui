@@ -171,6 +171,17 @@ async function notifyAdminAndCohost(firestore, { titleEn, titleEs, bodyEn, bodyE
  */
 
 /**
+ * Return true if the email is from an Airbnb sender. Non-Airbnb mail
+ * (Gmail forward catches all kinds of marketing) is short-circuited
+ * before classification so it never touches the booking-match path.
+ */
+function isAirbnbSender(fromAddress) {
+  if (!fromAddress) return false;
+  const lower = String(fromAddress).toLowerCase().trim();
+  return lower.endsWith('@airbnb.com') || lower.endsWith('.airbnb.com');
+}
+
+/**
  * Classify an Airbnb email by its subject line.
  * Returns a MessageType string used to route the doc to the correct collection.
  *
@@ -181,16 +192,28 @@ function classifyEmail(subject) {
   if (!subject) return 'unknown';
 
   // Reservation confirmations — check BEFORE guest messages
+  // Modern Airbnb subjects: "Reservation confirmed - Jane arrives May 15",
+  // "Pending: Reservation Request at {Listing} for {dates}",
+  // "Same-day inquiry for {Listing}", "New inquiry for {Listing}".
   if (
     /reservation confirmed/i.test(subject) ||
     /new booking confirmed/i.test(subject) ||
-    /reservation request from/i.test(subject)
+    /reservation request from/i.test(subject) ||
+    /^pending:\s*reservation request/i.test(subject) ||
+    /^same-day inquiry for/i.test(subject) ||
+    /^new inquiry for/i.test(subject) ||
+    /^new reservation request/i.test(subject)
   ) {
     return 'reservation_confirmation';
   }
 
   // Guest messages
+  // Live conversational threads from express@airbnb.com use the subject
+  // "RE: Reservation for {Listing}, {dates}" or "RE: Inquiry for {Listing}, ...".
+  // Older subject formats kept for back-compat.
   if (
+    /^re:\s*reservation for\b/i.test(subject) ||
+    /^re:\s*inquiry for\b/i.test(subject) ||
     /new message from\b/i.test(subject) ||
     /responded to your message/i.test(subject) ||
     /sent you a message/i.test(subject) ||
@@ -199,32 +222,42 @@ function classifyEmail(subject) {
     return 'guest_message';
   }
 
-  // Payout / earnings
+  // Payout / earnings — modern: "We sent a payout of $X USD"
   if (
     /your payout for/i.test(subject) ||
     /earnings summary/i.test(subject) ||
     /payout sent/i.test(subject) ||
-    /payment sent/i.test(subject)
+    /payment sent/i.test(subject) ||
+    /we sent a payout/i.test(subject) ||
+    /payout of \$/i.test(subject)
   ) {
     return 'payout';
   }
 
-  // Review requests
+  // Review requests — "Write a review for X's group", "Guest left a 2-star review"
   if (
     /review your guest/i.test(subject) ||
     /rate your (experience|stay|guest)/i.test(subject) ||
     /left you a review/i.test(subject) ||
-    /write a review/i.test(subject)
+    /write a review/i.test(subject) ||
+    /left a (\d+[- ]?star )?review/i.test(subject) ||
+    /a recent guest left/i.test(subject)
   ) {
     return 'review_request';
   }
 
-  // Policy / general Airbnb updates
+  // Policy / general Airbnb updates / admin-action emails
   if (
     /policy update/i.test(subject) ||
     /terms of service/i.test(subject) ||
     /important update from airbnb/i.test(subject) ||
-    /airbnb update/i.test(subject)
+    /airbnb update/i.test(subject) ||
+    /^action required:/i.test(subject) ||
+    /^reminder on action required:/i.test(subject) ||
+    /^reservation reminder:/i.test(subject) ||
+    /^message sent off-schedule/i.test(subject) ||
+    /^request declined:/i.test(subject) ||
+    /co-host network/i.test(subject)
   ) {
     return 'policy_update';
   }
@@ -279,6 +312,18 @@ function extractGuestNameFromSubject(subject) {
 
   // "Jane Doe sent you a message"
   m = subject.match(/^(.+?)\s+sent you a message/i);
+  if (m) return m[1].trim();
+
+  // "Reservation confirmed - Jane Doe arrives May 15"
+  m = subject.match(/^Reservation confirmed\s*-\s*(.+?)\s+arrives\b/i);
+  if (m) return m[1].trim();
+
+  // "Request declined: Jane Doe declined to pay"
+  m = subject.match(/^Request declined:\s+(.+?)\s+declined\b/i);
+  if (m) return m[1].trim();
+
+  // "Reservation reminder: Jane is coming soon!"
+  m = subject.match(/^Reservation reminder:\s+(.+?)\s+is coming/i);
   if (m) return m[1].trim();
 
   return null;
@@ -575,6 +620,31 @@ exports.handler = async (event) => {
       }
 
       // ------------------------------------------------------------------
+      // 3d. Short-circuit non-Airbnb senders. The Gmail forward address is
+      //     also catching marketing mail (Reddit, Lyft, MoveOn, etc.). These
+      //     never need to enter the booking-match path — quarantine and move on.
+      // ------------------------------------------------------------------
+      if (!isAirbnbSender(fromAddress)) {
+        await firestore.collection('airbnb_messages_quarantine').add({
+          messageType: 'non_airbnb',
+          subject,
+          fromName,
+          fromAddress,
+          body: bodyText.slice(0, 2000),
+          receivedAt: admin.firestore.Timestamp.fromDate(receivedAt),
+          rawEmailS3Key: objectKey,
+          messageId: rfcMessageId,
+          sesMessageId,
+          quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
+          reason: 'non_airbnb_sender',
+        });
+        console.log('Non-Airbnb sender — quarantined', { fromAddress });
+        quarantinedCount++;
+        await markTombstoneCompleted(claim.lockRef);
+        continue;
+      }
+
+      // ------------------------------------------------------------------
       // 4. Classify message type
       // ------------------------------------------------------------------
       const messageType = classifyEmail(subject);
@@ -834,3 +904,6 @@ exports.handler = async (event) => {
 
 // Exports for unit tests. `exports.handler` remains the Lambda entrypoint.
 module.exports.extractEnrichmentFields = extractEnrichmentFields;
+module.exports.classifyEmail = classifyEmail;
+module.exports.isAirbnbSender = isAirbnbSender;
+module.exports.extractGuestNameFromSubject = extractGuestNameFromSubject;
