@@ -16,6 +16,7 @@ import { db, auth } from '@/lib/firebase';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
 import { buildThreadKey, isUnmatchedKey } from '@/lib/thread-key';
+import { extractGuestMessage } from '@/lib/extract-guest-message';
 import LinkToBookingModal from '@/components/admin/LinkToBookingModal';
 import RefineDrawer from '@/components/admin/RefineDrawer';
 
@@ -559,7 +560,9 @@ function AirbnbMessageCard({ message, locale }) {
         {/* Inbound message preview (always visible, 2-line clamp) */}
         <div className="px-4 pb-3">
           <p className={`text-sm text-gray-700 leading-snug ${expanded ? '' : 'line-clamp-2'}`}>
-            {message.body || message.messageBody || ''}
+            {message.body
+              ? extractGuestMessage(message.body)
+              : (message.text || message.messageBody || '')}
           </p>
         </div>
 
