@@ -1,0 +1,13 @@
+{
+  "name": "casa-coqui-reply-load-config",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SFN orchestration Lambda — fetches model knobs from SSM at workflow start",
+  "main": "index.js",
+  "engines": {
+    "node": "24"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ssm": "^3.700.0"
+  }
+}
