@@ -271,6 +271,23 @@ Resources:
         - StepFunctionsExecutionPolicy:
             StateMachineName: !GetAtt AIChainStateMachine.Name
         - CloudWatchLogsFullAccess
+        # Required for arn:aws:states:::states:startExecution.sync:2 — SFN
+        # creates a managed EventBridge rule to receive child-execution
+        # completion events. Without these perms, CFN fails with:
+        #   "is not authorized to create managed-rule (HandlerErrorCode: AccessDenied)"
+        # SAM's auto-generated StepFunctionsExecutionPolicy connector does NOT
+        # include these — must be added explicitly.
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - events:PutRule
+                - events:PutTargets
+                - events:DeleteRule
+                - events:RemoveTargets
+                - events:DescribeRule
+              Resource:
+                - !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule
 
 # ---------------------------------------------------------------------------
 # Outputs — surfaced after deploy. Useful for the Firebase trigger that calls
