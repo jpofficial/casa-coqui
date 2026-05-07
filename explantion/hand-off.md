@@ -41,7 +41,7 @@ cafe6bd feat(reply-agent): explicit exp backoff + jitter wrapper around Anthropi
 | Firestore rules + indexes | AWS CodePipeline (manual SNS approval) | ✅ Includes `airbnb_resolutions` rule + airbnb_messages composite index |
 | Firebase Cloud Functions | `firebase deploy --only functions` | ✅ Includes Phase 0 backoff wrapper |
 | AWS Lambda `parse-airbnb-email` | `cdk deploy CasaCoquiEmailStack` | ✅ Includes resolution_request classifier + Fwd: fix + parser |
-| **AWS SAM stack `casa-coqui-reply-agent`** | `sam deploy` | ✅ Phase 1.5: 4 chain Lambdas with real Anthropic logic; LoadConfig/RAGRetrieve/WriteBack still stubs |
+| **AWS SAM stack `casa-coqui-reply-agent`** | `sam deploy` | ✅ Phase 2: AppConfig + SSM Parameters; LoadConfig real (SSM fetch); Drafter/Reviser fetch system_prompt_text from AppConfig with version stamping; RAGRetrieve/WriteBack still stubs |
 
 ### Phase 1 SAM stack ARNs (memorize these)
 
@@ -166,17 +166,23 @@ Plan: `docs/superpowers/plans/2026-05-07-phase1.5-anthropic-port.md`
 
 **Next**: Phase 2 (AppConfig + prompt config + validators) or Phase 3 (bridge from Cloud Function — fixes the regenerate button bug).
 
-### Phase 2 — AppConfig + prompt config + validators
+### ~~Phase 2 — AppConfig + prompt config + validators~~ ✅ DONE 2026-05-07
 
-Per the plan:
-- AppConfig Application `casa-coqui-reply-agent`
-- Two ConfigurationProfiles: `feature-flags` (FeatureFlags type) + `system-prompt` (Freeform JSON with JSON Schema validator requiring `version`, `language_distribution`, `hard_bans`, `system_prompt_text`)
-- Linear deployment strategy, 10% step every 1 min, bake time 5 min
-- Lambda Extension (sidecar) for AppConfig fetching, NOT SDK direct
-- Modify Lambdas to read prompts from AppConfig, model knobs from SSM, secrets from Secrets Manager
-- Intentional break-it: seed config without `version` → validator rejects → CFN rolls back. Fix and redeploy.
+The host voice prompt now lives in AWS AppConfig (Linear 10%/min/5min-bake rollout). Model knobs live in SSM Parameter Store. LoadConfig fetches them at workflow start. Drafter+Reviser fetch system_prompt_text from AppConfig via the Lambda Extension (localhost:2772) and capture the Configuration-Version response header → propagated through SFN result as `appConfigVersion` for forensic tracing.
 
-Estimated time: 2 hours. Includes intentional W7 trap.
+W7 break-it trap fired and resolved — but with a refined lesson:
+- **Expected**: validator on `CreateHostedConfigurationVersion` would fail the missing-`version` seed → CFN rollback
+- **Actual**: AppConfig Freeform validators run at `GetLatestConfiguration` (retrieval), not at HCV creation. The HCVs created cleanly. The deploy ROLLED BACK because CFN created `SystemPromptDeployment` and `FeatureFlagsDeployment` in parallel and AppConfig only allows one active deployment per environment → second got 409 → rollback.
+- **Fix**: added `DependsOn: SystemPromptDeployment` on `FeatureFlagsDeployment` to serialize them. AND added `version: "1.0.0"` to the seed (validator runs at runtime, would have failed Drafter/Reviser otherwise).
+
+Single source of truth: `infra/sam/reply-agent/config/system-prompt.seed.json` is read by both `functions/lib/reply-ai.js` (legacy JS chain) and the SAM HCV (via `scripts/build-template.js` inlining at sam build time, since `Fn::Transform: AWS::Include` doesn't work for HCV.Content). No drift window.
+
+End-to-end verified post-Phase 2: 18-second SFN execution, real reply produced, `appConfigVersion: "1"` plumbed through Drafter result.
+
+Spec: `docs/superpowers/specs/2026-05-07-phase2-appconfig-design.md`
+Plan: `docs/superpowers/plans/2026-05-07-phase2-appconfig.md`
+
+**Next**: Phase 3 (bridge from Cloud Function → StartExecution + DLQ + alarms + auto-rollback). The `feature-flags` profile's `reply_engine` flag has no consumer until Phase 3 wires the Cloud Function to read it.
 
 ### Phase 3 — Bridge + DLQ + alarms + auto-rollback
 
