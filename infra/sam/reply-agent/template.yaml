@@ -373,6 +373,7 @@ Resources:
 
   FeatureFlagsDeployment:
     Type: AWS::AppConfig::Deployment
+    DependsOn: SystemPromptDeployment
     Properties:
       ApplicationId: !Ref ReplyAgentApplication
       EnvironmentId: !Ref ReplyAgentProdEnvironment
