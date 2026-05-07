@@ -56,12 +56,12 @@ Parameters:
     Description: CloudWatch log retention (days) for Lambda + SFN logs
 
   AppConfigExtensionLayerArn:
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /aws/service/appconfig/extension/arm64/2.0.183
+    Type: String
+    Default: arn:aws:lambda:us-east-1:027255383542:layer:AWS-AppConfig-Extension-Arm64:122
     Description: |
-      AWS-published AppConfig Extension Lambda Layer ARN, resolved at deploy
-      time from SSM public parameters. Pinned to a known-good version.
-      Update by changing the path version suffix (e.g. /2.0.184).
+      AWS-published AppConfig Extension Lambda Layer ARN for arm64/us-east-1.
+      Pinned to v122 (2025-01-14). Update by changing the version suffix.
+      Reference: https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-integration-lambda-extensions.html
 
   ModelDefault:
     Type: String
@@ -331,6 +331,55 @@ Resources:
       GrowthFactor: 10.0
       GrowthType: LINEAR
       ReplicateTo: NONE
+
+  # -------------------------------------------------------------------------
+  # AppConfig content + Deployments — THE W7 TRAP
+  #
+  # The system-prompt seed is read from infra/sam/reply-agent/config/system-prompt.seed.json.
+  # That file deliberately LACKS the 'version' field — see Task 1 commit.
+  # Validator on SystemPromptProfile (Task 3) rejects → CFN rolls back the
+  # entire stack update on first deploy.
+  #
+  # Task 8 (Commit B) adds the version field and re-deploys.
+  # -------------------------------------------------------------------------
+
+  SystemPromptVersion:
+    Type: AWS::AppConfig::HostedConfigurationVersion
+    Properties:
+      ApplicationId: !Ref ReplyAgentApplication
+      ConfigurationProfileId: !Ref SystemPromptProfile
+      ContentType: application/json
+      Description: Initial host voice config seed (Phase 2)
+      Content: "__SYSTEM_PROMPT_SEED_PLACEHOLDER__"
+
+  FeatureFlagsVersion:
+    Type: AWS::AppConfig::HostedConfigurationVersion
+    Properties:
+      ApplicationId: !Ref ReplyAgentApplication
+      ConfigurationProfileId: !Ref FeatureFlagsProfile
+      ContentType: application/json
+      Description: Initial feature flag content (Phase 2, flag has no consumer until Phase 3)
+      Content: "__FEATURE_FLAGS_SEED_PLACEHOLDER__"
+
+  SystemPromptDeployment:
+    Type: AWS::AppConfig::Deployment
+    Properties:
+      ApplicationId: !Ref ReplyAgentApplication
+      EnvironmentId: !Ref ReplyAgentProdEnvironment
+      ConfigurationProfileId: !Ref SystemPromptProfile
+      ConfigurationVersion: !Ref SystemPromptVersion
+      DeploymentStrategyId: !Ref LinearDeploymentStrategy
+      Description: Initial deployment of host voice config
+
+  FeatureFlagsDeployment:
+    Type: AWS::AppConfig::Deployment
+    Properties:
+      ApplicationId: !Ref ReplyAgentApplication
+      EnvironmentId: !Ref ReplyAgentProdEnvironment
+      ConfigurationProfileId: !Ref FeatureFlagsProfile
+      ConfigurationVersion: !Ref FeatureFlagsVersion
+      DeploymentStrategyId: !Ref LinearDeploymentStrategy
+      Description: Initial deployment of feature flags
 
   # -------------------------------------------------------------------------
   # 2. CloudWatch log groups — one per state machine, with explicit retention.
