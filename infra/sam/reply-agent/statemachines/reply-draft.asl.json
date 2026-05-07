@@ -72,7 +72,11 @@
         "Input": {
           "message.$": "$.message",
           "config.$": "$.config",
-          "rag.$": "$.rag"
+          "rag.$": "$.rag",
+          "contextJson.$": "$.contextJson",
+          "voicePrompt.$": "$.voicePrompt",
+          "voiceProfilePrompt.$": "$.voiceProfilePrompt",
+          "relevantConversations.$": "$.relevantConversations"
         }
       },
       "ResultPath": "$.chainResult",
