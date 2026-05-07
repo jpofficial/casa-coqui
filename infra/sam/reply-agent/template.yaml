@@ -147,6 +147,14 @@ Resources:
       CodeUri: functions/drafter/
       Handler: index.handler
       Description: Step 2 of AI chain — drafts the actual reply
+      Layers:
+        - !Ref AppConfigExtensionLayerArn
+      Environment:
+        Variables:
+          APPCONFIG_APPLICATION: !Ref ReplyAgentApplication
+          APPCONFIG_ENVIRONMENT: !Ref ReplyAgentProdEnvironment
+          APPCONFIG_PROFILE: !Ref SystemPromptProfile
+          AWS_APPCONFIG_EXTENSION_PRELOAD_LIST: !Sub applications/${ReplyAgentApplication}/environments/${ReplyAgentProdEnvironment}/configurations/${SystemPromptProfile}
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -154,6 +162,12 @@ Resources:
               Action: secretsmanager:GetSecretValue
               Resource:
                 - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AnthropicSecretName}-*
+            - Effect: Allow
+              Action:
+                - appconfig:StartConfigurationSession
+                - appconfig:GetLatestConfiguration
+              Resource:
+                - !Sub arn:aws:appconfig:${AWS::Region}:${AWS::AccountId}:application/${ReplyAgentApplication}/environment/${ReplyAgentProdEnvironment}/configuration/${SystemPromptProfile}
 
   EvaluatorFunction:
     Type: AWS::Serverless::Function
@@ -177,6 +191,14 @@ Resources:
       CodeUri: functions/reviser/
       Handler: index.handler
       Description: Step 4 of AI chain — rewrites draft if Evaluator failed it
+      Layers:
+        - !Ref AppConfigExtensionLayerArn
+      Environment:
+        Variables:
+          APPCONFIG_APPLICATION: !Ref ReplyAgentApplication
+          APPCONFIG_ENVIRONMENT: !Ref ReplyAgentProdEnvironment
+          APPCONFIG_PROFILE: !Ref SystemPromptProfile
+          AWS_APPCONFIG_EXTENSION_PRELOAD_LIST: !Sub applications/${ReplyAgentApplication}/environments/${ReplyAgentProdEnvironment}/configurations/${SystemPromptProfile}
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -184,6 +206,12 @@ Resources:
               Action: secretsmanager:GetSecretValue
               Resource:
                 - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AnthropicSecretName}-*
+            - Effect: Allow
+              Action:
+                - appconfig:StartConfigurationSession
+                - appconfig:GetLatestConfiguration
+              Resource:
+                - !Sub arn:aws:appconfig:${AWS::Region}:${AWS::AccountId}:application/${ReplyAgentApplication}/environment/${ReplyAgentProdEnvironment}/configuration/${SystemPromptProfile}
 
   WriteBackFunction:
     Type: AWS::Serverless::Function
