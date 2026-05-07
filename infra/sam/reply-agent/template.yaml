@@ -55,6 +55,24 @@ Parameters:
     Default: 7
     Description: CloudWatch log retention (days) for Lambda + SFN logs
 
+  AppConfigExtensionLayerArn:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /aws/service/appconfig/extension/arm64/2.0.183
+    Description: |
+      AWS-published AppConfig Extension Lambda Layer ARN, resolved at deploy
+      time from SSM public parameters. Pinned to a known-good version.
+      Update by changing the path version suffix (e.g. /2.0.184).
+
+  ModelDefault:
+    Type: String
+    Default: claude-haiku-4-5-20251001
+    Description: Initial value for /casa-coqui/reply-agent/model SSM parameter
+
+  TemperatureDefault:
+    Type: String
+    Default: "1.0"
+    Description: Initial value for /casa-coqui/reply-agent/temperature SSM parameter
+
 # ---------------------------------------------------------------------------
 # Globals — defaults applied to every resource of a given type. DRYs the file.
 # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-specification-template-anatomy-globals.html
@@ -89,14 +107,14 @@ Resources:
       FunctionName: casa-coqui-reply-load-config
       CodeUri: functions/load-config/
       Handler: index.handler
-      Description: Loads model config + prompts from SSM/Secrets at workflow start
+      Description: Fetches model + temperature from SSM at workflow start
       Policies:
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
-              Action: secretsmanager:GetSecretValue
+              Action: ssm:GetParameters
               Resource:
-                - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AnthropicSecretName}-*
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/casa-coqui/reply-agent/*
 
   RAGRetrieveFunction:
     Type: AWS::Serverless::Function
@@ -182,6 +200,109 @@ Resources:
               Action: secretsmanager:GetSecretValue
               Resource:
                 - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${FirebaseSecretName}-*
+
+  # -------------------------------------------------------------------------
+  # SSM Parameters — non-secret hot-tunable model knobs.
+  # Read by LoadConfig at workflow start; result threaded through SFN state.
+  # -------------------------------------------------------------------------
+
+  ModelParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /casa-coqui/reply-agent/model
+      Type: String
+      Value: !Ref ModelDefault
+      Description: Anthropic model id used by the reply agent chain Lambdas
+
+  TemperatureParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /casa-coqui/reply-agent/temperature
+      Type: String
+      Value: !Ref TemperatureDefault
+      Description: Sampling temperature for Anthropic calls (parsed as float)
+
+  # -------------------------------------------------------------------------
+  # AppConfig — static resources (no HostedConfigurationVersions yet).
+  # HCVs + Deployments land in Task 7 (Commit A) with deliberately broken
+  # seed content to trigger the W7 validator trap. Task 8 (Commit B) fixes
+  # the seed.
+  # -------------------------------------------------------------------------
+
+  ReplyAgentApplication:
+    Type: AWS::AppConfig::Application
+    Properties:
+      Name: casa-coqui-reply-agent
+      Description: Casa Coqui Airbnb reply-agent configuration
+
+  ReplyAgentProdEnvironment:
+    Type: AWS::AppConfig::Environment
+    Properties:
+      ApplicationId: !Ref ReplyAgentApplication
+      Name: prod
+      Description: Production environment
+
+  SystemPromptProfile:
+    Type: AWS::AppConfig::ConfigurationProfile
+    Properties:
+      ApplicationId: !Ref ReplyAgentApplication
+      Name: system-prompt
+      Description: |
+        Host voice prompt + voice rules. Validated against a JSON Schema
+        that requires version, language_distribution, hard_bans, system_prompt_text.
+      Type: AWS.Freeform
+      LocationUri: hosted
+      Validators:
+        - Type: JSON_SCHEMA
+          Content: |
+            {
+              "$schema": "http://json-schema.org/draft-04/schema#",
+              "type": "object",
+              "required": ["version", "language_distribution", "hard_bans", "system_prompt_text"],
+              "properties": {
+                "version": {
+                  "type": "string",
+                  "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                },
+                "language_distribution": {
+                  "type": "object",
+                  "additionalProperties": { "type": "number" }
+                },
+                "hard_bans": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "system_prompt_text": {
+                  "type": "string",
+                  "minLength": 100
+                }
+              }
+            }
+
+  FeatureFlagsProfile:
+    Type: AWS::AppConfig::ConfigurationProfile
+    Properties:
+      ApplicationId: !Ref ReplyAgentApplication
+      Name: feature-flags
+      Description: |
+        Feature flags for the reply agent. Phase 2 ships flag reply_engine
+        with no consumer; Phase 3 wires the Cloud Function to read it.
+      Type: AWS.AppConfig.FeatureFlags
+      LocationUri: hosted
+
+  LinearDeploymentStrategy:
+    Type: AWS::AppConfig::DeploymentStrategy
+    Properties:
+      Name: casa-coqui-linear-10pct
+      Description: |
+        Linear rollout, 10% step every 1 minute, 5 minute bake at 100%.
+        Pedagogical (Plan §4.2). At 10 msg/day volume the bake window
+        observes zero traffic — the strategy is the lesson, not the optimization.
+      DeploymentDurationInMinutes: 10
+      FinalBakeTimeInMinutes: 5
+      GrowthFactor: 10.0
+      GrowthType: LINEAR
+      ReplicateTo: NONE
 
   # -------------------------------------------------------------------------
   # 2. CloudWatch log groups — one per state machine, with explicit retention.
