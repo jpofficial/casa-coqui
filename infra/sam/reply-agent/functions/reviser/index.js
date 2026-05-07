@@ -11,12 +11,11 @@
 //
 // Contract:
 //   Input:  { drafter: { draft }, evaluator: { evaluation }, contextJson,
-//             voicePrompt, voiceProfilePrompt, reasoner: { strategy } }
-//   Output: { draft: { reply, language, shouldEscalate, escalateReason? }, tokens }
+//             voiceProfilePrompt, reasoner: { strategy }, config: { model } }
+//   Output: { draft: { reply, language, shouldEscalate, escalateReason? }, tokens, appConfigVersion }
 //   Errors: throws Error with name='AnthropicThrottle' on exhausted 429/529
 //
-// SOURCE OF TRUTH for prompts/tools: functions/lib/reply-agent-chain.js
-// (lines 332-356 for the revise call). Copied verbatim here.
+// System prompt fetched from AppConfig via Lambda Extension at localhost:2772.
 // ---------------------------------------------------------------------------
 
 const Anthropic = require('@anthropic-ai/sdk').default;
@@ -101,6 +100,47 @@ async function getAnthropicClient() {
   return _anthropicClient;
 }
 
+// --- AppConfig fetch (via Lambda Extension at localhost:2772) -------------
+// Module-cached. AWS_APPCONFIG_EXTENSION_PRELOAD_LIST env var ensures the
+// Extension fetches at Lambda init, so the first invocation already has
+// the config in cache.
+//
+// Returns: { systemPromptText, appConfigVersion }
+//   appConfigVersion is the Configuration-Version response header value,
+//   threaded through the SFN result for forensic tracing.
+
+let _appConfigCache = null;
+
+async function fetchSystemPromptConfig() {
+  if (_appConfigCache) return _appConfigCache;
+
+  const app = process.env.APPCONFIG_APPLICATION;
+  const env = process.env.APPCONFIG_ENVIRONMENT;
+  const profile = process.env.APPCONFIG_PROFILE;
+  if (!app || !env || !profile) {
+    throw new Error('reviser: APPCONFIG_{APPLICATION,ENVIRONMENT,PROFILE} env vars not set');
+  }
+
+  const url = `http://localhost:2772/applications/${app}/environments/${env}/configurations/${profile}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`reviser: AppConfig fetch failed: ${res.status} ${res.statusText}`);
+  }
+
+  const appConfigVersion = res.headers.get('Configuration-Version') || 'unknown';
+  const config = await res.json();
+
+  if (!config.system_prompt_text) {
+    throw new Error('reviser: AppConfig response missing system_prompt_text');
+  }
+
+  _appConfigCache = {
+    systemPromptText: config.system_prompt_text,
+    appConfigVersion,
+  };
+  return _appConfigCache;
+}
+
 // --- Prompt + tool (re-uses Drafter's — output is a new draft) -------------
 
 function buildDrafterPrompt(voicePrompt, voiceProfilePrompt) {
@@ -144,25 +184,27 @@ exports.handler = async (event) => {
   const originalDraft = event?.drafter?.draft;
   const evaluation = event?.evaluator?.evaluation;
   const contextJson = event?.contextJson;
-  const voicePrompt = event?.voicePrompt;
   const voiceProfilePrompt = event?.voiceProfilePrompt || '';
   const strategy = event?.reasoner?.strategy;
+  const modelFromConfig = event?.config?.model || process.env.MODEL_NAME;
 
   if (!originalDraft) throw new Error('reviser: missing drafter.draft in input');
   if (!evaluation) throw new Error('reviser: missing evaluator.evaluation in input');
   if (!contextJson) throw new Error('reviser: missing contextJson in input');
-  if (!voicePrompt) throw new Error('reviser: missing voicePrompt in input');
   if (!strategy) throw new Error('reviser: missing reasoner.strategy in input');
-  if (!process.env.MODEL_NAME) throw new Error('reviser: MODEL_NAME env var not set');
+  if (!modelFromConfig) throw new Error('reviser: model not available (event.config.model and MODEL_NAME both missing)');
 
-  const client = await getAnthropicClient();
+  const [client, { systemPromptText, appConfigVersion }] = await Promise.all([
+    getAnthropicClient(),
+    fetchSystemPromptConfig(),
+  ]);
 
   const reviseInput = `ORIGINAL DRAFT: ${originalDraft.reply}\n\nEVALUATOR FEEDBACK:\n- Voice score: ${evaluation.voiceScore}/10\n- Voice feedback: ${evaluation.voiceFeedback}\n- Hard rule failures: ${(evaluation.hardRuleFailures || []).join(', ') || 'none'}\n- RAG consistent: ${evaluation.ragConsistent}\n- RAG feedback: ${evaluation.ragFeedback}\n\nSTRATEGY:\n${JSON.stringify(strategy, null, 2)}\n\nCONTEXT:\n${contextJson}\n\nRewrite the reply addressing ALL the feedback above.`;
 
   const response = await callWithBackoff(client, {
-    model: process.env.MODEL_NAME,
+    model: modelFromConfig,
     max_tokens: 512,
-    system: buildDrafterPrompt(voicePrompt, voiceProfilePrompt),
+    system: buildDrafterPrompt(systemPromptText, voiceProfilePrompt),
     tools: [DRAFTER_TOOL],
     tool_choice: { type: 'tool', name: 'guest_reply' },
     messages: [{ role: 'user', content: reviseInput }],
@@ -177,7 +219,8 @@ exports.handler = async (event) => {
       input: response.usage?.input_tokens || 0,
       output: response.usage?.output_tokens || 0,
     },
+    appConfigVersion,
   };
 };
 
-module.exports = { handler: exports.handler, callWithBackoff };
+module.exports = { handler: exports.handler, callWithBackoff, fetchSystemPromptConfig };
