@@ -1,0 +1,131 @@
+{
+  "Comment": "Outer orchestration: LoadConfig -> RAGRetrieve -> AIChain (Express child) -> WriteBack. Standard type.",
+  "StartAt": "LoadConfig",
+  "States": {
+    "LoadConfig": {
+      "Type": "Task",
+      "Comment": "Read prompts + model knobs from SSM/Secrets at workflow start",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${LoadConfigArn}",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.config",
+      "ResultSelector": {
+        "config.$": "$.Payload"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "WorkflowFailed"
+        }
+      ],
+      "Next": "RAGRetrieve"
+    },
+
+    "RAGRetrieve": {
+      "Type": "Task",
+      "Comment": "Vector search over the voice corpus for similar past conversations",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${RAGRetrieveArn}",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.rag",
+      "ResultSelector": {
+        "matches.$": "$.Payload.matches"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "Comment": "RAG retrieval is non-fatal — continue with empty matches",
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.ragError",
+          "Next": "AIChainExecution"
+        }
+      ],
+      "Next": "AIChainExecution"
+    },
+
+    "AIChainExecution": {
+      "Type": "Task",
+      "Comment": "Invoke the Express AI chain synchronously and wait for the final draft",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "${AIChainArn}",
+        "Input": {
+          "message.$": "$.message",
+          "config.$": "$.config",
+          "rag.$": "$.rag"
+        }
+      },
+      "ResultPath": "$.chainResult",
+      "ResultSelector": {
+        "output.$": "$.Output"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "WorkflowFailed"
+        }
+      ],
+      "Next": "WriteBack"
+    },
+
+    "WriteBack": {
+      "Type": "Task",
+      "Comment": "Write the final draft to Firestore via Firebase Admin SDK",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${WriteBackArn}",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.writeBack",
+      "ResultSelector": {
+        "messageId.$": "$.Payload.messageId",
+        "draftStatus.$": "$.Payload.draftStatus"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 5,
+          "BackoffRate": 2.0,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "WorkflowFailed"
+        }
+      ],
+      "End": true
+    },
+
+    "WorkflowFailed": {
+      "Type": "Fail",
+      "Comment": "Unrecoverable failure — Phase 3 will route this to SQS DLQ + SNS alert",
+      "Error": "ReplyDraftFailed",
+      "Cause": "See $.error in execution input"
+    }
+  }
+}
