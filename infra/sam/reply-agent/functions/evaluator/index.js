@@ -191,7 +191,8 @@ exports.handler = async (event) => {
   if (!draft) throw new Error('evaluator: missing drafter.draft in input');
   if (!strategy) throw new Error('evaluator: missing reasoner.strategy in input');
   if (!message) throw new Error('evaluator: missing message in input');
-  if (!process.env.MODEL_NAME) throw new Error('evaluator: MODEL_NAME env var not set');
+  const modelFromConfig = event?.config?.model || process.env.MODEL_NAME;
+  if (!modelFromConfig) throw new Error('evaluator: model not available (event.config.model and MODEL_NAME both missing)');
 
   const client = await getAnthropicClient();
 
@@ -215,7 +216,7 @@ exports.handler = async (event) => {
     (voiceProfilePrompt ? `\n\nADDITIONAL VOICE RULES TO CHECK AGAINST:\n${voiceProfilePrompt}` : '');
 
   const response = await callWithBackoff(client, {
-    model: process.env.MODEL_NAME,
+    model: modelFromConfig,
     max_tokens: 1024,
     system: EVALUATOR_PROMPT,
     tools: [EVALUATOR_TOOL],

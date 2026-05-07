@@ -46,7 +46,8 @@
       "ResultPath": "$.drafter",
       "ResultSelector": {
         "draft.$": "$.Payload.draft",
-        "tokens.$": "$.Payload.tokens"
+        "tokens.$": "$.Payload.tokens",
+        "appConfigVersion.$": "$.Payload.appConfigVersion"
       },
       "Retry": [
         {
@@ -139,7 +140,8 @@
       "ResultPath": "$.reviser",
       "ResultSelector": {
         "draft.$": "$.Payload.draft",
-        "tokens.$": "$.Payload.tokens"
+        "tokens.$": "$.Payload.tokens",
+        "appConfigVersion.$": "$.Payload.appConfigVersion"
       },
       "Retry": [
         {

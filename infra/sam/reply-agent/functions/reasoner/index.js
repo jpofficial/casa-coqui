@@ -201,12 +201,13 @@ exports.handler = async (event) => {
   const refId = event?.message?.id || null;
   const contextJson = event?.contextJson;
   if (!contextJson) throw new Error('reasoner: missing contextJson in input');
-  if (!process.env.MODEL_NAME) throw new Error('reasoner: MODEL_NAME env var not set');
+  const modelFromConfig = event?.config?.model || process.env.MODEL_NAME;
+  if (!modelFromConfig) throw new Error('reasoner: model not available (event.config.model and MODEL_NAME both missing)');
 
   const client = await getAnthropicClient();
 
   const response = await callWithBackoff(client, {
-    model: process.env.MODEL_NAME,
+    model: modelFromConfig,
     max_tokens: 1024,
     system: REASONER_PROMPT,
     tools: [REASONER_TOOL],
