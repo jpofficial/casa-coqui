@@ -452,6 +452,18 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
+    // airbnb_resolutions — AirCover / Resolution Center cases keyed by CLSF claim ID.
+    // Admin + cohost can read/update (status changes, notes). Lambda writes via Admin SDK.
+    // -------------------------------------------------------------------------
+    match /airbnb_resolutions/{claimId} {
+      allow read: if isAdmin() || (isStaff() && request.auth.token.role == 'cohost');
+      allow update: if (isAdmin() || (isStaff() && request.auth.token.role == 'cohost'))
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'notes', 'updatedAt']);
+      allow create, delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
     // agent_runs — AI generation audit log (welcome messages, reply drafts)
     // Staff can read for debugging. Written by server-side code only.
     // -------------------------------------------------------------------------

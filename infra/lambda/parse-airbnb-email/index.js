@@ -167,7 +167,7 @@ async function notifyAdminAndCohost(firestore, { titleEn, titleEs, bodyEn, bodyE
 }
 
 /**
- * @typedef {'reservation_confirmation' | 'guest_message' | 'payout' | 'review_request' | 'policy_update' | 'unknown'} MessageType
+ * @typedef {'reservation_confirmation' | 'guest_message' | 'payout' | 'review_request' | 'policy_update' | 'resolution_request' | 'unknown'} MessageType
  */
 
 /**
@@ -191,18 +191,25 @@ function isAirbnbSender(fromAddress) {
 function classifyEmail(subject) {
   if (!subject) return 'unknown';
 
+  // Gmail-forward normalization. When Julio forwards a guest reply from his
+  // Gmail inbox, Gmail collapses the inner "RE:" into the outer "Fwd:" so a
+  // subject like "RE: Reservation for X, Apr 30 – May 9" arrives as
+  // "Fwd: Reservation for X, Apr 30 – May 9". Strip leading Fwd:/Fw:
+  // prefixes (potentially nested) before pattern matching.
+  const normalized = subject.replace(/^(?:\s*(?:fwd|fw):\s*)+/i, '').trim();
+
   // Reservation confirmations — check BEFORE guest messages
   // Modern Airbnb subjects: "Reservation confirmed - Jane arrives May 15",
   // "Pending: Reservation Request at {Listing} for {dates}",
   // "Same-day inquiry for {Listing}", "New inquiry for {Listing}".
   if (
-    /reservation confirmed/i.test(subject) ||
-    /new booking confirmed/i.test(subject) ||
-    /reservation request from/i.test(subject) ||
-    /^pending:\s*reservation request/i.test(subject) ||
-    /^same-day inquiry for/i.test(subject) ||
-    /^new inquiry for/i.test(subject) ||
-    /^new reservation request/i.test(subject)
+    /reservation confirmed/i.test(normalized) ||
+    /new booking confirmed/i.test(normalized) ||
+    /reservation request from/i.test(normalized) ||
+    /^pending:\s*reservation request/i.test(normalized) ||
+    /^same-day inquiry for/i.test(normalized) ||
+    /^new inquiry for/i.test(normalized) ||
+    /^new reservation request/i.test(normalized)
   ) {
     return 'reservation_confirmation';
   }
@@ -210,59 +217,116 @@ function classifyEmail(subject) {
   // Guest messages
   // Live conversational threads from express@airbnb.com use the subject
   // "RE: Reservation for {Listing}, {dates}" or "RE: Inquiry for {Listing}, ...".
+  // Gmail-forwarded variants drop the RE:, leaving bare "Reservation for ...".
   // Older subject formats kept for back-compat.
   if (
-    /^re:\s*reservation for\b/i.test(subject) ||
-    /^re:\s*inquiry for\b/i.test(subject) ||
-    /new message from\b/i.test(subject) ||
-    /responded to your message/i.test(subject) ||
-    /sent you a message/i.test(subject) ||
-    /message from your (host|guest)/i.test(subject)
+    /^re:\s*reservation for\b/i.test(normalized) ||
+    /^re:\s*inquiry for\b/i.test(normalized) ||
+    /^reservation for\b/i.test(normalized) ||
+    /^inquiry for\b/i.test(normalized) ||
+    /new message from\b/i.test(normalized) ||
+    /responded to your message/i.test(normalized) ||
+    /sent you a message/i.test(normalized) ||
+    /message from your (host|guest)/i.test(normalized)
   ) {
     return 'guest_message';
   }
 
   // Payout / earnings — modern: "We sent a payout of $X USD"
   if (
-    /your payout for/i.test(subject) ||
-    /earnings summary/i.test(subject) ||
-    /payout sent/i.test(subject) ||
-    /payment sent/i.test(subject) ||
-    /we sent a payout/i.test(subject) ||
-    /payout of \$/i.test(subject)
+    /your payout for/i.test(normalized) ||
+    /earnings summary/i.test(normalized) ||
+    /payout sent/i.test(normalized) ||
+    /payment sent/i.test(normalized) ||
+    /we sent a payout/i.test(normalized) ||
+    /payout of \$/i.test(normalized)
   ) {
     return 'payout';
   }
 
   // Review requests — "Write a review for X's group", "Guest left a 2-star review"
   if (
-    /review your guest/i.test(subject) ||
-    /rate your (experience|stay|guest)/i.test(subject) ||
-    /left you a review/i.test(subject) ||
-    /write a review/i.test(subject) ||
-    /left a (\d+[- ]?star )?review/i.test(subject) ||
-    /a recent guest left/i.test(subject)
+    /review your guest/i.test(normalized) ||
+    /rate your (experience|stay|guest)/i.test(normalized) ||
+    /left you a review/i.test(normalized) ||
+    /write a review/i.test(normalized) ||
+    /left a (\d+[- ]?star )?review/i.test(normalized) ||
+    /a recent guest left/i.test(normalized)
   ) {
     return 'review_request';
   }
 
   // Policy / general Airbnb updates / admin-action emails
   if (
-    /policy update/i.test(subject) ||
-    /terms of service/i.test(subject) ||
-    /important update from airbnb/i.test(subject) ||
-    /airbnb update/i.test(subject) ||
-    /^action required:/i.test(subject) ||
-    /^reminder on action required:/i.test(subject) ||
-    /^reservation reminder:/i.test(subject) ||
-    /^message sent off-schedule/i.test(subject) ||
-    /^request declined:/i.test(subject) ||
-    /co-host network/i.test(subject)
+    /policy update/i.test(normalized) ||
+    /terms of service/i.test(normalized) ||
+    /important update from airbnb/i.test(normalized) ||
+    /airbnb update/i.test(normalized) ||
+    /^action required:/i.test(normalized) ||
+    /^reminder on action required:/i.test(normalized) ||
+    /^reservation reminder:/i.test(normalized) ||
+    /^message sent off-schedule/i.test(normalized) ||
+    /^request declined:/i.test(normalized) ||
+    /co-host network/i.test(normalized)
   ) {
     return 'policy_update';
   }
 
+  // Resolution Center / AirCover / damage protection cases.
+  // Sender is resolutions@airbnb.com; subject usually carries the CLSF claim ID.
+  // Examples: "Airbnb Reimbursement Request [CLSF-05873844] [HMRJNRRYF5]",
+  //           "Host damage protection update [CLSF-...]",
+  //           any subject containing a CLSF-#### claim identifier.
+  if (
+    /\bAirbnb Reimbursement Request\b/i.test(normalized) ||
+    /\bHost damage protection\b/i.test(normalized) ||
+    /\bAirCover\b/i.test(normalized) ||
+    /\bResolution Center\b/i.test(normalized) ||
+    /\bCLSF-\d+/i.test(normalized)
+  ) {
+    return 'resolution_request';
+  }
+
   return 'unknown';
+}
+
+// ---------------------------------------------------------------------------
+// Resolution-request field extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Pull structured fields from a resolution_request email.
+ * Keyed off the CLSF claim ID (Airbnb's stable identifier for the case).
+ *
+ * @param {{ subject?: string, bodyText?: string }} input
+ * @returns {{
+ *   claimId: string|null,
+ *   confirmationCode: string|null,
+ *   resolutionUrl: string|null,
+ * }}
+ */
+function parseResolutionFields({ subject = '', bodyText = '' }) {
+  const haystack = `${subject}\n${bodyText}`;
+
+  // Claim ID — CLSF-NNNNNNNN (case-insensitive in source, normalize to upper)
+  const claimMatch = haystack.match(/\bCLSF-(\d{4,})\b/i);
+  const claimId = claimMatch ? `CLSF-${claimMatch[1]}` : null;
+
+  // Reservation confirmation code — Airbnb HM-prefix codes (8-10 alphanumeric)
+  const codeMatch = haystack.match(/\bHM[A-Z0-9]{8,10}\b/);
+  const confirmationCode = codeMatch ? codeMatch[0] : null;
+
+  // Resolution Center URL — the host_guarantee_host_summary?referenceId=CLSF-...
+  // Capture without trailing punctuation. Also accept generic /mediation/ URLs.
+  let resolutionUrl = null;
+  const urlMatch = haystack.match(/https?:\/\/airbnb\.com\/mediation\/[^\s"'<>]+/i);
+  if (urlMatch) {
+    // Strip quoted-printable line continuations only ("=\r\n" / "=\n").
+    // Do NOT strip bare "=" — those are real query-string separators.
+    resolutionUrl = urlMatch[0].replace(/=\r?\n/g, '');
+  }
+
+  return { claimId, confirmationCode, resolutionUrl };
 }
 
 // ---------------------------------------------------------------------------
@@ -740,7 +804,91 @@ exports.handler = async (event) => {
       }
 
       // ------------------------------------------------------------------
-      // 6b. Route other non-guest-message emails straight to quarantine
+      // 6b. Route resolution requests (AirCover / Resolution Center cases) to
+      //     dedicated airbnb_resolutions collection, keyed by claimId so
+      //     follow-up emails on the same case upsert into one doc.
+      // ------------------------------------------------------------------
+      if (messageType === 'resolution_request') {
+        const fields = parseResolutionFields({ subject, bodyText });
+        const claimId = fields.claimId;
+
+        if (!claimId) {
+          // Couldn't extract a claim ID — fall through to quarantine for triage
+          console.warn('resolution_request without parseable claimId — quarantining', {
+            subject,
+            objectKey,
+          });
+        } else {
+          const resCode = fields.confirmationCode || confirmationCode || null;
+          const docRef = firestore.collection('airbnb_resolutions').doc(claimId);
+          const existing = await docRef.get();
+          const isFirstArrival = !existing.exists;
+
+          // Best-effort booking match — same lookup as guest messages.
+          let bookingId = null;
+          if (resCode) {
+            const matched = await findMatchingBooking(firestore, resCode);
+            if (matched) bookingId = matched.id;
+          }
+
+          const nowTs = admin.firestore.FieldValue.serverTimestamp();
+          const payload = {
+            claimId,
+            confirmationCode: resCode,
+            bookingId,
+            subject,
+            fromName,
+            fromAddress,
+            receivedAt: admin.firestore.Timestamp.fromDate(receivedAt),
+            resolutionUrl: fields.resolutionUrl,
+            bodyText: bodyText.slice(0, 16000), // cap; chatbot will get the full text from S3 later
+            rawEmailS3Key: objectKey,
+            messageId: rfcMessageId,
+            sesMessageId,
+            updatedAt: nowTs,
+          };
+
+          if (isFirstArrival) {
+            payload.status = 'open';
+            payload.createdAt = nowTs;
+            payload.adminNotifiedAt = null;
+          }
+
+          await docRef.set(payload, { merge: true });
+          console.log('airbnb_resolutions upserted', { claimId, isFirstArrival, objectKey });
+
+          // Notify admin/cohost only on first arrival of a claim.
+          // Subsequent emails for the same claim update the doc silently.
+          if (isFirstArrival) {
+            await notifyAdminAndCohost(firestore, {
+              titleEn: 'Airbnb resolution case opened',
+              titleEs: 'Caso de resolución de Airbnb abierto',
+              bodyEn: 'Claim {claimId} from resolutions@airbnb.com{bookingPart}',
+              bodyEs: 'Reclamo {claimId} de resolutions@airbnb.com{bookingPart}',
+              bodyParams: {
+                claimId,
+                bookingPart: resCode ? ` — booking ${resCode}` : '',
+              },
+              type: 'resolution_request',
+              data: {
+                claimId,
+                confirmationCode: resCode || '',
+                bookingId: bookingId || '',
+                resolutionUrl: fields.resolutionUrl || '',
+                targetPath: '/admin/resolutions',
+              },
+            });
+            await docRef.update({ adminNotifiedAt: nowTs });
+          }
+
+          processedCount++;
+          await markTombstoneCompleted(claim.lockRef);
+          continue;
+        }
+      }
+
+      // ------------------------------------------------------------------
+      // 6c. Route other non-guest-message emails straight to quarantine
       // ------------------------------------------------------------------
       if (messageType !== 'guest_message') {
         console.log('Non-guest message — routing to quarantine', { messageType });
@@ -907,3 +1055,4 @@ module.exports.extractEnrichmentFields = extractEnrichmentFields;
 module.exports.classifyEmail = classifyEmail;
 module.exports.isAirbnbSender = isAirbnbSender;
 module.exports.extractGuestNameFromSubject = extractGuestNameFromSubject;
+module.exports.parseResolutionFields = parseResolutionFields;
