@@ -15,8 +15,10 @@
 'use strict';
 
 const Anthropic = require('@anthropic-ai/sdk').default;
+const { createWithBackoff } = require('./anthropic-with-backoff');
 
-const client = new Anthropic({ maxRetries: 4 });
+// SDK retries disabled — anthropic-with-backoff.js owns retry policy.
+const client = new Anthropic({ maxRetries: 0 });
 const MODEL = 'claude-haiku-4-5-20251001';
 
 // ---------------------------------------------------------------------------
@@ -230,16 +232,18 @@ async function generateReplyChain({ message, contextJson, voicePrompt, relevantC
   const startTime = Date.now();
   const steps = [];
 
+  const refId = message.id || null;
+
   // --- Step 1: Reason ---
   const reasonerInput = contextJson;
-  const reasonerResponse = await client.messages.create({
+  const reasonerResponse = await createWithBackoff(client, {
     model: MODEL,
     max_tokens: 1024,
     system: REASONER_PROMPT,
     tools: [REASONER_TOOL],
     tool_choice: { type: 'tool', name: 'response_strategy' },
     messages: [{ role: 'user', content: reasonerInput }],
-  });
+  }, { label: 'reasoner', refId });
 
   const strategyBlock = reasonerResponse.content.find((b) => b.type === 'tool_use');
   if (!strategyBlock) throw new Error('Reasoner did not return a strategy');
@@ -255,14 +259,14 @@ async function generateReplyChain({ message, contextJson, voicePrompt, relevantC
 
   // --- Step 2: Draft ---
   const drafterInput = `STRATEGY FROM REASONER:\n${JSON.stringify(strategy, null, 2)}\n\nCONTEXT:\n${contextJson}`;
-  const drafterResponse = await client.messages.create({
+  const drafterResponse = await createWithBackoff(client, {
     model: MODEL,
     max_tokens: 512,
     system: buildDrafterPrompt(voicePrompt, voiceProfilePrompt),
     tools: [DRAFTER_TOOL],
     tool_choice: { type: 'tool', name: 'guest_reply' },
     messages: [{ role: 'user', content: drafterInput }],
-  });
+  }, { label: 'drafter', refId });
 
   const draftBlock = drafterResponse.content.find((b) => b.type === 'tool_use');
   if (!draftBlock) throw new Error('Drafter did not return a reply');
@@ -295,14 +299,14 @@ async function generateReplyChain({ message, contextJson, voicePrompt, relevantC
   const evalInput = JSON.stringify(evalInputObj) +
     (voiceProfilePrompt ? `\n\nADDITIONAL VOICE RULES TO CHECK AGAINST:\n${voiceProfilePrompt}` : '');
 
-  const evalResponse = await client.messages.create({
+  const evalResponse = await createWithBackoff(client, {
     model: MODEL,
     max_tokens: 1024,
     system: EVALUATOR_PROMPT,
     tools: [EVALUATOR_TOOL],
     tool_choice: { type: 'tool', name: 'evaluation' },
     messages: [{ role: 'user', content: evalInput }],
-  });
+  }, { label: 'evaluator', refId });
 
   const evalBlock = evalResponse.content.find((b) => b.type === 'tool_use');
   if (!evalBlock) throw new Error('Evaluator did not return an evaluation');
@@ -329,14 +333,14 @@ async function generateReplyChain({ message, contextJson, voicePrompt, relevantC
     // Re-draft with feedback
     const reviseInput = `ORIGINAL DRAFT: ${draft.reply}\n\nEVALUATOR FEEDBACK:\n- Voice score: ${evaluation.voiceScore}/10\n- Voice feedback: ${evaluation.voiceFeedback}\n- Hard rule failures: ${(evaluation.hardRuleFailures || []).join(', ') || 'none'}\n- RAG consistent: ${evaluation.ragConsistent}\n- RAG feedback: ${evaluation.ragFeedback}\n\nSTRATEGY:\n${JSON.stringify(strategy, null, 2)}\n\nCONTEXT:\n${contextJson}\n\nRewrite the reply addressing ALL the feedback above.`;
 
-    const reviseResponse = await client.messages.create({
+    const reviseResponse = await createWithBackoff(client, {
       model: MODEL,
       max_tokens: 512,
       system: buildDrafterPrompt(voicePrompt, voiceProfilePrompt),
       tools: [DRAFTER_TOOL],
       tool_choice: { type: 'tool', name: 'guest_reply' },
       messages: [{ role: 'user', content: reviseInput }],
-    });
+    }, { label: 'reviser', refId });
 
     const reviseBlock = reviseResponse.content.find((b) => b.type === 'tool_use');
     if (reviseBlock) {

@@ -11,8 +11,11 @@
 
 const Anthropic = require('@anthropic-ai/sdk').default;
 const { filterRAGResults } = require('./rag-filter');
+const { createWithBackoff } = require('./anthropic-with-backoff');
 
-const client = new Anthropic({ maxRetries: 4 }); // SDK honors retry-after; default 2 was too few for org-wide rate windows
+// SDK retries disabled — anthropic-with-backoff.js owns retry policy with
+// explicit exponential backoff + jitter and observable log lines.
+const client = new Anthropic({ maxRetries: 0 });
 const MODEL = 'claude-haiku-4-5-20251001';
 
 // ---------------------------------------------------------------------------
@@ -253,14 +256,14 @@ async function generateReply({ message, thread, booking, settings, voiceSamples,
 
   const systemWithVoice = SYSTEM_PROMPT + (voiceProfilePrompt || '');
 
-  const response = await client.messages.create({
+  const response = await createWithBackoff(client, {
     model: MODEL,
     max_tokens: 512,
     system: systemWithVoice,
     tools: [REPLY_TOOL],
     tool_choice: { type: 'tool', name: 'guest_reply' },
     messages: [{ role: 'user', content: userMessage }],
-  });
+  }, { label: 'single-shot', refId: message.id });
 
   const toolUse = response.content.find((block) => block.type === 'tool_use');
   if (!toolUse) {
