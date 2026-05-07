@@ -201,6 +201,7 @@ exports.handler = async (event) => {
   const refId = event?.message?.id || null;
   const contextJson = event?.contextJson;
   if (!contextJson) throw new Error('reasoner: missing contextJson in input');
+  if (!process.env.MODEL_NAME) throw new Error('reasoner: MODEL_NAME env var not set');
 
   const client = await getAnthropicClient();
 
@@ -226,4 +227,4 @@ exports.handler = async (event) => {
 };
 
 // Exported for unit tests.
-module.exports = { ...module.exports, callWithBackoff, isRetryable, backoffDelayMs };
+module.exports = { handler: exports.handler, callWithBackoff, isRetryable, backoffDelayMs };
