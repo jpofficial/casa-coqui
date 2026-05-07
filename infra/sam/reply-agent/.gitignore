@@ -4,3 +4,6 @@
 # Saved deploy config (created on first `sam deploy --guided`)
 # Comment out the next line if you want to commit the config for team-wide deploys.
 samconfig.toml
+
+# Node.js dependencies
+node_modules/
