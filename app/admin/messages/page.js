@@ -471,11 +471,22 @@ function AirbnbMessageCard({ message, locale }) {
   async function handleMarkSent(finalReply) {
     setBusy(true);
     try {
-      await updateDoc(doc(db, 'airbnb_messages', message.id), {
-        draftStatus: 'sent',
-        sentAt: serverTimestamp(),
-        editedReply: finalReply,
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+      if (!idToken) {
+        throw new Error('Not authenticated');
+      }
+      const res = await fetch(`/api/airbnb-messages/${message.id}/mark-sent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ editedReply: finalReply }),
       });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
     } catch (err) {
       console.error('Failed to mark as sent:', err);
     } finally {
