@@ -498,11 +498,16 @@ function AirbnbMessageCard({ message, locale }) {
   async function handleRegenerate() {
     setBusy(true);
     try {
-      await updateDoc(doc(db, 'airbnb_messages', message.id), {
-        draftStatus: 'pending',
-        draftReply: null,
-        regeneratedAt: serverTimestamp(),
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/airbnb-messages/${message.id}/regenerate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
       });
+      const json = await res.json();
+      if (!json.success) {
+        alert(`Regenerate failed: ${json.error}`);
+      }
+      // optimistic UI update — rely on Firestore real-time for final state
     } catch (err) {
       console.error('Failed to trigger regenerate:', err);
     } finally {
@@ -647,11 +652,21 @@ function AirbnbMessageCard({ message, locale }) {
               <div className="px-4 pb-4 flex gap-2">
                 <button
                   onClick={handleRegenerate}
-                  disabled={busy || message.draftStatus === 'pending'}
+                  disabled={busy || message.draftStatus === 'pending' || !!(message.editedReply && message.editedReply.length > 0)}
+                  title={message.editedReply && message.editedReply.length > 0 ? "Regenerate is disabled because this draft has been manually edited (host edits are sticky)." : ""}
                   className="py-2 px-3 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 active:bg-gray-50 transition-colors disabled:opacity-40"
                 >
                   {t(locale, 'admin_msg_regenerate')}
                 </button>
+                {message.draftStatus === 'failed' && (
+                  <button
+                    onClick={handleRegenerate}
+                    disabled={busy}
+                    className="py-2 px-3 rounded-xl border border-orange-200 text-xs font-medium text-orange-600 active:bg-orange-50 transition-colors disabled:opacity-40"
+                  >
+                    Retry
+                  </button>
+                )}
                 {message.draftStatus !== 'escalated' && (
                   <button
                     onClick={handleEscalate}
