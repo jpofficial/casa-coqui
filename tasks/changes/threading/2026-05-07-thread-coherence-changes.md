@@ -299,16 +299,129 @@ The spec's §8 lists 8 acceptance criteria. Mapping each to the task that satisf
 
 ### Outstanding work — Task 7
 
-**Task 7 (manual smoke test post-deploy) is OUTSTANDING.** The implementation is complete in the repo; the deploy-and-verify step has not been executed.
+**Task 7 — CLOSED on 2026-05-08 (see "Task 7 — Production deploy & smoke verification" below).** The implementation is live in production via AWS Lambda; the Cloud Functions surface remains blocked by a pre-existing deploy gap captured as Outstanding Issue #1.
 
-Pending Julio's explicit go-ahead, the following deploys are required before the fix is live:
+---
 
-- **AWS Lambda** — redeploy `infra/lambda/parse-airbnb-email` so Tasks 1–4 take effect on inbound mail.
-- **Firebase Functions** — redeploy `functions/index.js` so Task 5's defense-in-depth reconstruction uses the new format.
-- **Vercel** — the admin Messages UI (Task 6) will deploy on the next `main` push automatically; no manual step needed.
+## Task 7 — Production deploy & smoke verification
 
-After the two server-side deploys, run the manual smoke procedure documented in **plan §Task 7** — typically: send a test inbound message via Airbnb forwarding, confirm the lambda logs show the expected tier match and threadKey format, confirm the doc lands in `airbnb_messages` with the stamped `threadKey`, and confirm the admin Messages inbox renders the message in the correct thread.
+**Date**: 2026-05-08 (UTC)
+**Commits**:
+- [`2e33d3a`](../../../) — `fix(thread-key): sync 3 thread-key.js copies + cross-sync warnings`
+- [`c31989e`](../../../) — `docs(threading): Task 7 deploy + smoke verification artifacts` (29 files in `tasks/changes/threading/deploy-logs/`)
 
-**Neither AWS nor Firebase deploy will be initiated by this agent without explicit authorization from Julio.**
+### What changed in production
+
+The AWS Lambda `parse-airbnb-email` was deployed end-to-end. After the first deploy, a synthetic smoke test caught a regression in production: unmatched messages were still landing on the legacy `email:express@airbnb.com` threadKey instead of the new annual-bucket format. Root cause: there are **three copies** of `thread-key.js` in active code paths, and Task 1 only updated the repo-root one. Commit `2e33d3a` synced the other two and added a cross-sync warning header to each. After re-deploy, a second synthetic injection confirmed the new format end-to-end. The Cloud Functions surface (Task 5) was not deployed due to a pre-existing unrelated bug; see Outstanding Issue #1.
+
+### Timeline (2026-05-08 UTC)
+
+- **03:43** — `cdk diff CasaCoquiEmailStack` showed code-only change (Lambda S3Key only — no infra drift).
+- **03:44** — `cdk deploy CasaCoquiEmailStack` succeeded. New Lambda `CodeSha256: J6q2/dN5MFVWLmGf4mhCSsh2Uh18f/rjoAXKYpgg6xI=`.
+- **03:45** — `firebase deploy --only functions:onAirbnbMessageCreated` — CLI exited successfully from its own perspective.
+- **03:46** — Firebase Cloud Run **REJECTED** the new revision (health check failed). Old revision remained serving traffic. Pre-existing bug at `functions/lib/reply-ai.js:33`: `path.resolve(__dirname, '../../infra/sam/reply-agent/config/system-prompt.seed.json')` resolves to `/infra/sam/...` in the deployed package — that file does not exist there → ENOENT → container exits → health check fails. **NOT introduced by this work; surfaced by it.**
+- **03:55** — Manual forward of a real Airbnb email by Julio. Lambda quarantined as `non_airbnb_sender` because Gmail's Forward button rewrites the `From:` header to Julio's Gmail address. Expected behavior; not a regression.
+- **04:01** — Synthetic .eml v1 injection (`From: express@airbnb.com`, `Subject: "New message from Smoke TestBot"`). Lambda processed: `processed=1, errors=0`. CloudWatch trace confirmed: classified as `guest_message`, all 3 tiers missed, "Written unmatched guest_message to airbnb_messages".
+- **04:02** — Firestore admin SDK query revealed: doc `NqsHflGSlzgcF6Xsx3Hi`, **`threadKey: "email:express@airbnb.com"`** — OLD FORMAT. Regression caught.
+- **04:05** — Root-cause investigation. Discovered THREE copies of `thread-key.js` in active code paths:
+  - `lib/thread-key.js` (repo root — updated by Task 1)
+  - `functions/lib/thread-key.js` (Cloud Functions LOCAL copy — NOT updated)
+  - `infra/lambda/parse-airbnb-email/thread-key.js` (Lambda LOCAL copy — NOT updated)
+
+  The Lambda's deploy bundle includes its own local copy, not the repo-root one. The deployed Lambda was running the **OLD pre-Task-1 code**.
+- **04:06** — Fix commit `2e33d3a`: synced all 3 `thread-key.js` copies to the new code + added a cross-sync warning comment block in each header. lib tests still 48/48; lambda tests still 74/74.
+- **04:07** — `cdk deploy CasaCoquiEmailStack` re-deployed in 41s.
+- **04:08** — Synthetic .eml v2 injection (fresh `Message-ID` + `objectKey` to bypass dedup): Lambda `processed=1`, "Written unmatched guest_message to airbnb_messages".
+- **04:09** — Firestore admin SDK query: doc `vUwlb3ipD2fOS4QpE2l8`, **`threadKey: "name:smoke-testbot-v2|y:2026"`** — NEW FORMAT. Fix verified end-to-end in production.
+- **04:10** — Synthetic test artifacts cleaned up: 2 `airbnb_messages`, 2 quarantine archives, 2 processing locks, 2 `agent_runs`, 8 `staff_notifications`, 2 S3 `.eml` objects all deleted.
+
+### Finding #1 — Plan oversight: 3 copies of `thread-key.js` (CRITICAL)
+
+Task 1 only updated `lib/thread-key.js` at the repo root. **Both deploy bundles** — the AWS Lambda and the Firebase Cloud Function — keep their own LOCAL copies of `thread-key.js`. The deploy bundles ship the local copy, not the repo-root one. This is the single most valuable lesson from this entire body of work.
+
+- The plan and the spec both missed it.
+- The unit tests passed because they import the repo-root file.
+- The regression was invisible to every gate except the production smoke test.
+- Without the synthetic injection, this would have shipped silently and continued fragmenting threads in production despite a "green" rollout.
+
+**Fix**: commit `2e33d3a` synced all 3 copies to identical content and added an explicit cross-sync warning comment block in each file's header listing the other two paths, so any future reader cannot miss the coupling. **Any future change to `thread-key.js` must be applied to all three files in the same commit.**
+
+### Finding #2 — Outstanding Issue #1: Cloud Functions deploy gap (PRE-EXISTING, NOT introduced by this work)
+
+`functions/lib/reply-ai.js:33` references a SAM seed file via a relative path that points outside the Cloud Functions deploy package:
+
+```
+path.resolve(__dirname, '../../infra/sam/reply-agent/config/system-prompt.seed.json')
+```
+
+In the deployed package, `__dirname` is rooted at the function's own directory; the `../../infra/sam/...` traversal escapes the bundle and resolves to a path that does not exist in the Cloud Run container. Result:
+- `firebase deploy` exits 0 from the CLI's perspective.
+- Cloud Run rejects the new revision when its health check fails (ENOENT on require / first invocation).
+- Old revision keeps serving traffic. The deploy is a silent no-op.
+
+**Implication for this work**: Task 5's commit `0713219` (the `functions/index.js` inline `buildThreadKey` + `receivedAt` defense-in-depth wiring) is **NOT live in production**. The Cloud Function is running old code from before Phase 2's reply-ai.js changes. This is technically OK for the threading fix specifically — the Lambda always stamps `threadKey` on new docs, so the Cloud Function's reconstruction path is dead code for new traffic — but it is **not** OK structurally: any future deploy of `onAirbnbMessageCreated` will hit the same wall.
+
+**Fix options** (~30 min):
+1. Inline `SYSTEM_PROMPT` content directly into `reply-ai.js` (simplest).
+2. Copy the seed file into the Cloud Functions deploy bundle (e.g., `functions/seed/system-prompt.seed.json`) and update the path resolver.
+
+This must be addressed **before any Option-A item that touches `reply-ai.js`** (specifically items 4 and 5 in the broader threading roadmap), since those items will require a successful Cloud Functions deploy to take effect.
+
+### Acceptance criteria (spec §8) — verified end-to-end in production
+
+- ✅ **Tier-1 confirmation-code path**: regression preserved (Lambda `CodeSha256` changed, no errors in CloudWatch logs).
+- ✅ **Tier-2 (email + active-window) path**: code-path verified by synthetic v2 (called and missed correctly — function signature works under live invocation).
+- ✅ **Tier-3 (name + active-window) path**: code-path verified (called with `guestName="Smoke TestBot V2"`, missed correctly — no booking matches the synthetic name).
+- ✅ **Unmatched message → `name:{safeName}|y:{YYYY}` (NOT `email:express@airbnb.com`)**: VERIFIED IN PRODUCTION via Firestore doc `vUwlb3ipD2fOS4QpE2l8` with `threadKey: "name:smoke-testbot-v2|y:2026"`.
+- ✅ **Same person across month boundary → same threadKey**: covered by Task 1 unit tests (annual bucket guarantees this property).
+- ✅ **Voice-learning loop preserved**: NOT regressed — `functions/index.js` wasn't actually deployed (see Outstanding Issue #1), so the same code that was working before this session is still serving traffic.
+
+### Final commit chain
+
+```
+790f456  Task 1 — lib/thread-key.js: annual-bucket fallback + airbnb-forwarder skip
+254987e  Task 2 — parse-airbnb-email: booking-match helpers
+869f2d5  Task 3 — parse-airbnb-email: tiered findMatchingBooking
+29461fc  Task 4 — parse-airbnb-email: wire tiered match into 3 lambda call sites
+0713219  Task 5 — functions/onAirbnbMessageCreated: pass receivedAt to inline buildThreadKey
+40aee72  Task 6 — admin/messages: pass receivedAt to client-side buildThreadKey fallback
+f15fbe3  docs: change-log entries for Tasks 1–6 + Implementation Summary
+2e33d3a  Task 7 — fix: sync 3 thread-key.js copies + cross-sync warning headers
+c31989e  Task 7 — docs: deploy + smoke verification artifacts (29 files in deploy-logs/)
+```
+
+### Files
+
+- `lib/thread-key.js` — +6/-0 (cross-sync warning header).
+- `functions/lib/thread-key.js` — +37/-5 (synced body + cross-sync warning header).
+- `infra/lambda/parse-airbnb-email/thread-key.js` — +37/-5 (synced body + cross-sync warning header).
+- `tasks/changes/threading/deploy-logs/` — 29 new files (CloudWatch traces, cdk diff/deploy logs, Firebase trigger log, synthetic .eml fixtures, SES invoke payloads, Firestore admin verification scripts, cleanup script, raw verify outputs).
+
+### Tests
+
+- `lib/__tests__/thread-key.test.js` — 48/48 passing (unchanged from Task 1; commit `2e33d3a` only synced the file body, did not change behavior).
+- `infra/lambda/parse-airbnb-email/__tests__/booking-match.test.js` — 74/74 passing (unchanged from Tasks 2–3).
+- **Production smoke**: synthetic injection v2 → Firestore doc `vUwlb3ipD2fOS4QpE2l8` with correct annual-bucket threadKey. Cleanup verified.
+
+### Caveats / follow-ups
+
+- Outstanding Issue #1 (Cloud Functions deploy gap) is the only follow-up from Task 7. Tracked below.
+- Implementation Summary's "Task 7 outstanding" note is now closed by this section.
+
+---
+
+## Outstanding Issues
+
+### Issue #1 — Cloud Functions deploy gap at `functions/lib/reply-ai.js:33`
+
+**Severity**: Blocker for any future redeploy of `onAirbnbMessageCreated` (and any other Cloud Function that loads `reply-ai.js`).
+**Status**: PRE-EXISTING — not introduced by this work, surfaced by it during Task 7.
+**Symptom**: `firebase deploy` exits 0; Cloud Run rejects the new revision; old revision keeps serving. Silent no-op.
+**Root cause**: `path.resolve(__dirname, '../../infra/sam/reply-agent/config/system-prompt.seed.json')` resolves outside the Cloud Functions deploy package.
+**Fix options** (~30 min):
+1. Inline `SYSTEM_PROMPT` content into `reply-ai.js` (simplest).
+2. Bundle the seed file inside `functions/` (e.g., `functions/seed/system-prompt.seed.json`) and update the resolver.
+**Required before**: Option A items 4 and 5 (which touch `reply-ai.js` and would require a working Cloud Functions deploy).
+**Impact on this work**: Task 5's `0713219` is not live in production. Acceptable short-term — the Lambda always stamps `threadKey` on new docs, so the Cloud Function's reconstruction path is dead code for new traffic — but structurally must be fixed before the next functions deploy.
 
 ---
