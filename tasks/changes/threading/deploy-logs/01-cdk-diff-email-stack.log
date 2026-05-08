@@ -1,0 +1,30 @@
+Including dependency stacks: CasaCoquiFoundationStack
+start: Building aeaef0929979ac8a4ff867619914170fb7dbe52f59045fc71470703534a16867
+success: Built aeaef0929979ac8a4ff867619914170fb7dbe52f59045fc71470703534a16867
+start: Publishing aeaef0929979ac8a4ff867619914170fb7dbe52f59045fc71470703534a16867:524140443248-us-east-1
+success: Published aeaef0929979ac8a4ff867619914170fb7dbe52f59045fc71470703534a16867:524140443248-us-east-1
+Hold on while we create a read-only change set to get a diff with accurate replacement information (use --method=template to use a less accurate but faster template-only diff)
+
+Stack CasaCoquiFoundationStack
+There were no differences
+Omitted 1 changes because they are likely mangled non-ASCII characters. Use --strict to print them.
+
+start: Building 3b911e0535d57ec6224ecc3a2340114e435e52fc2d168320c27bdec6a50beaf7
+success: Built 3b911e0535d57ec6224ecc3a2340114e435e52fc2d168320c27bdec6a50beaf7
+start: Publishing 3b911e0535d57ec6224ecc3a2340114e435e52fc2d168320c27bdec6a50beaf7:524140443248-us-east-1
+success: Published 3b911e0535d57ec6224ecc3a2340114e435e52fc2d168320c27bdec6a50beaf7:524140443248-us-east-1
+Hold on while we create a read-only change set to get a diff with accurate replacement information (use --method=template to use a less accurate but faster template-only diff)
+
+Stack CasaCoquiEmailStack
+Resources
+[~] AWS::Lambda::Function ParseAirbnbEmailLambda ParseAirbnbEmailLambdaE2EE3961
+ └─ [~] Code
+     └─ [~] .S3Key:
+         ├─ [-] f36a9e38350e2f8132304a36b64c19677b09c88287730abbfa461c4bdd796c67.zip
+         └─ [+] 1e57294134264a42098780a6b65ce9c9af852396997d302445df62f8ad4f8833.zip
+
+Omitted 1 changes because they are likely mangled non-ASCII characters. Use --strict to print them.
+
+
+✨  Number of stacks with differences: 1
+

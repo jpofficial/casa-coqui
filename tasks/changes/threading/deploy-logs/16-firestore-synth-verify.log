@@ -1,0 +1,17 @@
+(node:22421) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+{
+  "docId": "NqsHflGSlzgcF6Xsx3Hi",
+  "exists": true,
+  "threadKey": "email:express@airbnb.com",
+  "bookingId": null,
+  "airbnbConfirmationCode": null,
+  "direction": "inbound",
+  "guestName": "Smoke TestBot",
+  "fromAddress": "express@airbnb.com",
+  "fromName": "Airbnb",
+  "subject": "New message from Smoke TestBot",
+  "draftStatus": "escalated",
+  "receivedAt": "2026-05-08T03:55:00.000Z",
+  "source": "inbound"
+}
