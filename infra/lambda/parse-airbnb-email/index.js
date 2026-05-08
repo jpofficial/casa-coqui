@@ -428,6 +428,77 @@ function extractEnrichmentFields(subject, body) {
 }
 
 // ---------------------------------------------------------------------------
+// Active-stay window matching helpers (Part A of thread-coherence fix)
+// ---------------------------------------------------------------------------
+
+const WINDOW_PRE_DAYS = 15;
+const WINDOW_POST_DAYS = 5;
+
+/** Lowercase + trim + collapse internal whitespace. Preserves accented chars. */
+function normalizeName(name) {
+  return String(name).trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** True iff `receivedAt` falls within (checkIn − 15d) … (checkOut + 5d, end-of-day). */
+function isInActiveWindow(booking, receivedAt) {
+  if (!booking.checkInDate || !booking.checkOutDate) return false;
+  const checkIn = new Date(booking.checkInDate);
+  const checkOut = new Date(booking.checkOutDate);
+  if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) return false;
+  const earliest = new Date(checkIn.getTime() - WINDOW_PRE_DAYS * 86400000);
+  // checkOut + (POST_DAYS + 1) - 1ms → covers all of the Nth post-day.
+  const latest = new Date(checkOut.getTime() + (WINDOW_POST_DAYS + 1) * 86400000 - 1);
+  return receivedAt >= earliest && receivedAt <= latest;
+}
+
+/** Absolute ms between receivedAt and the booking's stay-window midpoint. */
+function midpointDistance(booking, receivedAt) {
+  const checkIn = new Date(booking.data.checkInDate).getTime();
+  const checkOut = new Date(booking.data.checkOutDate).getTime();
+  const mid = (checkIn + checkOut) / 2;
+  return Math.abs(receivedAt.getTime() - mid);
+}
+
+/**
+ * Pick the best booking when tier 2 or tier 3 returns multiple candidates.
+ * Order: active-stay → closest-midpoint → most-recently-created.
+ */
+function tieBreak(candidates, receivedAt) {
+  if (candidates.length === 1) return candidates[0];
+
+  // Step 1: prefer active-stay (receivedAt strictly within checkIn..checkOut)
+  const active = candidates.filter((c) => {
+    const checkIn = new Date(c.data.checkInDate);
+    const checkOut = new Date(c.data.checkOutDate);
+    return receivedAt >= checkIn && receivedAt <= checkOut;
+  });
+
+  let pool;
+  if (active.length === 1) return active[0];
+  pool = active.length > 1 ? active : candidates;
+
+  // Step 2: closest stay-midpoint
+  const sorted = [...pool].sort(
+    (a, b) => midpointDistance(a, receivedAt) - midpointDistance(b, receivedAt)
+  );
+
+  // Step 3: createdAt-desc breaks midpoint tie
+  if (
+    sorted.length >= 2 &&
+    midpointDistance(sorted[0], receivedAt) === midpointDistance(sorted[1], receivedAt)
+  ) {
+    const byCreated = [...sorted].sort((a, b) => {
+      const aMs = a.data.createdAt?.toMillis?.() || 0;
+      const bMs = b.data.createdAt?.toMillis?.() || 0;
+      return bMs - aMs;
+    });
+    return byCreated[0];
+  }
+
+  return sorted[0];
+}
+
+// ---------------------------------------------------------------------------
 // Booking match
 // ---------------------------------------------------------------------------
 
@@ -1056,3 +1127,9 @@ module.exports.classifyEmail = classifyEmail;
 module.exports.isAirbnbSender = isAirbnbSender;
 module.exports.extractGuestNameFromSubject = extractGuestNameFromSubject;
 module.exports.parseResolutionFields = parseResolutionFields;
+module.exports.normalizeName = normalizeName;
+module.exports.isInActiveWindow = isInActiveWindow;
+module.exports.midpointDistance = midpointDistance;
+module.exports.tieBreak = tieBreak;
+module.exports.WINDOW_PRE_DAYS = WINDOW_PRE_DAYS;
+module.exports.WINDOW_POST_DAYS = WINDOW_POST_DAYS;
