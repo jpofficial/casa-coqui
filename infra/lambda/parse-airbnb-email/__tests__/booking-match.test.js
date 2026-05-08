@@ -152,3 +152,191 @@ describe('tieBreak', () => {
     expect(tieBreak([older, newer], recv)).toBe(newer);
   });
 });
+
+const { matchByActiveWindow, findMatchingBooking } = require('../index');
+
+// Minimal Firestore mock. Each .where().get() returns whatever was queued.
+function mockFirestore({ byField = {} } = {}) {
+  return {
+    collection(name) {
+      if (name !== 'bookings') throw new Error(`unexpected collection: ${name}`);
+      return {
+        _filters: [],
+        where(field, op, value) {
+          if (op !== '==') throw new Error(`unsupported op: ${op}`);
+          this._filters.push({ field, value });
+          return this;
+        },
+        limit() { return this; },
+        async get() {
+          // Return the first filter's matching docs from byField.
+          const filter = this._filters[0];
+          if (!filter) return { empty: true, docs: [] };
+          const docs = (byField[filter.field] || []).filter(d => d._matchValue === filter.value);
+          return {
+            empty: docs.length === 0,
+            docs: docs.map(d => ({ id: d.id, data: () => d.data })),
+          };
+        },
+      };
+    },
+  };
+}
+
+describe('matchByActiveWindow', () => {
+  const recv = new Date('2026-05-07T12:00:00Z');
+
+  test('returns null when no rows match the equality query', async () => {
+    const fs = mockFirestore({ byField: { guestEmail: [] } });
+    const result = await matchByActiveWindow(fs, 'guestEmail', 'jane@x.com', recv);
+    expect(result).toBeNull();
+  });
+
+  test('returns null when row matches but window does not', async () => {
+    const fs = mockFirestore({
+      byField: {
+        guestEmail: [{
+          id: 'b1',
+          _matchValue: 'jane@x.com',
+          data: { guestEmail: 'jane@x.com', checkInDate: '2025-01-01', checkOutDate: '2025-01-05' },
+        }],
+      },
+    });
+    const result = await matchByActiveWindow(fs, 'guestEmail', 'jane@x.com', recv);
+    expect(result).toBeNull();
+  });
+
+  test('returns the booking when row matches AND window matches', async () => {
+    const fs = mockFirestore({
+      byField: {
+        guestEmail: [{
+          id: 'b1',
+          _matchValue: 'jane@x.com',
+          data: { guestEmail: 'jane@x.com', checkInDate: '2026-05-01', checkOutDate: '2026-05-15' },
+        }],
+      },
+    });
+    const result = await matchByActiveWindow(fs, 'guestEmail', 'jane@x.com', recv);
+    expect(result.id).toBe('b1');
+    expect(result.data.guestEmail).toBe('jane@x.com');
+  });
+});
+
+describe('findMatchingBooking — tiered chain', () => {
+  const recv = new Date('2026-05-07T12:00:00Z');
+
+  test('Tier 1: confirmation code match wins immediately', async () => {
+    const fs = mockFirestore({
+      byField: {
+        airbnbConfirmationCode: [{
+          id: 'b1',
+          _matchValue: 'HMABCDEFGH',
+          data: { airbnbConfirmationCode: 'HMABCDEFGH' },
+        }],
+      },
+    });
+    const result = await findMatchingBooking(fs, {
+      confirmationCode: 'HMABCDEFGH',
+      fromAddress: 'jane@x.com',
+      guestName: 'Jane Doe',
+      receivedAt: recv,
+    });
+    expect(result.tier).toBe(1);
+    expect(result.id).toBe('b1');
+  });
+
+  test('Tier 2: email + window when confirmation code missing', async () => {
+    const fs = mockFirestore({
+      byField: {
+        guestEmail: [{
+          id: 'b2',
+          _matchValue: 'jane@x.com',
+          data: { guestEmail: 'jane@x.com', checkInDate: '2026-05-01', checkOutDate: '2026-05-15' },
+        }],
+      },
+    });
+    const result = await findMatchingBooking(fs, {
+      confirmationCode: null,
+      fromAddress: 'jane@x.com',
+      guestName: 'Jane Doe',
+      receivedAt: recv,
+    });
+    expect(result.tier).toBe(2);
+    expect(result.id).toBe('b2');
+  });
+
+  test('Tier 3: name + window when email tier misses', async () => {
+    const fs = mockFirestore({
+      byField: {
+        guestEmail: [], // no email match
+        guestName: [{
+          id: 'b3',
+          _matchValue: 'jane doe',
+          data: { guestName: 'jane doe', checkInDate: '2026-05-01', checkOutDate: '2026-05-15' },
+        }],
+      },
+    });
+    const result = await findMatchingBooking(fs, {
+      confirmationCode: null,
+      fromAddress: 'jane@x.com',
+      guestName: 'Jane Doe',
+      receivedAt: recv,
+    });
+    expect(result.tier).toBe(3);
+    expect(result.id).toBe('b3');
+  });
+
+  test('returns null when all tiers miss', async () => {
+    const fs = mockFirestore({ byField: {} });
+    const result = await findMatchingBooking(fs, {
+      confirmationCode: null,
+      fromAddress: 'jane@x.com',
+      guestName: 'Jane Doe',
+      receivedAt: recv,
+    });
+    expect(result).toBeNull();
+  });
+
+  test('returns null when only confirmationCode given but no match', async () => {
+    const fs = mockFirestore({
+      byField: { airbnbConfirmationCode: [] },
+    });
+    const result = await findMatchingBooking(fs, {
+      confirmationCode: 'HMNOTREAL',
+      fromAddress: null,
+      guestName: null,
+      receivedAt: recv,
+    });
+    expect(result).toBeNull();
+  });
+
+  test('skips tier 2 when fromAddress missing', async () => {
+    const fs = mockFirestore({
+      byField: {
+        guestName: [{
+          id: 'b4',
+          _matchValue: 'jane doe',
+          data: { guestName: 'jane doe', checkInDate: '2026-05-01', checkOutDate: '2026-05-15' },
+        }],
+      },
+    });
+    const result = await findMatchingBooking(fs, {
+      confirmationCode: null,
+      fromAddress: null,
+      guestName: 'Jane Doe',
+      receivedAt: recv,
+    });
+    expect(result.tier).toBe(3);
+  });
+
+  test('skips tier 3 when guestName missing', async () => {
+    const fs = mockFirestore({ byField: { guestEmail: [] } });
+    const result = await findMatchingBooking(fs, {
+      confirmationCode: null,
+      fromAddress: 'jane@x.com',
+      guestName: null,
+      receivedAt: recv,
+    });
+    expect(result).toBeNull();
+  });
+});
