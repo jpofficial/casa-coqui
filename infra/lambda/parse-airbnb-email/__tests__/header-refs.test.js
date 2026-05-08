@@ -60,6 +60,36 @@ describe('extractHeaderRefs', () => {
     });
   });
 
+  test('handles inReplyTo array (mailparser inconsistency) — takes last element', () => {
+    // Some mailparser versions return inReplyTo as an array even though
+    // RFC 5322 says it's a single Message-ID. Defensive: take the last
+    // (most recent parent per RFC semantic).
+    expect(extractHeaderRefs({
+      inReplyTo: ['<oldparent@x.com>', '<newparent@x.com>'],
+    })).toEqual({
+      inReplyTo: '<newparent@x.com>',
+      references: [],
+    });
+  });
+
+  test('handles single-element inReplyTo array', () => {
+    expect(extractHeaderRefs({
+      inReplyTo: ['<only@x.com>'],
+    })).toEqual({
+      inReplyTo: '<only@x.com>',
+      references: [],
+    });
+  });
+
+  test('handles empty inReplyTo array', () => {
+    expect(extractHeaderRefs({
+      inReplyTo: [],
+    })).toEqual({
+      inReplyTo: null,
+      references: [],
+    });
+  });
+
   test('ignores empty/falsy values', () => {
     expect(extractHeaderRefs({
       inReplyTo: '',

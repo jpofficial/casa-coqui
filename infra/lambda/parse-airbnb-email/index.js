@@ -537,7 +537,21 @@ async function matchByActiveWindow(firestore, fieldName, value, receivedAt) {
  * @returns {{ inReplyTo: string|null, references: string[] }}
  */
 function extractHeaderRefs(parsed) {
-  const inReplyTo = (parsed.inReplyTo && String(parsed.inReplyTo).trim()) || null;
+  // RFC 5322 spec: In-Reply-To is a single Message-ID. But mailparser has
+  // historically been inconsistent — some versions return an array. Defensive:
+  // if it's an array, take the last element (the most recent parent per the
+  // RFC's "the parent" semantic). String() coercion on an array would produce
+  // a comma-joined malformed value, so this guard matters.
+  let inReplyTo = null;
+  if (Array.isArray(parsed.inReplyTo)) {
+    const last = parsed.inReplyTo
+      .filter((v) => v && String(v).trim())
+      .map((v) => String(v).trim())
+      .pop();
+    inReplyTo = last || null;
+  } else if (parsed.inReplyTo && String(parsed.inReplyTo).trim()) {
+    inReplyTo = String(parsed.inReplyTo).trim();
+  }
 
   let references = [];
   if (Array.isArray(parsed.references)) {
