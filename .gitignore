@@ -71,3 +71,6 @@ Saved Incase/
 
 # Lambda local backups + extra DB snapshots
 tools/pricing/pricing.db.pre-*
+
+# Local-only handoff (not part of git history per session preference)
+/explantion/2026-05-08-phase-3-handoff.md
