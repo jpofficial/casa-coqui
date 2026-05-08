@@ -1,3 +1,31 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": ["app/**/*.{js,ts,jsx,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "functions/lib/aws-sfn-bridge",
+                "message": "Cloud Function bridge module — not for client/Vercel routes. Construct an inline SFN client in the regenerate API route instead (see app/api/airbnb-messages/[id]/regenerate/route.js)."
+              },
+              {
+                "name": "functions/lib/bridge-metrics",
+                "message": "Cloud Function metrics — not for client/Vercel routes."
+              }
+            ],
+            "patterns": [
+              "../../functions/lib/aws-sfn-bridge",
+              "../../functions/lib/bridge-metrics",
+              "../../../functions/lib/aws-sfn-bridge",
+              "../../../functions/lib/bridge-metrics"
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }
