@@ -99,3 +99,39 @@ No automated tests added. Smoke verification done at the source level: file read
 - **Not touched by design**: `handleRegenerate`, `handleEscalate`. If a future change needs an audit trail for those transitions, they'll need their own server-side routes — but that is out of scope for Item 3.
 
 ---
+
+## Production Status — DEPLOYED 2026-05-08, manual UI smoke pending
+
+**Vercel pipeline**: `dec6f744` (earlier today) — first build that carried the Item 3 changes (Task 1 route + Task 2 UI wiring) into production. ✅ Deployed.
+**Lambda**: not in scope for Item 3 (outbound capture is purely Vercel + Firestore).
+**API route status**: `/api/airbnb-messages/{id}/mark-sent` is live and reachable in production. Auth-gated — anonymous calls return 401, non-admin/cohost calls return 403. Smoke-tested at the route-shape level (404 vs 401 discrimination on a known-bad id) but **not** end-to-end against a real production message.
+
+### Manual UI smoke ⏳ deferred
+
+The plan's Task 3 smoke gate requires Julio to click Mark-as-Sent in the admin Messages UI on a real production message. This step is intentionally human-in-the-loop:
+
+- It validates the **full** flow (UI button → ID-token fetch → server route → atomic batch → both docs land) in a single user-observable action.
+- It avoids the need to fabricate a synthetic `airbnb_messages` doc + draft just to click a button (which would then have to be cleaned up across two docs and the thread query).
+- It exercises the Mark-as-Sent button's loading/error UI under real conditions.
+
+### Verify script ready
+
+`tasks/changes/option-a/item-3-logs/verify-mark-sent.js` is staged and will run 5 acceptance checks against the most recent `reply-mark-sent`-sourced outbound docs:
+
+1. Outbound doc exists with `direction === 'outbound_draft'`.
+2. Outbound `draftStatus === 'sent'`.
+3. Outbound `threadKey` matches the inbound parent's `threadKey` (so the reply-agent's thread query returns both halves on the next inbound).
+4. Outbound `inboundMessageId` points back to the inbound doc id.
+5. Outbound `source === 'reply-mark-sent'` (so the voice-corpus query continues to filter as expected).
+
+### Recommended next step
+
+After Julio's next real Mark-as-Sent click, run:
+
+```
+node tasks/changes/option-a/item-3-logs/verify-mark-sent.js
+```
+
+If all 5 checks pass, Item 3 is closed. If any fail, the script's output narrows down which write went wrong (inbound update vs outbound create) without needing to dump raw Firestore docs.
+
+---
