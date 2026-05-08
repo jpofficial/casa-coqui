@@ -8,22 +8,52 @@
  *   - Messages page grouping (app/admin/messages/page.js)
  *   - Reply agent context load (functions/index.js)
  *
+ * IMPORTANT: This file is one of THREE copies that must stay in sync:
+ *   - lib/thread-key.js                                 (repo root, UI + scripts)
+ *   - functions/lib/thread-key.js                       (THIS FILE — Cloud Functions)
+ *   - infra/lambda/parse-airbnb-email/thread-key.js     (Lambda deploy)
+ * If you change one, change all three.
+ *
  * Precedence:
  *   1. bookingCode (matched booking)
- *   2. 'email:' + lowercased email
- *   3. 'name:' + lowercased trimmed name
+ *   2. 'email:' + lowercased email — UNLESS address is an Airbnb forwarder
+ *      (@airbnb.com), which collapses unrelated conversations
+ *   3. 'name:' + Unicode-safe name + '|y:' + UTC year of receivedAt
  *   4. 'unknown' (fully anonymous, preserved for backwards-compat)
+ *
+ * @param {{
+ *   bookingCode?: string|null,
+ *   senderEmail?: string|null,
+ *   senderName?: string|null,
+ *   receivedAt?: Date|string|number|null,
+ * }} input
  */
-function buildThreadKey({ bookingCode, senderEmail, senderName } = {}) {
+function buildThreadKey({ bookingCode, senderEmail, senderName, receivedAt } = {}) {
   if (bookingCode && String(bookingCode).trim()) {
     return String(bookingCode).trim();
   }
-  if (senderEmail && String(senderEmail).trim()) {
-    return 'email:' + String(senderEmail).trim().toLowerCase();
+
+  const email = senderEmail && String(senderEmail).trim().toLowerCase();
+  const isAirbnbForwarder = email && /@airbnb\.com$/.test(email);
+
+  if (email && !isAirbnbForwarder) {
+    return 'email:' + email;
   }
+
   if (senderName && String(senderName).trim()) {
-    return 'name:' + String(senderName).trim().toLowerCase();
+    // Unicode-letter-aware: preserves "josé" / "müller" intact instead of stripping.
+    const safeName = String(senderName).trim().toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, '-')
+      .replace(/^-|-$/g, '');
+    if (safeName) {
+      const dt = receivedAt instanceof Date
+        ? receivedAt
+        : (receivedAt ? new Date(receivedAt) : new Date());
+      const year = dt.getUTCFullYear();
+      return `name:${safeName}|y:${year}`;
+    }
   }
+
   return 'unknown';
 }
 
