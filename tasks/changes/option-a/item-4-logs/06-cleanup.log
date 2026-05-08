@@ -1,0 +1,15 @@
+(node:56549) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+{
+  "deleted": {
+    "airbnb_messages": 2,
+    "airbnb_messages_quarantine": 2,
+    "airbnb_processing_locks": 2,
+    "agent_runs": 2,
+    "staff_notifications": 8
+  },
+  "docIds": [
+    "8AY8FZ9pBo6NUUS7jfDh",
+    "92TXQjdsxPRKdG0ypWWL"
+  ]
+}
