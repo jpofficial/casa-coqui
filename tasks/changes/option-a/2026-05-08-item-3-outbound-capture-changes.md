@@ -100,7 +100,7 @@ No automated tests added. Smoke verification done at the source level: file read
 
 ---
 
-## Production Status — DEPLOYED 2026-05-08, manual UI smoke pending
+## Production Status — VERIFIED 2026-05-08 (synthetic API smoke)
 
 **Vercel pipeline**: `dec6f744` (earlier today) — first build that carried the Item 3 changes (Task 1 route + Task 2 UI wiring) into production. ✅ Deployed.
 **Lambda**: not in scope for Item 3 (outbound capture is purely Vercel + Firestore).
@@ -133,5 +133,47 @@ node tasks/changes/option-a/item-3-logs/verify-mark-sent.js
 ```
 
 If all 5 checks pass, Item 3 is closed. If any fail, the script's output narrows down which write went wrong (inbound update vs outbound create) without needing to dump raw Firestore docs.
+
+### Verification result — synthetic API smoke (commit `81445f9`)
+
+Item 3 was verified end-to-end on 2026-05-08 via a synthetic-doc-only API smoke that bypasses the admin UI. Result: HTTP 200, `outboundId: BUC6jmGA9UuowiliNM7Z`, all 9 acceptance booleans true (`allPass: true`). Commit message: `docs(option-a): Item 3 API smoke verified end-to-end (allPass: true)`.
+
+**Why a synthetic API smoke instead of the planned manual UI smoke**:
+
+- The admin Messages UI gates the Mark-as-Sent button at `app/admin/messages/page.js:455-456` — it only renders for messages whose draft is matched to a booking.
+- All 5 of Jaydon's current ready drafts are **unmatched** (`bookingId: null`), so no Mark-as-Sent button is reachable from the UI for those.
+- A production-wide query found **0 matched ready drafts** today, so there is no real production message that exercises the UI path right now.
+- Going through the API route directly proves the server-side write contract (atomic batch, both docs, threadKey parity, `source: 'reply-mark-sent'`) without needing a matched draft to exist or fabricating one inside a real guest thread.
+
+**Smoke harness**: `tasks/changes/option-a/item-3-logs/api-smoke.js`
+
+1. Creates a synthetic inbound `airbnb_messages` doc tagged `source: 'item3-smoke-synthetic'` with a fake guest "Item3 Smoke Bot" (so it cannot be confused with real guest traffic by either the reply-agent or voice corpus).
+2. Mints a Firebase custom token for the admin user (`admin@casacoqui.com`, uid `2C3HoZPTKybPoJTEEymkV895z7m2`) using the Admin SDK.
+3. Exchanges the custom token for a real ID token via the Firebase Auth REST API (`signInWithCustomToken`) — a 962-char JWT that the API route's auth middleware will accept.
+4. POSTs to the deployed API route on production with `Authorization: Bearer <id-token>`.
+5. Verifies the 9 acceptance booleans: HTTP 200, response has outboundId, inbound `draftStatus === 'sent'`, inbound `outboundMessageId` points to the new outbound, outbound `direction === 'outbound_draft'`, outbound `draftStatus === 'sent'`, outbound `threadKey` matches inbound `threadKey`, outbound `inboundMessageId` points back to inbound, outbound `source === 'reply-mark-sent'`.
+6. Cleanup runs unconditionally (`finally` block): deletes the synthetic inbound, the spawned outbound, and any `agent_runs`/`staff_notifications` docs the route created as a side-effect.
+
+**Cleanup confirmed**: 2 `airbnb_messages` docs deleted (1 synthetic inbound + 1 outbound spawn). Zero residue in production Firestore.
+
+### Operational lesson — production URL has a www redirect that strips Authorization
+
+> **Reusable knowledge for any future authenticated API smoke against this app.**
+
+The canonical production URL is **`https://www.casa-coqui.cc`**. The apex `https://casa-coqui.cc` returns **HTTP 307 → www**, and Bearer-token API calls that follow that redirect have their `Authorization` header **stripped** (this is the security default in `fetch` and most HTTP clients — auth headers are not forwarded across origin redirects, even same-registrable-domain ones).
+
+- First smoke attempt hit the apex and returned **HTTP 401 Unauthorized** — see `tasks/changes/option-a/item-3-logs/09-api-smoke-final.log`. The token was valid; the redirect ate it.
+- Second attempt hit `www.` directly and returned **HTTP 200** — see `tasks/changes/option-a/item-3-logs/10-api-smoke-www.log`.
+
+Always target `https://www.casa-coqui.cc/...` directly when authenticating an API call from a script. If you see an unexplained 401 on a route you know is auth-gated correctly, check the URL host before debugging the token.
+
+### Acceptance criteria nuance — reply-agent thread context still pending organic verification
+
+The plan's acceptance criteria table previously had ⏳ for **"Reply-agent thread context includes outbound docs"** (deferred to organic follow-up). That criterion is **still pending**: the synthetic API smoke proves the outbound doc is **created** with the same `threadKey` as its inbound parent, but it does **not** prove that the reply-agent's thread query actually picks the outbound doc up the next time a follow-up inbound message arrives in the same thread. That second half is an organic, behavioral verification that requires a real next-message event in production — it cannot be smoke-tested in isolation without spinning up a fake conversation.
+
+Today's status:
+
+- ✅ Outbound doc shape and threadKey parity — proven by the synthetic smoke.
+- ⏳ Reply-agent picks up the outbound doc on the next inbound — still pending organic verification on the next real guest follow-up.
 
 ---
