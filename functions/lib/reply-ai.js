@@ -225,7 +225,9 @@ function buildReplyInput({ message, thread, booking, settings, voiceSamples, rel
   };
 
   if (thread && thread.length > 0) {
-    input.conversationHistory = thread.slice(-5).map((msg) => ({
+    // Item 5: expanded from 5 → 20 messages. Median Casa Coqui thread is ~5
+    // messages so most threads are unchanged; long threads now retain full context.
+    input.conversationHistory = thread.slice(-20).map((msg) => ({
       direction: msg.direction,
       body: msg.direction === 'outbound_draft' ? (msg.editedReply || msg.draftReply || msg.body) : msg.body,
       timestamp: msg.receivedAt || msg.sentAt || null,

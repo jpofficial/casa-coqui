@@ -259,7 +259,7 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
           .collection('airbnb_messages')
           .where('threadKey', '==', threadKey)
           .orderBy('receivedAt', 'asc')
-          .limit(10)
+          .limit(21) // Item 5: 20 prior messages + 1 to allow filtering out the current message
           .get();
         thread = threadSnap.docs
           .filter((d) => d.id !== messageId) // exclude current message
