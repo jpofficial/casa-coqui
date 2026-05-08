@@ -1,0 +1,18 @@
+From: "Airbnb" <express@airbnb.com>
+To: smoke-test@casa-coqui.local
+Subject: New message from Headers Parent
+Date: Thu, 8 May 2026 16:00:00 -0400
+Message-ID: <synth-item4-parent-2026-05-08@airbnb.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+For your protection and safety, always communicate through Airbnb [https://www.airbnb.com].
+
+Hi! This is the PARENT message in a synthetic header-persistence test for Item 4.
+
+It does NOT have In-Reply-To or References headers (it's the start of a fictional thread).
+After ingest, its threadKey will land at name:headers-parent|y:2026, and a CHILD message
+referencing this Message-ID will be sent next to verify replyToId resolves.
+
+— Headers Parent
