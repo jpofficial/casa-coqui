@@ -1,0 +1,781 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === Google Fonts: DM Sans (body) + DM Serif Display (brand/headlines) === */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Serif+Display&display=swap');
+
+:root {
+  --background: #fdfbf7;  /* cafe-50: warm cream, not sterile white */
+  --foreground: #073620;  /* coqui-900: deep jungle text, warm not black */
+
+  /* Brand tokens as CSS custom properties */
+  --coqui-primary: #137a47;
+  --coqui-primary-light: #1a9a5a;
+  --coqui-primary-dark: #0f5f38;
+  --atardecer-gold: #f5b731;
+  --atardecer-warm: #e9a00e;
+  --caribe-blue: #26a9b5;
+  --cafe-cream: #fdfbf7;
+  --cafe-warm: #f9f3e8;
+  --noche-deep: #052e1a;
+  --flamboyan-coral: #ff5722;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #052e1a;  /* noche-950: deep jungle dark */
+    --foreground: #f9f3e8;  /* cafe-100: warm cream text */
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* === Brand gradient backgrounds === */
+@layer components {
+  /* The jungle gradient: El Yunque canopy light filtering down */
+  .bg-jungle-gradient {
+    background: linear-gradient(
+      175deg,
+      #052e1a 0%,
+      #0b4a2c 25%,
+      #0f5f38 50%,
+      #137a47 75%,
+      #1a9a5a 100%
+    );
+  }
+
+  /* Warm landing gradient: sunset over the canopy */
+  .bg-landing-gradient {
+    background: linear-gradient(
+      175deg,
+      #042114 0%,
+      #073620 20%,
+      #0f5f38 55%,
+      #137a47 80%,
+      #1a9a5a 100%
+    );
+  }
+
+  /* Subtle warm background: cafe con leche morning */
+  .bg-warm-cream {
+    background: linear-gradient(
+      180deg,
+      #fdfbf7 0%,
+      #f9f3e8 100%
+    );
+  }
+
+  /* Leaf pattern overlay — a subtle CSS-only tropical texture */
+  .leaf-pattern::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.04;
+    background-image:
+      radial-gradient(ellipse 80px 120px at 15% 20%, #1a9a5a 0%, transparent 70%),
+      radial-gradient(ellipse 60px 100px at 80% 15%, #3ab878 0%, transparent 70%),
+      radial-gradient(ellipse 90px 130px at 50% 70%, #1a9a5a 0%, transparent 70%),
+      radial-gradient(ellipse 70px 110px at 85% 80%, #6dd09d 0%, transparent 70%),
+      radial-gradient(ellipse 50px 90px at 25% 90%, #3ab878 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Mist overlay — the fog rolling through El Yunque */
+  .mist-overlay::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: linear-gradient(
+      to top,
+      rgba(253, 251, 247, 0.15) 0%,
+      transparent 100%
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Gold shimmer — subtle warm light effect for accent elements */
+  .gold-shimmer {
+    background: linear-gradient(
+      135deg,
+      #f5b731 0%,
+      #fbe099 50%,
+      #f5b731 100%
+    );
+    background-size: 200% 200%;
+  }
+}
+
+/* ================================================================== */
+/*  LOGIN PAGE — CINEMATIC MOTION SYSTEM                              */
+/*  Puerto Rico atmosphere: El Yunque mist, Caribbean light,           */
+/*  trade winds, bioluminescent waters, golden hour warmth             */
+/* ================================================================== */
+
+
+/* ------------------------------------------------------------------ */
+/*  1. CARD ENTRANCE — Staggered reveal with scale                    */
+/*  The card doesn't just slide up — it materializes from the mist    */
+/* ------------------------------------------------------------------ */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Staggered entrance for elements inside the card.
+   Each child fades up slightly after the previous one,
+   like light revealing details in sequence. */
+@keyframes staggerFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  2. BACKGROUND — Living gradient that breathes                     */
+/*  Not just shifting position — the gradient rotates and scales,     */
+/*  simulating the way sunlight filters through canopy over time      */
+/* ------------------------------------------------------------------ */
+
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 50% 0%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  75% {
+    background-position: 50% 100%;
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  3. MIST DRIFT — El Yunque cloud forest fog                        */
+/*  Two mist layers moving at different speeds create depth.          */
+/*  Uses translateX on a wide element that overflows,                 */
+/*  so the mist appears to roll through the viewport.                 */
+/* ------------------------------------------------------------------ */
+
+@keyframes mistDrift {
+  0% {
+    transform: translateX(-10%) translateY(0);
+    opacity: 0.04;
+  }
+  25% {
+    opacity: 0.07;
+  }
+  50% {
+    transform: translateX(10%) translateY(-2%);
+    opacity: 0.05;
+  }
+  75% {
+    opacity: 0.08;
+  }
+  100% {
+    transform: translateX(-10%) translateY(0);
+    opacity: 0.04;
+  }
+}
+
+@keyframes mistDriftReverse {
+  0% {
+    transform: translateX(8%) translateY(-1%);
+    opacity: 0.03;
+  }
+  50% {
+    transform: translateX(-12%) translateY(1%);
+    opacity: 0.06;
+  }
+  100% {
+    transform: translateX(8%) translateY(-1%);
+    opacity: 0.03;
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  4. LIGHT RAYS — God rays through the canopy                       */
+/*  Diagonal shafts of warm light that slowly rotate and pulse.       */
+/*  These are the moments when the sun breaks through El Yunque.      */
+/* ------------------------------------------------------------------ */
+
+@keyframes lightRay {
+  0%, 100% {
+    transform: rotate(-15deg) translateX(-5%) scaleY(1);
+    opacity: 0.03;
+  }
+  30% {
+    opacity: 0.06;
+  }
+  50% {
+    transform: rotate(-12deg) translateX(5%) scaleY(1.1);
+    opacity: 0.04;
+  }
+  80% {
+    opacity: 0.07;
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  5. AMBIENT LIGHT SHIFT — Cloud passing over the sun               */
+/*  A radial gradient that slowly moves position and pulses opacity,  */
+/*  as if the entire scene breathes with shifting natural light.      */
+/* ------------------------------------------------------------------ */
+
+@keyframes ambientLightShift {
+  0%, 100% {
+    transform: translate(0%, 0%) scale(1);
+    opacity: 0.08;
+  }
+  33% {
+    transform: translate(5%, -3%) scale(1.1);
+    opacity: 0.12;
+  }
+  66% {
+    transform: translate(-3%, 5%) scale(0.95);
+    opacity: 0.06;
+  }
+}
+
+/* Warm pulse — the golden hour intensifies and softens */
+@keyframes warmPulse {
+  0%, 100% {
+    opacity: 0.06;
+  }
+  50% {
+    opacity: 0.1;
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  6. BIOLUMINESCENT PARTICLES — Mosquito Bay, Vieques              */
+/*  Three distinct particle behaviors for visual richness:            */
+/*  - Float: gentle vertical drift (original, enhanced)               */
+/*  - Wander: horizontal + vertical drift (firefly paths)             */
+/*  - Pulse: stationary fade in/out (distant sparkle)                 */
+/* ------------------------------------------------------------------ */
+
+/* Enhanced float with subtle horizontal component */
+@keyframes biolumFloat {
+  0%, 100% {
+    transform: translate(0px, 0px);
+    opacity: 0.15;
+  }
+  25% {
+    transform: translate(4px, -10px);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translate(-2px, -20px);
+    opacity: 0.5;
+  }
+  75% {
+    transform: translate(3px, -12px);
+    opacity: 0.3;
+  }
+}
+
+/* Firefly wander — erratic horizontal drift with glow */
+@keyframes fireflyWander {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.4;
+  }
+  20% {
+    transform: translate(15px, -8px) scale(1.2);
+    opacity: 0.6;
+  }
+  40% {
+    transform: translate(-10px, -20px) scale(0.8);
+    opacity: 0.2;
+  }
+  60% {
+    transform: translate(20px, -15px) scale(1.3);
+    opacity: 0.7;
+  }
+  80% {
+    transform: translate(-5px, -25px) scale(1);
+    opacity: 0.3;
+  }
+  90% {
+    opacity: 0;
+  }
+}
+
+/* Distant sparkle — fades in and out at fixed position */
+@keyframes biolumPulse {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  15% {
+    opacity: 0.1;
+  }
+  40% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+  60% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  85% {
+    opacity: 0.1;
+  }
+}
+
+/* Horizontal mist particle — drifts sideways slowly */
+@keyframes mistParticleDrift {
+  0% {
+    transform: translateX(-40px) translateY(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.35;
+  }
+  85% {
+    opacity: 0.15;
+  }
+  100% {
+    transform: translateX(40px) translateY(-10px);
+    opacity: 0;
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  7. FOLIAGE — Multi-depth canopy movement                          */
+/*  Enhanced leaf sway with scale breathing and breeze gusts.         */
+/*  Different leaves at different depths sway at different rates,     */
+/*  creating a parallax-like sense of depth without scroll.           */
+/* ------------------------------------------------------------------ */
+
+/* Primary leaf sway — smooth pendulum with slight scale breathing */
+@keyframes leafSway {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(1.5deg) scale(1.01);
+  }
+  50% {
+    transform: rotate(3deg) scale(1.02);
+  }
+  75% {
+    transform: rotate(1deg) scale(1.01);
+  }
+}
+
+/* Deep background leaf — slower, gentler, smaller range.
+   This is the distant canopy layer. */
+@keyframes leafSwayDeep {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(1.5deg) scale(1.005);
+  }
+}
+
+/* Foreground leaf — slightly more dramatic, faster.
+   Closer to the camera, catches more wind. */
+@keyframes leafSwayFore {
+  0%, 100% {
+    transform: rotate(0deg) translateY(0px) scale(1);
+  }
+  30% {
+    transform: rotate(2deg) translateY(-2px) scale(1.015);
+  }
+  60% {
+    transform: rotate(3.5deg) translateY(-1px) scale(1.02);
+  }
+  80% {
+    transform: rotate(1deg) translateY(1px) scale(1.005);
+  }
+}
+
+/* Vine unfurl — a slow, organic growth/reveal motion */
+@keyframes vineUnfurl {
+  0%, 100% {
+    transform: scaleY(0.98) rotate(-0.5deg);
+  }
+  50% {
+    transform: scaleY(1.02) rotate(0.5deg);
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  8. WAVE MOTION — Caribbean shoreline rhythm                       */
+/*  Two layered waves moving at different speeds create a realistic   */
+/*  lapping effect. Uses translateY and subtle scaleX to simulate     */
+/*  the gentle inhale/exhale of Caribbean water on sand.              */
+/* ------------------------------------------------------------------ */
+
+@keyframes waveLap {
+  0%, 100% {
+    transform: translateY(0px) scaleX(1);
+  }
+  30% {
+    transform: translateY(-3px) scaleX(1.01);
+  }
+  60% {
+    transform: translateY(1px) scaleX(0.99);
+  }
+}
+
+@keyframes waveLapSlow {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  40% {
+    transform: translateY(-2px) translateX(3px);
+  }
+  70% {
+    transform: translateY(1px) translateX(-2px);
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  9. CARD MICRO-INTERACTIONS                                        */
+/*  The login card hovers gently — barely perceptible, like a leaf    */
+/*  resting on still water. It breathes.                              */
+/* ------------------------------------------------------------------ */
+
+@keyframes cardFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Input focus glow — a warm expansion that feels like sunrise */
+@keyframes focusGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 183, 49, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(245, 183, 49, 0.12);
+  }
+  100% {
+    box-shadow: 0 0 0 2px rgba(245, 183, 49, 0.08);
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  10. GOLD SHIMMER — Enhanced divider sweep                         */
+/* ------------------------------------------------------------------ */
+
+@keyframes shimmerSweep {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  11. WELCOME — Gold line expansion from center                     */
+/* ------------------------------------------------------------------ */
+
+@keyframes welcomeLineExpand {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+
+/* ================================================================== */
+/*  ANIMATION UTILITY CLASSES                                         */
+/*  Each class is GPU-composited (transform + opacity only).          */
+/*  Naming: .animate-[category]-[variant]                             */
+/* ================================================================== */
+
+@layer utilities {
+  /* --- Card & Entrance --- */
+  .animate-fade-in-up {
+    animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .animate-stagger-fade-in {
+    animation: staggerFadeIn 0.5s ease-out both;
+  }
+
+  /* --- Background --- */
+  .animate-gradient-shift {
+    animation: gradientShift 25s ease infinite;
+    background-size: 200% 200%;
+  }
+
+  /* --- Mist / Fog --- */
+  .animate-mist-drift {
+    animation: mistDrift 30s ease-in-out infinite;
+  }
+
+  .animate-mist-drift-reverse {
+    animation: mistDriftReverse 40s ease-in-out infinite;
+  }
+
+  /* --- Light --- */
+  .animate-light-ray {
+    animation: lightRay 20s ease-in-out infinite;
+  }
+
+  .animate-ambient-light {
+    animation: ambientLightShift 35s ease-in-out infinite;
+  }
+
+  .animate-warm-pulse {
+    animation: warmPulse 12s ease-in-out infinite;
+  }
+
+  /* --- Particles --- */
+  .animate-biolum-float {
+    animation: biolumFloat 7s ease-in-out infinite;
+  }
+
+  .animate-firefly-wander {
+    animation: fireflyWander 10s ease-in-out infinite;
+  }
+
+  .animate-biolum-pulse {
+    animation: biolumPulse 8s ease-in-out infinite;
+  }
+
+  .animate-mist-particle {
+    animation: mistParticleDrift 18s linear infinite;
+  }
+
+  /* --- Foliage --- */
+  .animate-leaf-sway {
+    animation: leafSway 18s ease-in-out infinite;
+  }
+
+  .animate-leaf-sway-deep {
+    animation: leafSwayDeep 24s ease-in-out infinite;
+  }
+
+  .animate-leaf-sway-fore {
+    animation: leafSwayFore 14s ease-in-out infinite;
+  }
+
+  .animate-vine-unfurl {
+    animation: vineUnfurl 22s ease-in-out infinite;
+  }
+
+  /* --- Waves --- */
+  .animate-wave-lap {
+    animation: waveLap 6s ease-in-out infinite;
+  }
+
+  .animate-wave-lap-slow {
+    animation: waveLapSlow 8s ease-in-out infinite;
+  }
+
+  /* --- Card interactions --- */
+  .animate-card-float {
+    animation: cardFloat 8s ease-in-out infinite;
+  }
+
+  /* --- Gold shimmer --- */
+  .animate-shimmer-sweep {
+    animation: shimmerSweep 4s ease-in-out infinite;
+    background-size: 200% 100%;
+  }
+
+  /* --- Welcome --- */
+  .animate-welcome-line-expand {
+    animation: welcomeLineExpand 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+
+/* ================================================================== */
+/*  ADMIN DASHBOARD — Subtle, snappy motion system                    */
+/*  Quick, purposeful animations for operational UI.                  */
+/*  200-400ms, ease-out curves, GPU-composited.                       */
+/* ================================================================== */
+
+/* Card entrance — gentle fade + slide up */
+@keyframes adminCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Slide down for notifications/toasts */
+@keyframes adminSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Skeleton shimmer — warm cafe gradient instead of cold gray */
+@keyframes adminSkeletonShimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+@layer utilities {
+  .animate-admin-in {
+    animation: adminCardIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .animate-admin-slide-down {
+    animation: adminSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .animate-admin-shimmer {
+    background: linear-gradient(
+      90deg,
+      #f9f3e8 0%,
+      #fdfbf7 40%,
+      #f9f3e8 80%
+    );
+    background-size: 800px 100%;
+    animation: adminSkeletonShimmer 1.8s ease-in-out infinite;
+  }
+}
+
+/* Admin input focus — emerald glow with warmth */
+.admin-input-focus {
+  transition: box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s ease,
+              background-color 0.2s ease;
+}
+
+.admin-input-focus:focus {
+  box-shadow: 0 0 0 3px rgba(19, 122, 71, 0.12),
+              0 1px 2px rgba(7, 54, 32, 0.06);
+  border-color: #137a47;
+  background-color: #fff;
+}
+
+
+/* ================================================================== */
+/*  INPUT FOCUS — Premium warm glow transition                        */
+/*  Applied to login inputs for a sunrise-like focus state.           */
+/* ================================================================== */
+
+.login-input-focus {
+  transition: box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.3s ease,
+              background-color 0.3s ease;
+}
+
+.login-input-focus:focus {
+  box-shadow: 0 0 0 3px rgba(245, 183, 49, 0.15),
+              0 1px 2px rgba(7, 54, 32, 0.08);
+  border-color: #f5b731;
+  background-color: rgba(255, 255, 255, 0.95);
+}
+
+
+/* ================================================================== */
+/*  ACCESSIBILITY — Respect reduced motion preferences                */
+/*  All animations are killed. The page remains fully functional      */
+/*  and beautiful without motion — the static composition holds.      */
+/* ================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .animate-stagger-fade-in,
+  .animate-gradient-shift,
+  .animate-mist-drift,
+  .animate-mist-drift-reverse,
+  .animate-light-ray,
+  .animate-ambient-light,
+  .animate-warm-pulse,
+  .animate-biolum-float,
+  .animate-firefly-wander,
+  .animate-biolum-pulse,
+  .animate-mist-particle,
+  .animate-leaf-sway,
+  .animate-leaf-sway-deep,
+  .animate-leaf-sway-fore,
+  .animate-vine-unfurl,
+  .animate-wave-lap,
+  .animate-wave-lap-slow,
+  .animate-card-float,
+  .animate-shimmer-sweep,
+  .animate-admin-in,
+  .animate-admin-slide-down,
+  .animate-admin-shimmer,
+  .animate-welcome-line-expand {
+    animation: none !important;
+  }
+
+  /* Allow entrance animations to still show final state (no motion, just appears) */
+  .animate-fade-in-up,
+  .animate-stagger-fade-in,
+  .animate-admin-in,
+  .animate-welcome-line-expand {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "version": "1",
+  "flags": {
+    "reply_engine": {
+      "name": "reply_engine",
+      "attributes": {
+        "mode": {
+          "constraints": {
+            "type": "string",
+            "enum": ["firebase", "aws-sfn", "shadow"]
+          }
+        },
+        "rollout_pct": {
+          "constraints": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      }
+    }
+  },
+  "values": {
+    "reply_engine": {
+      "enabled": true,
+      "mode": "firebase",
+      "rollout_pct": 0
+    }
+  }
+}

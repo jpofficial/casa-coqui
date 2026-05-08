@@ -1,0 +1,108 @@
+version: 0.2
+
+# Casa Coqui — Build phase
+#
+# Runtime: Node 20 (node-ical requires ES2024 /v regex flag).
+# Responsibilities:
+#   1. Load env from three different providers (exam exposure — three types)
+#   2. npm ci (Casa Coqui root only; functions/ deps installed in deploy phase)
+#   3. Assert required files exist before next build
+#   4. next lint (non-blocking)
+#   5. next build
+#   6. Emit build artifact consumed by buildspec-deploy.yml
+
+env:
+  variables:
+    NODE_ENV: "production"
+    # Prevent Playwright from downloading Chromium binaries during npm ci.
+    # Playwright is in devDependencies for local e2e testing only — it has
+    # no role in the production build, and its postinstall download (~150MB)
+    # would slow CodeBuild and risk failing on transient network errors.
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+  parameter-store:
+    # SSM parameter provider. App URL is safe to store as a String parameter.
+    NEXT_PUBLIC_APP_URL: "/casa-coqui/pipeline/next-public-app-url"
+  secrets-manager:
+    # Key-scoped refs into the single casa-coqui/pipeline secret.
+    # NOTE: these cannot be overridden via `aws codebuild start-build
+    # --environment-variables-override` — the SECRETS_MANAGER type is
+    # resolve-on-start and not writable from the StartBuild API.
+    NEXT_PUBLIC_FIREBASE_API_KEY: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_API_KEY"
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN"
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_PROJECT_ID"
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET"
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"
+    NEXT_PUBLIC_FIREBASE_APP_ID: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_APP_ID"
+    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID"
+    NEXT_PUBLIC_FIREBASE_VAPID_KEY: "casa-coqui/pipeline:NEXT_PUBLIC_FIREBASE_VAPID_KEY"
+    NEXT_PUBLIC_ADMIN_EMAIL: "casa-coqui/pipeline:NEXT_PUBLIC_ADMIN_EMAIL"
+    # Server-side secrets — needed at build time because next build evaluates
+    # server-side API routes during page data collection.
+    FIREBASE_SERVICE_ACCOUNT_KEY: "casa-coqui/pipeline:FIREBASE_SERVICE_ACCOUNT_KEY"
+    RESEND_API_KEY: "casa-coqui/pipeline:RESEND_API_KEY"
+    ANTHROPIC_API_KEY: "casa-coqui/pipeline:ANTHROPIC_API_KEY"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - node --version
+      - npm --version
+      - echo "Using npm cache dir $(npm config get cache)"
+
+  pre_build:
+    commands:
+      - echo "=== pre_build ==="
+      - 'test -f package.json || (echo "FATAL: package.json missing" && exit 1)'
+      - 'test -f package-lock.json || (echo "FATAL: package-lock.json missing" && exit 1)'
+      - 'test -f next.config.mjs || (echo "FATAL: next.config.mjs missing" && exit 1)'
+      - 'test -f firebase.json || (echo "FATAL: firebase.json missing" && exit 1)'
+      - 'test -f firestore.rules || (echo "FATAL: firestore.rules missing" && exit 1)'
+      - 'test -f firestore.indexes.json || (echo "FATAL: firestore.indexes.json missing" && exit 1)'
+      - 'test -d functions || (echo "FATAL: functions/ missing" && exit 1)'
+      - echo "Installing root dependencies"
+      # --include=dev is required because NODE_ENV=production causes npm to
+      # implicitly omit devDependencies. Next.js NEEDS tailwindcss + postcss
+      # at build time (they're CSS plugins, not runtime deps), so we have to
+      # override the implicit omit.
+      - npm ci --include=dev --no-audit --no-fund --prefer-offline
+
+  build:
+    commands:
+      - echo "=== build ==="
+      - echo "Running next lint (non-blocking)"
+      - npm run lint || true
+      - echo "Running next build"
+      - npm run build
+      - echo "Build complete. .next size:"
+      - du -sh .next || true
+
+  post_build:
+    commands:
+      - echo "=== post_build ==="
+      - echo "Packaging deploy artifact"
+      - ls -la .next public functions | head -40 || true
+      - date -u +"%Y-%m-%dT%H:%M:%SZ" > build-timestamp.txt
+
+cache:
+  paths:
+    - "node_modules/**/*"
+    - "/root/.npm/**/*"
+
+artifacts:
+  base-directory: .
+  # Include the full project so the deploy stage has source code for
+  # vercel deploy --prod (which does its own build on Vercel's servers)
+  # plus .next/ for potential --prebuilt usage, plus functions/ for
+  # firebase deploy.
+  files:
+    - "**/*"
+  exclude-paths:
+    - "node_modules/**/*"
+    - "functions/node_modules/**/*"
+    - "infra/**/*"
+    - ".git/**/*"
+    - ".venv/**/*"
+  discard-paths: no
+  name: casa-coqui-build-$(date +%Y-%m-%d)

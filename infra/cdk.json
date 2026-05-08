@@ -1,0 +1,22 @@
+{
+  "app": "python3 app.py",
+  "watch": {
+    "include": ["**"],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "requirements*.txt",
+      ".venv",
+      "tests"
+    ]
+  },
+  "context": {
+    "casa-coqui:notification-email": "01juliop@gmail.com",
+    "casa-coqui:github-owner": "jpofficial",
+    "casa-coqui:github-repo": "casa-coqui",
+    "casa-coqui:github-branch": "main",
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/core:newStyleStackSynthesis": true,
+    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true
+  }
+}

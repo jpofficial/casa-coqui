@@ -1,0 +1,17 @@
+{
+  "name": "casa-coqui-reply-agent-sam",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Test runner for SAM stack Lambdas (Phase 1.5)",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^30.3.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/functions/*/__tests__/**/*.test.js"],
+    "testPathIgnorePatterns": ["/node_modules/", "/.aws-sam/"]
+  }
+}

@@ -1,0 +1,476 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Helper functions
+    // -------------------------------------------------------------------------
+
+    // Returns true if the requester is signed in at all.
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Returns true if the signed-in user is the admin (matched by email).
+    // Admin also carries the custom claim { role: "admin" } for extra safety.
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == '01juliop@gmail.com' ||
+        request.auth.token.role == 'admin'
+      );
+    }
+
+    // Returns true if the signed-in user is a staff member (admin, cohost, cleaner, maintenance).
+    function isStaff() {
+      return isAuthenticated() &&
+        request.auth.token.role in ['admin', 'cohost', 'cleaner', 'maintenance'];
+    }
+
+    // Returns true if the signed-in uid matches the guest doc id.
+    function isOwnerGuest(guestId) {
+      return isAuthenticated() && request.auth.uid == guestId;
+    }
+
+    // Returns true if the caller has a valid bookingCode custom claim.
+    function hasAnyBookingCode() {
+      return isAuthenticated() && request.auth.token.bookingCode != null;
+    }
+
+    // Returns true if the caller has at least the given access tier.
+    function hasMinTier(minTier) {
+      return isAuthenticated() && request.auth.token.tier >= minTier;
+    }
+
+    // -------------------------------------------------------------------------
+    // users
+    // Each authenticated user can read their own doc (needed for role lookup).
+    // Only admin can write (invites, role changes).
+    // -------------------------------------------------------------------------
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      // Staff can update their own status (e.g. pending → active on first login),
+      // mark onboarding complete, and sync locale preference
+      allow update: if isAuthenticated() && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'onboardingComplete', 'locale']);
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // bookings
+    // Staff has full read. Guests can only read their own booking (matched
+    // by bookingCode custom claim). This prevents enumeration of all bookings.
+    // -------------------------------------------------------------------------
+    match /bookings/{bookingId} {
+      allow read: if isStaff() ||
+        (isAuthenticated() && resource.data.code == request.auth.token.bookingCode);
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // guests
+    // Admin has full access. Each guest can only read/write their own document
+    // (the doc ID is derived from their phone number in the confirm route).
+    // -------------------------------------------------------------------------
+    match /guests/{guestId} {
+      allow read, write: if isAdmin() || isOwnerGuest(guestId);
+    }
+
+    // -------------------------------------------------------------------------
+    // otps
+    // No client access whatsoever — all reads and writes happen server-side
+    // via the Admin SDK which bypasses these rules.
+    // -------------------------------------------------------------------------
+    match /otps/{otpId} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // notifications
+    // Staff has full read. Guests can read broadcasts, notifications addressed
+    // to their guestId, or notifications targeting their bookingCode (direct,
+    // push types). Guests can update ONLY the readBy field (mark-as-read).
+    // -------------------------------------------------------------------------
+    match /notifications/{notificationId} {
+      allow read: if isStaff() ||
+        (hasAnyBookingCode() && (
+          resource.data.broadcast == true ||
+          resource.data.guestId == request.auth.uid ||
+          resource.data.bookingCode == request.auth.token.bookingCode
+        ));
+      allow create: if isStaff();
+      allow update: if isAdmin() ||
+        (isAuthenticated() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']));
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // messages
+    // Admin has full access. Guests can read/create messages for their own
+    // booking (matched by bookingCode custom claim on their auth token).
+    // -------------------------------------------------------------------------
+    match /messages/{messageId} {
+      allow read: if isStaff() ||
+        (isAuthenticated() && resource.data.bookingCode == request.auth.token.bookingCode);
+      allow create: if isStaff() ||
+        (hasMinTier(2) && request.resource.data.bookingCode == request.auth.token.bookingCode);
+      allow update: if isStaff();
+    }
+
+    // -------------------------------------------------------------------------
+    // parking_reports
+    // Any authenticated guest can create a parking report.
+    // Admin can read all reports.
+    // -------------------------------------------------------------------------
+    match /parking_reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isStaff() || hasMinTier(2);
+    }
+
+    // -------------------------------------------------------------------------
+    // expenses — admin only
+    // -------------------------------------------------------------------------
+    match /expenses/{expenseId} {
+      allow read, write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // supplies — admin only
+    // -------------------------------------------------------------------------
+    match /supplies/{supplyId} {
+      allow read, write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // receipts — admin only
+    // -------------------------------------------------------------------------
+    match /receipts/{receiptId} {
+      allow read, write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // revenue — admin and staff can read, only admin can write
+    // -------------------------------------------------------------------------
+    match /revenue/{revenueId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // maintenance
+    // Staff has full read access. Guests can create new requests and read only
+    // the requests they created (matched by the guestId field on the document).
+    // -------------------------------------------------------------------------
+    match /maintenance/{requestId} {
+      allow read: if isStaff() ||
+        (isAuthenticated() && resource.data.guestId == request.auth.uid);
+      allow create: if (isStaff() || hasMinTier(2)) &&
+        request.resource.data.guestId == request.auth.uid;
+      allow update: if isAdmin() || (
+        isStaff() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'notes', 'estimatedTime', 'guestResponse',
+                    'respondedAt', 'respondedBy', 'acknowledgedAt', 'acknowledgedBy',
+                    'completedAt', 'completedBy', 'archivedAt', 'archivedBy',
+                    'deletedAt', 'deletedBy', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // laundry
+    // Any authenticated user can read machine status.
+    // No direct client writes — all mutations go through API routes which use
+    // the Admin SDK. This enforces session ownership, timer logic, and
+    // concurrency control server-side.
+    // -------------------------------------------------------------------------
+    match /laundry/{machineId} {
+      allow read: if isStaff() || hasAnyBookingCode();
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // laundry_sessions
+    // Staff and guests with a booking claim can read session info.
+    // No direct client writes — all mutations via API (Admin SDK).
+    // -------------------------------------------------------------------------
+    match /laundry_sessions/{sessionId} {
+      allow read: if isStaff() || hasAnyBookingCode();
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // laundry_waitlist
+    // Guests can read their own waitlist entries.
+    // No direct client writes — all mutations via API (Admin SDK).
+    // -------------------------------------------------------------------------
+    match /laundry_waitlist/{entryId} {
+      allow read: if isAuthenticated() &&
+        resource.data.guestId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // checkins
+    // Admin has full access. Guests can create/update their own check-in
+    // (doc ID is the booking code).
+    // -------------------------------------------------------------------------
+    match /checkins/{code} {
+      allow read: if isAdmin() ||
+        (isAuthenticated() && code == request.auth.token.bookingCode);
+      allow write: if isAdmin() ||
+        (isAuthenticated() && code == request.auth.token.bookingCode);
+    }
+
+    // -------------------------------------------------------------------------
+    // fcm_tokens
+    // Any authenticated user can create a token doc (doc ID must equal the
+    // token field). Update/delete are scoped to the owner's identity.
+    // Admin can read all for server-side queries.
+    // -------------------------------------------------------------------------
+    match /fcm_tokens/{tokenId} {
+      allow read: if isAdmin() ||
+        (isAuthenticated() && resource.data.staffId == request.auth.uid) ||
+        (isAuthenticated() && resource.data.bookingCode == request.auth.token.bookingCode);
+      allow create: if isAuthenticated() &&
+        request.resource.data.token == tokenId &&
+        (!('bookingCode' in request.resource.data) ||
+          request.resource.data.bookingCode == request.auth.token.bookingCode) &&
+        (!('staffId' in request.resource.data) ||
+          request.resource.data.staffId == request.auth.uid);
+      allow update: if isAuthenticated() &&
+        (resource.data.get('bookingCode', '') == request.auth.token.bookingCode ||
+         resource.data.get('staffId', '') == request.auth.uid ||
+         // Staff can claim an unowned token (created before identity was available)
+         (isStaff() && !('staffId' in resource.data) && !('bookingCode' in resource.data) &&
+          request.resource.data.staffId == request.auth.uid));
+      allow delete: if isAdmin() ||
+        (isAuthenticated() &&
+          (resource.data.bookingCode == request.auth.token.bookingCode ||
+           resource.data.staffId == request.auth.uid));
+    }
+
+    // -------------------------------------------------------------------------
+    // notification_prefs
+    // Each guest can read/write their own preferences (keyed by bookingCode).
+    // Admin can read all.
+    // -------------------------------------------------------------------------
+    match /notification_prefs/{code} {
+      allow read, write: if isAuthenticated() && code == request.auth.token.bookingCode;
+      allow read: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // community
+    // Guests with a booking claim can read. Creating posts/replies requires
+    // Tier 2 (check-in completed). Admin has full access.
+    // -------------------------------------------------------------------------
+    match /community/{postId} {
+      allow read: if isStaff() || hasAnyBookingCode();
+      allow create: if isStaff() || hasMinTier(2);
+      allow update, delete: if isAdmin();
+
+      match /replies/{replyId} {
+        allow read: if isStaff() || hasAnyBookingCode();
+        allow create: if isStaff() || hasMinTier(2);
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // cleanings
+    // Staff can read and write. Guests have no access.
+    // -------------------------------------------------------------------------
+    match /cleanings/{cleaningId} {
+      allow read, write: if isStaff();
+    }
+
+    // -------------------------------------------------------------------------
+    // supply_requests
+    // Staff can read and write. Guests have no access.
+    // -------------------------------------------------------------------------
+    match /supply_requests/{requestId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // assignments (admin-assigned tasks + auto-created maintenance tasks)
+    // Admin has full access. Staff can read all and update allowed fields
+    // on their own assignments or maintenance-sourced tasks.
+    // -------------------------------------------------------------------------
+    match /assignments/{assignmentId} {
+      allow read: if isStaff();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (
+        isStaff() &&
+        (resource.data.assigneeId == request.auth.uid || resource.data.assigneeId == null) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'completionNote', 'completedAt', 'updatedAt',
+                    'guestResponse', 'estimatedTime', 'respondedAt', 'respondedBy',
+                    'assigneeId', 'assigneeName', 'assigneeRole',
+                    'assigneeAckedAt', 'assigneeAckedBy',
+                    'minutesSpent', 'hoursEnteredBy', 'hoursEnteredByName', 'hoursEnteredAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // cleaning_jobs (structured cleaning workflow)
+    // Admin has full access. Assigned cleaner can read and update own jobs.
+    // -------------------------------------------------------------------------
+    match /cleaning_jobs/{jobId} {
+      allow read: if isStaff();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (
+        isStaff() && resource.data.assigneeId == request.auth.uid
+      );
+      allow delete: if isAdmin();
+
+      // Forum posts sub-collection — staff can read all, staff can create
+      match /posts/{postId} {
+        allow read: if isStaff();
+        allow create: if isStaff();
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // sync_log — ICS sync audit trail
+    // Admin can write (API routes use admin SDK). Staff can read for debugging.
+    // -------------------------------------------------------------------------
+    match /sync_log/{logId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // staff_notifications
+    // Each staff member can read/update their own notifications.
+    // Staff and admin can create. No one can delete.
+    // -------------------------------------------------------------------------
+    match /staff_notifications/{notifId} {
+      allow read: if isStaff() && resource.data.recipientId == request.auth.uid;
+      allow create: if isStaff();
+      allow update: if isStaff() && resource.data.recipientId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // staff_notification_prefs
+    // Each staff member can read/write their own notification preferences.
+    // Doc ID is the staff user's UID.
+    // -------------------------------------------------------------------------
+    match /staff_notification_prefs/{staffId} {
+      allow read, write: if isStaff() && staffId == request.auth.uid;
+      allow read: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // staff_messages
+    // Staff can read/create their own messages. Admin/cohost can read all,
+    // create host messages, and update the read field.
+    // -------------------------------------------------------------------------
+    match /staff_messages/{messageId} {
+      allow read: if isStaff() && (
+        resource.data.staffId == request.auth.uid ||
+        request.auth.token.role in ['admin', 'cohost']
+      );
+      allow create: if isStaff() && (
+        (request.resource.data.staffId == request.auth.uid && request.resource.data.sender == 'staff') ||
+        request.auth.token.role in ['admin', 'cohost']
+      );
+      allow update: if isStaff() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+    }
+
+    // -------------------------------------------------------------------------
+    // booking_members
+    // Staff has full read. Guests can only read members of their own booking
+    // (matched by bookingCode claim). Prevents cross-booking member enumeration.
+    // -------------------------------------------------------------------------
+    match /booking_members/{memberId} {
+      allow read: if isStaff() ||
+        (isAuthenticated() && resource.data.bookingCode == request.auth.token.bookingCode);
+      // Guests can stamp firstPortalVisitAt on their own member doc
+      allow update: if isAuthenticated()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstPortalVisitAt']);
+      allow create, update, delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // invite_tokens
+    // Server-side only (Admin SDK). No client access.
+    // -------------------------------------------------------------------------
+    match /invite_tokens/{tokenId} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // guest_access_log
+    // Staff can read guest lifecycle data. All writes are server-side only
+    // (Admin SDK) to prevent tampering.
+    // -------------------------------------------------------------------------
+    match /guest_access_log/{code} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // settings
+    // Staff has full read. Guests with a valid booking claim can read the
+    // 'property' doc (WiFi, property name, etc.). Prevents exposure to
+    // unauthenticated or unlinked anonymous users.
+    // -------------------------------------------------------------------------
+    match /settings/{settingId} {
+      allow read: if isStaff() ||
+        (hasAnyBookingCode() && settingId == 'property');
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // airbnb_messages — inbound Airbnb guest messages + AI draft replies
+    // Admin has full access. Written by Lambda/Cloud Functions via Admin SDK.
+    // No client reads needed yet (admin UI uses API routes).
+    // -------------------------------------------------------------------------
+    match /airbnb_messages/{messageId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // airbnb_messages_quarantine — non-guest emails (payouts, reviews, etc.)
+    // Admin only for debugging. Written by Lambda via Admin SDK.
+    // -------------------------------------------------------------------------
+    match /airbnb_messages_quarantine/{messageId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // airbnb_resolutions — AirCover / Resolution Center cases keyed by CLSF claim ID.
+    // Admin + cohost can read/update (status changes, notes). Lambda writes via Admin SDK.
+    // -------------------------------------------------------------------------
+    match /airbnb_resolutions/{claimId} {
+      allow read: if isAdmin() || (isStaff() && request.auth.token.role == 'cohost');
+      allow update: if (isAdmin() || (isStaff() && request.auth.token.role == 'cohost'))
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'notes', 'updatedAt']);
+      allow create, delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // agent_runs — AI generation audit log (welcome messages, reply drafts)
+    // Staff can read for debugging. Written by server-side code only.
+    // -------------------------------------------------------------------------
+    match /agent_runs/{runId} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+  }
+}

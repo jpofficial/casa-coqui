@@ -1,0 +1,187 @@
+{
+  "Comment": "Inner AI chain: Reasoner -> Drafter -> Evaluator -> (Reviser if needed). Express type.",
+  "StartAt": "Reasoner",
+  "States": {
+    "Reasoner": {
+      "Type": "Task",
+      "Comment": "Step 1 — produce a response strategy for the guest message",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ReasonerArn}",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.reasoner",
+      "ResultSelector": {
+        "strategy.$": "$.Payload.strategy",
+        "tokens.$": "$.Payload.tokens"
+      },
+      "Retry": [
+        {
+          "Comment": "Anthropic 429 / 529 / 5xx — exp backoff with full jitter",
+          "ErrorEquals": ["AnthropicThrottle", "States.TaskFailed", "Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 5,
+          "BackoffRate": 2.0,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "ChainFailed"
+        }
+      ],
+      "Next": "Drafter"
+    },
+
+    "Drafter": {
+      "Type": "Task",
+      "Comment": "Step 2 — write the actual reply using strategy + voice",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${DrafterArn}",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.drafter",
+      "ResultSelector": {
+        "draft.$": "$.Payload.draft",
+        "tokens.$": "$.Payload.tokens",
+        "appConfigVersion.$": "$.Payload.appConfigVersion"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["AnthropicThrottle", "States.TaskFailed", "Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 5,
+          "BackoffRate": 2.0,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "ChainFailed"
+        }
+      ],
+      "Next": "Evaluator"
+    },
+
+    "Evaluator": {
+      "Type": "Task",
+      "Comment": "Step 3 — score the draft against voice rules + RAG. May produce a revisedReply inline.",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${EvaluatorArn}",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.evaluator",
+      "ResultSelector": {
+        "evaluation.$": "$.Payload.evaluation",
+        "tokens.$": "$.Payload.tokens"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["AnthropicThrottle", "States.TaskFailed", "Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 5,
+          "BackoffRate": 2.0,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "ChainFailed"
+        }
+      ],
+      "Next": "EvaluationGate"
+    },
+
+    "EvaluationGate": {
+      "Type": "Choice",
+      "Comment": "If evaluation passed OR evaluator already produced a revisedReply, skip Reviser",
+      "Choices": [
+        {
+          "Variable": "$.evaluator.evaluation.passed",
+          "BooleanEquals": true,
+          "Next": "ChainSucceeded"
+        },
+        {
+          "Variable": "$.evaluator.evaluation.revisedReply",
+          "IsPresent": true,
+          "Next": "UseEvaluatorRevision"
+        }
+      ],
+      "Default": "Reviser"
+    },
+
+    "UseEvaluatorRevision": {
+      "Type": "Pass",
+      "Comment": "Evaluator already provided a revised reply — promote it as final without calling Reviser",
+      "Parameters": {
+        "finalDraft.$": "$.evaluator.evaluation.revisedReply",
+        "source": "evaluator_inline"
+      },
+      "ResultPath": "$.final",
+      "Next": "ChainSucceeded"
+    },
+
+    "Reviser": {
+      "Type": "Task",
+      "Comment": "Step 4 (conditional) — re-draft using evaluator feedback",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ReviserArn}",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.reviser",
+      "ResultSelector": {
+        "draft.$": "$.Payload.draft",
+        "tokens.$": "$.Payload.tokens",
+        "appConfigVersion.$": "$.Payload.appConfigVersion"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["AnthropicThrottle", "States.TaskFailed", "Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 5,
+          "BackoffRate": 2.0,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "ChainFailed"
+        }
+      ],
+      "Next": "PromoteReviserResult"
+    },
+
+    "PromoteReviserResult": {
+      "Type": "Pass",
+      "Parameters": {
+        "finalDraft.$": "$.reviser.draft",
+        "source": "reviser"
+      },
+      "ResultPath": "$.final",
+      "Next": "ChainSucceeded"
+    },
+
+    "ChainSucceeded": {
+      "Type": "Succeed",
+      "Comment": "AI chain produced a final draft. State input flows back to caller (ReplyDraftSM)."
+    },
+
+    "ChainFailed": {
+      "Type": "Fail",
+      "Comment": "Unrecoverable failure inside the chain — caller should mark message as 'error' or send to DLQ.",
+      "Error": "AIChainFailed",
+      "Cause": "See $.error in execution input for details"
+    }
+  }
+}

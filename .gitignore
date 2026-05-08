@@ -1,0 +1,73 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/functions/node_modules
+/infra/lambda/parse-airbnb-email/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+firebase-debug.log*
+functions/firebase-debug.log
+
+# local env files
+.env*.local
+
+# vercel
+.vercel
+
+# pricing tool (local SQLite + generated reports)
+tools/pricing/pricing.db
+tools/pricing/pricing.db-shm
+tools/pricing/pricing.db-wal
+tools/pricing/reports/
+tools/pricing/logs/
+
+# Graphify — commit graph output, exclude cache
+graphify-out/cache/
+graphify-out/.graphify_python
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# aws cdk (Phase 1 infra)
+infra/cdk.out/
+infra/.venv/
+
+# voice sample downloads (seed script temp)
+.tmp-voice-samples/
+
+# Firebase admin service account keys — never commit
+*firebase-adminsdk*.json
+
+# Local-only safety folder for moved-but-not-yet-deleted artifacts
+Saved Incase/
+
+# Tool state (Claude / MCP / Playwright / Superpowers)
+.claude/scheduled_tasks.lock
+.playwright-mcp/
+.superpowers/
+.mcp.json
+
+# Lambda local backups + extra DB snapshots
+tools/pricing/pricing.db.pre-*

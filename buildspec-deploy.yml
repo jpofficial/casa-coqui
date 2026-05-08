@@ -1,0 +1,70 @@
+version: 0.2
+
+# Casa Coqui — Deploy phase
+#
+# Runtime: Node 20.
+# Responsibilities:
+#   1. Install firebase-tools + vercel CLIs globally
+#   2. Materialize Firebase service account JSON to /tmp/secrets/firebase-sa.json
+#   3. Install functions/ dependencies (stripped from build artifact)
+#   4. Deploy to Vercel (production, full build, NO --prebuilt)
+#   5. Deploy Firebase functions + firestore rules + indexes
+#   6. Shred the service account file
+
+env:
+  variables:
+    NODE_ENV: "production"
+    FIREBASE_PROJECT_ID: "casa-coqui"
+  secrets-manager:
+    FIREBASE_SERVICE_ACCOUNT_KEY: "casa-coqui/pipeline:FIREBASE_SERVICE_ACCOUNT_KEY"
+    VERCEL_TOKEN: "casa-coqui/pipeline:VERCEL_TOKEN"
+    VERCEL_ORG_ID: "casa-coqui/pipeline:VERCEL_ORG_ID"
+    VERCEL_PROJECT_ID: "casa-coqui/pipeline:VERCEL_PROJECT_ID"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - node --version
+      - npm --version
+      - echo "Installing deploy toolchain"
+      - npm install -g firebase-tools@13 vercel@latest
+      - firebase --version
+      - vercel --version
+
+  pre_build:
+    commands:
+      - echo "=== pre_build ==="
+      - mkdir -p /tmp/secrets
+      - chmod 700 /tmp/secrets
+      - printf '%s' "$FIREBASE_SERVICE_ACCOUNT_KEY" > /tmp/secrets/firebase-sa.json
+      - chmod 600 /tmp/secrets/firebase-sa.json
+      - 'test -s /tmp/secrets/firebase-sa.json || (echo "FATAL: empty service account" && exit 1)'
+      - echo "Installing functions/ dependencies"
+      - (cd functions && npm ci --omit=dev --no-audit --no-fund --prefer-offline)
+
+  build:
+    commands:
+      - echo "=== deploy ==="
+      # GOOGLE_APPLICATION_CREDENTIALS must be re-exported inside each phase —
+      # CodeBuild env vars do NOT persist across phases (exam trap).
+      - export GOOGLE_APPLICATION_CREDENTIALS="/tmp/secrets/firebase-sa.json"
+      - echo "Deploying to Vercel (production)"
+      - vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - vercel deploy --prod --yes --token="$VERCEL_TOKEN"
+      - echo "Deploying Firebase functions + firestore rules + indexes"
+      - firebase deploy --only functions,firestore:rules,firestore:indexes --project "$FIREBASE_PROJECT_ID" --non-interactive
+
+  post_build:
+    commands:
+      - echo "=== post_build ==="
+      - echo "Shredding service account file"
+      - shred -u /tmp/secrets/firebase-sa.json || rm -f /tmp/secrets/firebase-sa.json
+      - rmdir /tmp/secrets || true
+      - echo "Deploy complete at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+artifacts:
+  files:
+    - "build-timestamp.txt"
+  name: casa-coqui-deploy-$(date +%Y-%m-%d)

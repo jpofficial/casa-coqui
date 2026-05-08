@@ -1,0 +1,14 @@
+{
+  "name": "casa-coqui-reply-evaluator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SFN chain Lambda — scores the draft against voice + RAG + property facts",
+  "main": "index.js",
+  "engines": {
+    "node": "24"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@aws-sdk/client-secrets-manager": "^3.700.0"
+  }
+}

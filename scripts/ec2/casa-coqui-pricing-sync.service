@@ -1,0 +1,16 @@
+[Unit]
+Description=Casa Coqui pricing.db sync from S3
+Documentation=https://github.com/jpofficial/casa-coqui/blob/main/docs/superpowers/specs/2026-04-19-pricing-autopilot-codebuild-migration-design.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ec2-user
+Group=ec2-user
+ExecStart=/home/ec2-user/casa-coqui/scripts/ec2/sync-pricing-db.sh
+# PATH needs aws CLI + pm2 (installed globally via npm).
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/ec2-user/.npm-global/bin
+
+[Install]
+WantedBy=multi-user.target

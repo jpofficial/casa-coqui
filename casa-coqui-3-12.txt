@@ -1,0 +1,36 @@
+## Recap — March 12, 2026
+
+### What we built today
+
+1. Auto-email guest links & team invites (Resend)
+- Installed resend package, created lib/resend.js
+- Created POST /api/email/guest-link — sends branded HTML email with portal link
+- Updated booking form with optional guestEmail field — auto-sends email on creation
+- Updated POST /api/admin/invite — sends invite email with "Set Your Password" button
+- Updated team page success message to reflect email sent
+- API key added to .env.local (re_ZxZYyoXA_...)
+- Still needed: Add RESEND_API_KEY to Vercel environment variables
+
+2. Fixed Firestore security rules
+- Added missing messages collection rules (chat was completely blocked)
+- Added missing parking_reports collection rules
+- Expanded notifications rule to allow parking, general, maintenance types (community board was blocked)
+- Relaxed bookings rule — any authenticated user can read
+
+3. Fixed guest auth flow
+- Root cause: Firebase Phone Auth doesn't set custom claims, but rules required bookingCode claim — everything silently failed
+- Created POST /api/guests/set-claims — sets bookingCode + role: guest claims after phone verification
+- Updated checkin page to call set-claims after OTP, then force-refreshes token
+- Added auth gate on guest home page — shows "verify your phone" prompt if not signed in
+
+4. Added Firestore composite indexes
+- Created firestore.indexes.json with indexes for notifications (type + createdAt) and messages (bookingCode + createdAt)
+- Created firebase.json and .firebaserc for deployments
+
+### What's left to do tomorrow
+
+1. Add Vercel domain to Firebase authorized domains — Authentication > Settings > Authorized domains > add your *.vercel.app domain
+2. Add a test phone number in Firebase Console — Authentication > Sign-in method > Phone > Test phone numbers (e.g. +15555550100 / code 123456)
+3. Add RESEND_API_KEY to Vercel env vars — so guest link and invite emails work in production
+4. Test the full guest flow end-to-end — open guest link > verify phone > check parking, community, chat all load
+5. Custom Resend domain — whenever you buy a domain for Casa Coqui, add it in Resend dashboard and update the from address in both email routes
