@@ -524,6 +524,57 @@ async function matchByActiveWindow(firestore, fieldName, value, receivedAt) {
   return tieBreak(candidates, receivedAt);
 }
 
+// ---------------------------------------------------------------------------
+// RFC 5322 thread-header helpers (Option A Item 4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Pull In-Reply-To and References from a mailparser parsed object.
+ * Normalizes references to always be an array (mailparser may return
+ * a single string OR an array depending on header format).
+ *
+ * @param {object} parsed - mailparser output (or a subset for tests)
+ * @returns {{ inReplyTo: string|null, references: string[] }}
+ */
+function extractHeaderRefs(parsed) {
+  const inReplyTo = (parsed.inReplyTo && String(parsed.inReplyTo).trim()) || null;
+
+  let references = [];
+  if (Array.isArray(parsed.references)) {
+    references = parsed.references.filter((r) => r && String(r).trim()).map((r) => String(r).trim());
+  } else if (parsed.references && String(parsed.references).trim()) {
+    // Single string — may contain whitespace-separated message-ids per RFC 5322.
+    references = String(parsed.references)
+      .split(/\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  return { inReplyTo, references };
+}
+
+/**
+ * Reverse lookup: given an RFC Message-ID, find the Firestore doc id of an
+ * airbnb_messages doc whose messageId field matches. Used to resolve
+ * inReplyTo into a direct doc reference.
+ *
+ * Returns null if inReplyTo is null/empty or no matching doc exists.
+ *
+ * @param {import('firebase-admin').firestore.Firestore} firestore
+ * @param {string|null} inReplyTo
+ * @returns {Promise<string|null>}
+ */
+async function findParentMessageDocId(firestore, inReplyTo) {
+  if (!inReplyTo) return null;
+  const snap = await firestore
+    .collection('airbnb_messages')
+    .where('messageId', '==', inReplyTo)
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  return snap.docs[0].id;
+}
+
 /**
  * Tiered booking match.
  *   Tier 1: airbnbConfirmationCode (gold standard, unchanged behavior).
@@ -1206,3 +1257,5 @@ module.exports.WINDOW_PRE_DAYS = WINDOW_PRE_DAYS;
 module.exports.WINDOW_POST_DAYS = WINDOW_POST_DAYS;
 module.exports.matchByActiveWindow = matchByActiveWindow;
 module.exports.findMatchingBooking = findMatchingBooking;
+module.exports.extractHeaderRefs = extractHeaderRefs;
+module.exports.findParentMessageDocId = findParentMessageDocId;
