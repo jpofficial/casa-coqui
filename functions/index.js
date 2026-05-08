@@ -250,6 +250,7 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
           bookingCode: message.bookingCode || null,
           senderEmail: message.senderEmail || message.fromAddress || null,
           senderName: message.guestName || message.fromName || null,
+          receivedAt: message.receivedAt?.toDate?.() || message.receivedAt || null,
         });
 
       let thread = [];
