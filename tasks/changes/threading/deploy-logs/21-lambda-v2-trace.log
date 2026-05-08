@@ -1,0 +1,38 @@
+1778213290696	2026-05-08T04:08:10.696Z	6eadd0e3-fbea-4561-9e20-a5b4fe63c1ac	INFO	Processing record {
+  sesMessageId: 'synth-smoke-tier-fallback-v2-2026-05-08',
+  bucketName: 'casa-coqui-inbound-email',
+  objectKey: 'airbnb/synth-smoke-tier-fallback-v2-2026-05-08'
+}
+
+1778213291357	2026-05-08T04:08:11.357Z	6eadd0e3-fbea-4561-9e20-a5b4fe63c1ac	INFO	Email retrieved from S3 {
+  sesMessageId: 'synth-smoke-tier-fallback-v2-2026-05-08',
+  objectKey: 'airbnb/synth-smoke-tier-fallback-v2-2026-05-08',
+  sizeBytes: 949
+}
+
+1778213298104	2026-05-08T04:08:18.104Z	6eadd0e3-fbea-4561-9e20-a5b4fe63c1ac	INFO	duplicate — terminal record exists, skipping {
+  sesMessageId: 'synth-smoke-tier-fallback-v2-2026-05-08',
+  objectKey: 'airbnb/synth-smoke-tier-fallback-v2-2026-05-08'
+}
+
+1778213319911	2026-05-08T04:08:39.911Z	b871f82a-9b90-4b78-be96-5ee501180ef6	INFO	Processing record {
+  sesMessageId: 'synth-smoke-tier-fallback-v2-2026-05-08',
+  bucketName: 'casa-coqui-inbound-email',
+  objectKey: 'airbnb/synth-smoke-tier-fallback-v2-2026-05-08'
+}
+
+1778213320041	2026-05-08T04:08:40.041Z	b871f82a-9b90-4b78-be96-5ee501180ef6	INFO	Email retrieved from S3 {
+  sesMessageId: 'synth-smoke-tier-fallback-v2-2026-05-08',
+  objectKey: 'airbnb/synth-smoke-tier-fallback-v2-2026-05-08',
+  sizeBytes: 732
+}
+
+1778213320096	2026-05-08T04:08:40.096Z	b871f82a-9b90-4b78-be96-5ee501180ef6	INFO	Email parsed {
+  subject: 'New message from Smoke TestBot V2',
+  fromAddress: 'express@airbnb.com',
+  fromName: 'Airbnb',
+  receivedAt: '2026-05-08T04:10:00.000Z',
+  rfcMessageId: '<synth-smoke-tier-fallback-v2-2026-05-08@airbnb.com>',
+  bodyLength: 424
+}
+

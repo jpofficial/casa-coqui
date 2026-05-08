@@ -1,0 +1,35 @@
+1778212519645	INIT_START Runtime Version: nodejs:20.v101	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:18671876e7cc385452255180c58ca50cf8763398a4248ae92ed14410d196b942
+
+1778212520192	START RequestId: 4f25927a-332d-4e3f-af79-4b181d0688d1 Version: $LATEST
+
+1778212520194	2026-05-08T03:55:20.194Z	4f25927a-332d-4e3f-af79-4b181d0688d1	INFO	parse-airbnb-email invoked {"recordCount":1}
+
+1778212520202	2026-05-08T03:55:20.202Z	4f25927a-332d-4e3f-af79-4b181d0688d1	INFO	Processing record {
+  sesMessageId: 'lugc3b7bmo8jm6lu8qbevfhsbqvhr5v58bq6cm01',
+  bucketName: 'casa-coqui-inbound-email',
+  objectKey: 'airbnb/lugc3b7bmo8jm6lu8qbevfhsbqvhr5v58bq6cm01'
+}
+
+1778212520762	2026-05-08T03:55:20.762Z	4f25927a-332d-4e3f-af79-4b181d0688d1	INFO	Email retrieved from S3 {
+  sesMessageId: 'lugc3b7bmo8jm6lu8qbevfhsbqvhr5v58bq6cm01',
+  objectKey: 'airbnb/lugc3b7bmo8jm6lu8qbevfhsbqvhr5v58bq6cm01',
+  sizeBytes: 38890
+}
+
+1778212521203	2026-05-08T03:55:21.203Z	4f25927a-332d-4e3f-af79-4b181d0688d1	INFO	Email parsed {
+  subject: 'Fwd: Reservation for Casa Coqui #1 Next to everything, May 5 – 13',
+  fromAddress: '01juliop@gmail.com',
+  fromName: 'Julio Perez',
+  receivedAt: '2026-05-08T03:55:05.000Z',
+  rfcMessageId: '<CAO3ubK1A-CZvSquKuPoYZJ2BieK97uP22ZMX7eTKFZbBJOUncQ@mail.gmail.com>',
+  bodyLength: 3238
+}
+
+1778212526618	2026-05-08T03:55:26.618Z	4f25927a-332d-4e3f-af79-4b181d0688d1	INFO	Non-Airbnb sender — quarantined { fromAddress: '01juliop@gmail.com' }
+
+1778212526691	2026-05-08T03:55:26.691Z	4f25927a-332d-4e3f-af79-4b181d0688d1	INFO	parse-airbnb-email complete { total: 1, processed: 0, quarantined: 1, skipped: 0, errors: 0 }
+
+1778212526693	END RequestId: 4f25927a-332d-4e3f-af79-4b181d0688d1
+
+1778212526693	REPORT RequestId: 4f25927a-332d-4e3f-af79-4b181d0688d1	Duration: 6500.63 ms	Billed Duration: 7046 ms	Memory Size: 256 MB	Max Memory Used: 130 MB	Init Duration: 544.58 ms	
+
