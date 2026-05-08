@@ -857,7 +857,12 @@ exports.handler = async (event) => {
       //    (See docs/superpowers/specs/2026-04-18-parse-airbnb-email-correctness-design.md)
       // ------------------------------------------------------------------
       if (messageType === 'reservation_confirmation') {
-        const matched = await findMatchingBooking(firestore, confirmationCode);
+        const matched = await findMatchingBooking(firestore, {
+          confirmationCode,
+          fromAddress,
+          guestName,
+          receivedAt,
+        });
         const fields = extractEnrichmentFields(subject, bodyText);
 
         if (!matched) {
@@ -952,7 +957,12 @@ exports.handler = async (event) => {
           // Best-effort booking match — same lookup as guest messages.
           let bookingId = null;
           if (resCode) {
-            const matched = await findMatchingBooking(firestore, resCode);
+            const matched = await findMatchingBooking(firestore, {
+              confirmationCode: resCode,
+              fromAddress,
+              guestName,
+              receivedAt,
+            });
             if (matched) bookingId = matched.id;
           }
 
@@ -1042,7 +1052,12 @@ exports.handler = async (event) => {
       // ------------------------------------------------------------------
       // 7. Match to a booking
       // ------------------------------------------------------------------
-      const booking = await findMatchingBooking(firestore, confirmationCode);
+      const booking = await findMatchingBooking(firestore, {
+        confirmationCode,
+        fromAddress,
+        guestName,
+        receivedAt,
+      });
 
       if (!booking) {
         console.warn('No matching booking found — writing as unmatched', {
@@ -1075,6 +1090,7 @@ exports.handler = async (event) => {
             bookingCode: null,
             senderEmail: fromAddress,
             senderName: guestName || fromName,
+            receivedAt,
           }),
           source: 'inbound',
         });
@@ -1130,6 +1146,7 @@ exports.handler = async (event) => {
           bookingCode: booking.data.code,
           senderEmail: fromAddress,
           senderName: guestName || booking.data.guestName || null,
+          receivedAt,
         }),
         source: 'inbound',
       };
