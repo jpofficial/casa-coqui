@@ -91,6 +91,7 @@ function buildThreads(messages) {
         bookingCode: msg.bookingCode || null,
         senderEmail: msg.senderEmail || msg.fromAddress || null,
         senderName: msg.guestName || msg.fromName || null,
+        receivedAt: msg.receivedAt?.toDate?.() || msg.createdAt?.toDate?.() || null,
       });
 
     if (!threadMap[key]) {
@@ -204,6 +205,7 @@ function ChatView({ thread, allMessages, onBack, onLinkClick }) {
           bookingCode: m.bookingCode || null,
           senderEmail: m.senderEmail || m.fromAddress || null,
           senderName: m.guestName || m.fromName || null,
+          receivedAt: m.receivedAt?.toDate?.() || m.createdAt?.toDate?.() || null,
         });
       return key === thread.threadKey;
     })
