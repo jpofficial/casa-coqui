@@ -151,3 +151,68 @@ The single resolution point (line 903) was chosen deliberately: doing it in-line
 - **Out-of-scope quarantine paths** (`non_airbnb_sender`, unmatched `reservation_confirmation`, unknown `messageType`) intentionally not touched. If a future item needs threading on those paths, it's a one-line merge per site — but no current consumer needs it.
 
 ---
+
+## Production Smoke — VERIFIED 2026-05-08
+
+**Date**: 2026-05-08
+**Commit**: [`f8119ed`](../../../) — `docs(option-a): Item 4 deploy + smoke verification artifacts`
+**Status**: ✅ End-to-end verified in production. Item 4 is fully closed.
+
+### Deploy path
+
+Item 4 required two independent deploys because the change spans two compute environments:
+
+- **Vercel + Firebase Functions** shipped via CodePipeline `f2408c40-ca93-4f24-9fb7-2d2af181979b` on the push of commit `4f7d41c` (the Item 5 change-log commit, which carried main forward). The pipeline succeeded for both targets. Note: the Lambda is **not** part of CodePipeline — it deploys via CDK only.
+- **Lambda** redeployed manually via `cdk deploy CasaCoquiEmailStack --require-approval never` (~39s wall time). The CDK diff was code-only — S3Key hash changed, no infrastructure delta. This is the deploy that actually put the new `extractHeaderRefs` + `findParentMessageDocId` calls into the production parser.
+
+### Synthetic smoke
+
+Two `.eml` fixtures injected directly via S3 + Lambda invoke to exercise the parent → child threading path end-to-end without waiting for organic Airbnb traffic:
+
+- **Parent `.eml`**: no `In-Reply-To` / `References` headers (root-of-thread baseline).
+- **Child `.eml`**: `In-Reply-To: <synth-item4-parent-2026-05-08@airbnb.com>` + `References: <synth-item4-parent-2026-05-08@airbnb.com>`, sent ~5 seconds after the parent so the parent doc would already be in Firestore when the child landed.
+
+Both Lambda invocations returned `processed: 1` with no errors. Verify script (`tasks/changes/option-a/item-4-logs/verify-headers.js`) ran 6 explicit checks against the resulting Firestore docs and returned `allPass: true`.
+
+### Verify-script results (6/6 ✅)
+
+Parent doc `8AY8FZ9pBo6NUUS7jfDh`:
+- ✅ Check 1: `inReplyTo === null` (no header on root → field is absent / null).
+- ✅ Check 2: `references` is `[]` (empty array, not missing — consistent shape).
+- ✅ Check 3: `replyToId === null` (nothing to resolve).
+
+Child doc `92TXQjdsxPRKdG0ypWWL`:
+- ✅ Check 4: `inReplyTo === '<synth-item4-parent-2026-05-08@airbnb.com>'` (header preserved verbatim).
+- ✅ Check 5: `references` is `['<synth-item4-parent-2026-05-08@airbnb.com>']` (single-element array form normalized correctly).
+- ✅ Check 6: `replyToId === '8AY8FZ9pBo6NUUS7jfDh'` — the parent's **Firestore doc id**, resolved by `findParentMessageDocId` from the `inReplyTo` Message-ID via the `messageId` reverse lookup. This is the load-bearing assertion: the pointer is to the Firestore doc id, not a re-serialized Message-ID, so future ancestor-chain traversal can do `db.doc('airbnb_messages/' + replyToId).get()` directly without a second query.
+
+### Cleanup
+
+All synthetic artifacts removed in a single batch (`tasks/changes/option-a/item-4-logs/cleanup-headers.js`) so the smoke test left no residue in production:
+
+- 2 `airbnb_messages` docs (parent + child).
+- 2 `airbnb_messages_quarantine` docs.
+- 2 `airbnb_message_locks` docs.
+- 2 `agent_runs` docs.
+- 8 `staff_notifications` docs.
+- 2 S3 objects (the raw `.eml` files in the SES inbound bucket).
+
+Total: 16 Firestore docs across 5 collections + 2 S3 objects, all deleted cleanly. Production state post-cleanup is identical to pre-smoke state.
+
+### Acceptance criteria — final status
+
+All criteria from the plan §"Acceptance criteria" are now satisfied **at runtime**, not just in unit tests:
+
+- ✅ `extractHeaderRefs` normalizes string + array references — Task 1 + 1.5 unit tests + production smoke.
+- ✅ `findParentMessageDocId` returns `null` on miss, doc id on hit — Task 1 unit tests + production smoke (parent miss → `null`, child hit → resolved doc id).
+- ✅ All 3 inbound write paths persist the 3 new fields — Task 2 wiring + production smoke (matched-booking write site exercised; the unmatched-booking + quarantine sites share the same resolved `parentDocId` variable from line 903, so they are covered by the same code path).
+- ✅ Out-of-order messages: `replyToId` is `null` but `inReplyTo` preserved — Task 1 unit test (parent-not-yet-in-Firestore branch).
+- ✅ No regressions in classify / extract / booking-match — full 87/87 test suite + production smoke (both synthetic messages classified + matched + persisted normally).
+
+### Significance
+
+- **Item 4 is closed.** Every new inbound `airbnb_messages` doc in production now carries `inReplyTo`, `references`, and `replyToId`. Future Item 6+ work (context-graph traversal, ancestor-chain reasoning) can now consume the data without first having to backfill it.
+- **Backfill of historical docs intentionally skipped.** Forward-only — by the time any consumer reads these fields, several days of organic threaded data will have accumulated under normal traffic. If a future item needs the headers on pre-deploy docs, that's a separate one-shot script that re-parses S3-archived `.eml` files.
+- **Smoke artifacts preserved** in `tasks/changes/option-a/item-4-logs/` (CDK logs, invoke payloads, verify output, cleanup output). Reproducible if the smoke ever needs to be re-run after future Lambda changes.
+
+---

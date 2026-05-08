@@ -77,3 +77,29 @@ This is a **pre-existing concern** unrelated to Item 5: the same direction-of-tr
 **Recommended fix (future item)**: switch the query to `orderBy('createdAt', 'desc').limit(21)` and reverse client-side, so the AI always sees the most recent 21 messages instead of the oldest 21. This is a one-line change but warrants its own commit + production smoke because reversing the slice direction is a behavior change, not a parameter widening.
 
 Flagging here so it doesn't get lost. Not in Item 5's scope.
+
+---
+
+## Production Status — DEPLOYED 2026-05-08
+
+**Pipeline**: `f2408c40-ca93-4f24-9fb7-2d2af181979b` (commit `4f7d41c` push)
+**Targets deployed**: Vercel + Firebase Functions ✅
+**Lambda redeploy**: ❌ not required — Item 5 only modified `functions/index.js`, `functions/lib/reply-ai.js`, and `lib/reply-ai.js`. The Lambda parser does not call `buildReplyInput` and does not consume the slice; the parameter widening is exclusively on the Cloud Function reply-agent path.
+
+### Synthetic smoke — intentionally skipped
+
+No standalone synthetic test was run for Item 5. The change is parameter-only on a code path that fires only when an organic Airbnb message arrives via the Cloud Function trigger (`onAirbnbMessageCreated`). Constructing a synthetic exercise of the slice would have required either a fixture-based unit test (which is testing `Array.prototype.slice`, not application logic) or a full end-to-end trigger in production, which we already get for free on the next inbound. We chose to wait for organic traffic.
+
+### Implicit verification via Item 4 smoke ✅
+
+Item 4's parent + child synthetic test (`tasks/changes/option-a/item-4-logs/`) **also exercised Item 5's code path**: when each synthetic `.eml` was injected, the Cloud Function trigger fired, called `buildReplyInput` (which now applies `slice(-20)`), and produced an `agent_runs` doc with the new wider context window. Logs in `item-4-logs/` show normal operation across both invocations — the child invocation in particular ran with the parent already present in the thread, exercising a 2-message thread through the new slice. This is implicit but real coverage of the Item 5 code path.
+
+### Functional verification path for organic traffic ⏳
+
+When the next real Airbnb message arrives (Yashira or any other guest follow-up):
+
+1. Find the resulting `agent_runs` doc by inbound `messageId` or by `createdAt` recency.
+2. Inspect `_agentRun.prompt` — `conversationHistory` should contain up to 20 prior messages if the thread has run that long. Threads ≤ 5 messages will look unchanged from pre-Item-5 behavior; threads of 6-20 are where the widening visibly bites.
+3. (Optional) Compare against the Firestore thread query result: the Cloud Function should have queried up to 21 and the slice should have returned the last 20 (or fewer if the thread is shorter).
+
+No action required from Julio — this verification can be done opportunistically the next time he reviews an AI draft for a long-running thread.
