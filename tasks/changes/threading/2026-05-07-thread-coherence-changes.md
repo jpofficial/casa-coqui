@@ -415,7 +415,8 @@ c31989e  Task 7 — docs: deploy + smoke verification artifacts (29 files in dep
 ### Issue #1 — Cloud Functions deploy gap at `functions/lib/reply-ai.js:33`
 
 **Severity**: Blocker for any future redeploy of `onAirbnbMessageCreated` (and any other Cloud Function that loads `reply-ai.js`).
-**Status**: PRE-EXISTING — not introduced by this work, surfaced by it during Task 7.
+**Status**: **RESOLVED 2026-05-08** — fixed by inlining `SYSTEM_PROMPT` into `functions/lib/reply-ai.js` (commits `c49adf3` + `dca6220`). Full detail in [Issue #1 Resolution](#issue-1-resolution) below. Historical analysis preserved here for posterity.
+**Original status**: PRE-EXISTING — not introduced by this work, surfaced by it during Task 7.
 **Symptom**: `firebase deploy` exits 0; Cloud Run rejects the new revision; old revision keeps serving. Silent no-op.
 **Root cause**: `path.resolve(__dirname, '../../infra/sam/reply-agent/config/system-prompt.seed.json')` resolves outside the Cloud Functions deploy package.
 **Fix options** (~30 min):
@@ -423,5 +424,54 @@ c31989e  Task 7 — docs: deploy + smoke verification artifacts (29 files in dep
 2. Bundle the seed file inside `functions/` (e.g., `functions/seed/system-prompt.seed.json`) and update the resolver.
 **Required before**: Option A items 4 and 5 (which touch `reply-ai.js` and would require a working Cloud Functions deploy).
 **Impact on this work**: Task 5's `0713219` is not live in production. Acceptable short-term — the Lambda always stamps `threadKey` on new docs, so the Cloud Function's reconstruction path is dead code for new traffic — but structurally must be fixed before the next functions deploy.
+
+---
+
+## Issue #1 Resolution
+
+**Date**: 2026-05-08
+**Commits**: `c49adf3` (fix) + `dca6220` (deploy artifacts)
+
+### Root cause
+
+`functions/lib/reply-ai.js:32-33` did:
+
+```js
+const _seedPath = path.resolve(__dirname, '../../infra/sam/reply-agent/config/system-prompt.seed.json');
+const SYSTEM_PROMPT = JSON.parse(fs.readFileSync(_seedPath, 'utf8')).systemPrompt;
+```
+
+The Cloud Functions deploy package only includes the `functions/` directory. In the deployed container `__dirname=/workspace/lib/`, so `../../infra/sam/...` resolves to `/infra/sam/...` which does not exist. Module load threw `ENOENT` → container exited → STARTUP probe failed → Cloud Run held the prior revision. `firebase deploy` reported success because the CLI only watches the API call, not the rollout health.
+
+### Fix
+
+Inlined `SYSTEM_PROMPT` as a JS template literal directly in `functions/lib/reply-ai.js`, matching what the ESM repo-root copy at `lib/reply-ai.js` already does. Removed the `fs.readFileSync` and `path.resolve` calls. Added a header comment block enumerating all three sync points (`lib/reply-ai.js`, `functions/lib/reply-ai.js`, `infra/sam/reply-agent/config/system-prompt.seed.json`) and explaining that inlining was chosen over bundling the seed because it removes filesystem I/O at module load and keeps the prompt visible in code review.
+
+### Verification timeline (2026-05-08 UTC)
+
+- ✅ **04:38** — Module-load smoke: `node -e "require('./functions/lib/reply-ai.js')"` loads cleanly. `SYSTEM_PROMPT.length === 9437`.
+- ✅ **04:45** — `firebase deploy --only functions:onAirbnbMessageCreated` returned `Successful update operation.`
+- ✅ **04:46:30** — New revision `onairbnbmessagecreated-00012-xil` started under reason `DEPLOYMENT_ROLLOUT`. STARTUP TCP probe succeeded after 1 attempt.
+- ✅ **04:46:35** — Cloud Run audit log: `state: ACTIVE`, `allTrafficOnLatestRevision: true`, new functions hash `5d967ac2b1774fce90b7ff1082e42ddf87ff6e7e`.
+- ✅ **04:47** — End-to-end smoke: synthetic `.eml` (subject `synth-issue1-verify`) uploaded to S3, Lambda invoked, doc `C3F5iO1ZoihVJ8cm7Hzm` written to `airbnb_messages`. Cloud Function trigger fired **on the new code** (no ENOENT in trace) and the AI reply chain ran end-to-end: RAG → reason → draft → evaluate → revise → reply.
+- ✅ **04:48** — Synthetic artifacts cleaned: 1 message, 1 quarantine entry, 1 lock, 1 agent_run, 4 staff_notifications, 1 S3 object.
+
+### Side effect — multiple stalled commits now actually live
+
+The deploy gap had been silently swallowing every `onAirbnbMessageCreated` redeploy since the seed-file load was first added. Three groups of changes were unshipped and are now live as of revision `-00012-xil`:
+
+- **Task 5** (`0713219`) — `functions/index.js` inline `buildThreadKey` + `receivedAt` defense-in-depth wiring. Stalled since the 2026-05-08 deploy attempt during Task 7.
+- **Phase 2 voice-learning loop changes** — consumer-side updates to how `onAirbnbMessageCreated` reads `voiceProfilePrompt`. Stalled since the seed-file load was introduced.
+- **The SYSTEM_PROMPT inlining itself** — the new prompt body is now what generates replies.
+
+### Production impact
+
+Before this fix, `onAirbnbMessageCreated` had been running pre-Phase-2 code. The voice-learning **producer** (`onAirbnbMessageSent`) is a separate function and was deploying fine, so it kept feeding `voiceProfilePrompt` updates — but the **consumer** was still using the older `SYSTEM_PROMPT` version, so the voice profile was being written but not fully exercised by reply generation. After this deploy, producer and consumer are aligned and the voice-learning loop is end-to-end live.
+
+The threading work itself (Tasks 1–6) was unaffected because the Lambda stamps `threadKey` on every new doc, making the Cloud Function's reconstruction path dead code for new traffic. Task 5's defense-in-depth wiring is now deployed as designed.
+
+### Logs
+
+All verification artifacts saved under `tasks/changes/threading/issue-1-logs/` (committed in `dca6220`): module-load output, `firebase deploy` stdout, Cloud Run audit log JSON, synthetic .eml fixture, Lambda invocation trace, Firestore doc dump, Cloud Function trigger log, cleanup script output.
 
 ---
