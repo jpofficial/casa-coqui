@@ -1,0 +1,7 @@
+(node:63966) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+{
+  "found": 0,
+  "status": "no reply-mark-sent docs yet",
+  "hint": "Use the admin Messages UI to mark a message as sent, then re-run."
+}
