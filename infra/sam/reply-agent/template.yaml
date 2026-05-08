@@ -73,6 +73,11 @@ Parameters:
     Default: "1.0"
     Description: Initial value for /casa-coqui/reply-agent/temperature SSM parameter
 
+  AlertEmail:
+    Type: String
+    Default: 01juliop@gmail.com
+    Description: Email subscriber for SNS DLQ + bridge alarms
+
 # ---------------------------------------------------------------------------
 # Globals — defaults applied to every resource of a given type. DRYs the file.
 # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-specification-template-anatomy-globals.html
@@ -164,8 +169,8 @@ Resources:
                 - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AnthropicSecretName}-*
             - Effect: Allow
               Action:
-                - appconfig:StartConfigurationSession
-                - appconfig:GetLatestConfiguration
+                - appconfigdata:StartConfigurationSession
+                - appconfigdata:GetLatestConfiguration
               Resource:
                 - !Sub arn:aws:appconfig:${AWS::Region}:${AWS::AccountId}:application/${ReplyAgentApplication}/environment/${ReplyAgentProdEnvironment}/configuration/${SystemPromptProfile}
 
@@ -208,8 +213,8 @@ Resources:
                 - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AnthropicSecretName}-*
             - Effect: Allow
               Action:
-                - appconfig:StartConfigurationSession
-                - appconfig:GetLatestConfiguration
+                - appconfigdata:StartConfigurationSession
+                - appconfigdata:GetLatestConfiguration
               Resource:
                 - !Sub arn:aws:appconfig:${AWS::Region}:${AWS::AccountId}:application/${ReplyAgentApplication}/environment/${ReplyAgentProdEnvironment}/configuration/${SystemPromptProfile}
 
@@ -228,6 +233,176 @@ Resources:
               Action: secretsmanager:GetSecretValue
               Resource:
                 - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${FirebaseSecretName}-*
+
+  # -------------------------------------------------------------------------
+  # Phase 3 — DLQ + SNS + DLQ Notifier
+  # -------------------------------------------------------------------------
+
+  ReplyDraftDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: casa-coqui-reply-draft-dlq
+      MessageRetentionPeriod: 1209600  # 14 days
+      SqsManagedSseEnabled: true        # SSE — payloads contain Firestore ids / threadKeys
+
+  ReplyDraftFailureTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: casa-coqui-reply-draft-failures
+      Subscription:
+        - Endpoint: !Ref AlertEmail
+          Protocol: email
+
+  DLQNotifierFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: casa-coqui-reply-dlq-notifier
+      CodeUri: functions/dlq-notifier/
+      Handler: index.handler
+      Description: Formats SQS DLQ messages and publishes to SNS
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref ReplyDraftFailureTopic
+      Events:
+        DLQTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ReplyDraftDLQ.Arn
+            BatchSize: 10
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref ReplyDraftFailureTopic
+
+  # -------------------------------------------------------------------------
+  # Phase 3 — CloudWatch Alarms
+  # -------------------------------------------------------------------------
+
+  SFNExecutionsFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: casa-coqui-reply-draft-executions-failed
+      AlarmDescription: SFN executions failing — wired to AppConfig Monitor for auto-rollback
+      MetricName: ExecutionsFailed
+      Namespace: AWS/States
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching   # CRITICAL — low-volume app
+      Dimensions:
+        - Name: StateMachineArn
+          Value: !Ref ReplyDraftStateMachine
+      AlarmActions:
+        - !Ref ReplyDraftFailureTopic
+
+  BridgeFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: casa-coqui-bridge-route-failures
+      AlarmDescription: Bridge BridgeRouteFailures > 5 in 5 min — Cloud Function path may be unhealthy
+      MetricName: BridgeRouteFailures
+      Namespace: CasaCoqui/Bridge
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 5
+      DatapointsToAlarm: 5
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref ReplyDraftFailureTopic
+
+  AnthropicThrottlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: casa-coqui-anthropic-throttles
+      MetricName: AnthropicThrottles
+      Namespace: CasaCoqui/Chain
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 20
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref ReplyDraftFailureTopic
+
+  LatencyP95Alarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: casa-coqui-reply-draft-latency-p95
+      MetricName: ExecutionTime
+      Namespace: AWS/States
+      ExtendedStatistic: p95
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 30000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: StateMachineArn
+          Value: !Ref ReplyDraftStateMachine
+      AlarmActions:
+        - !Ref ReplyDraftFailureTopic
+
+  # -------------------------------------------------------------------------
+  # Phase 3 — AppConfig Monitor on the prod Environment (Decision 10 + 14)
+  # -------------------------------------------------------------------------
+
+  AppConfigMonitorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: casa-coqui-appconfig-monitor
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: appconfig.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DescribeAlarms
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: cloudwatch:DescribeAlarms
+                Resource: !GetAtt SFNExecutionsFailedAlarm.Arn
+
+  # -------------------------------------------------------------------------
+  # Phase 3 — Bridge IAM user (Firebase Cloud Function → AWS)
+  # Long-lived access key per Decision 5 + rotation runbook (Step 15.3.1).
+  # Stored in Firebase Functions secrets (defineSecret) AND mirrored into
+  # Vercel env (regenerate API runtime — Step 16.2.1).
+  # -------------------------------------------------------------------------
+
+  BridgeIamUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: casa-coqui-firebase-bridge
+      Policies:
+        - PolicyName: SfnStartExecutionScoped
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: states:StartExecution
+                Resource: !Ref ReplyDraftStateMachine
+              - Effect: Allow
+                Action:
+                  - appconfigdata:StartConfigurationSession
+                  - appconfigdata:GetLatestConfiguration
+                Resource: !Sub arn:aws:appconfig:${AWS::Region}:${AWS::AccountId}:application/${ReplyAgentApplication}/environment/${ReplyAgentProdEnvironment}/configuration/${FeatureFlagsProfile}
+              - Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: CasaCoqui/Bridge
 
   # -------------------------------------------------------------------------
   # SSM Parameters — non-secret hot-tunable model knobs.
@@ -268,7 +443,10 @@ Resources:
     Properties:
       ApplicationId: !Ref ReplyAgentApplication
       Name: prod
-      Description: Production environment
+      Description: Production environment (Phase 3 wires SFNExecutionsFailedAlarm Monitor)
+      Monitors:
+        - AlarmArn: !GetAtt SFNExecutionsFailedAlarm.Arn
+          AlarmRoleArn: !GetAtt AppConfigMonitorRole.Arn
 
   SystemPromptProfile:
     Type: AWS::AppConfig::ConfigurationProfile
@@ -452,6 +630,7 @@ Resources:
         RAGRetrieveArn: !GetAtt RAGRetrieveFunction.Arn
         WriteBackArn: !GetAtt WriteBackFunction.Arn
         AIChainArn: !GetAtt AIChainStateMachine.Arn
+        ReplyDraftDLQUrl: !Ref ReplyDraftDLQ
       Logging:
         Level: ALL
         IncludeExecutionData: true
@@ -469,6 +648,8 @@ Resources:
             FunctionName: !Ref WriteBackFunction
         - StepFunctionsExecutionPolicy:
             StateMachineName: !GetAtt AIChainStateMachine.Name
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt ReplyDraftDLQ.QueueName
         - CloudWatchLogsFullAccess
         # Required for arn:aws:states:::states:startExecution.sync:2 — SFN
         # creates a managed EventBridge rule to receive child-execution
