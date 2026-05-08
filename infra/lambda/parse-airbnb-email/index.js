@@ -824,6 +824,7 @@ exports.handler = async (event) => {
       const receivedAt = parsed.date ? new Date(parsed.date) : new Date();
       // The RFC-2822 Message-ID header (different from SES messageId)
       const rfcMessageId = parsed.messageId || null;
+      const { inReplyTo, references } = extractHeaderRefs(parsed);
 
       console.log('Email parsed', {
         subject,
@@ -897,6 +898,9 @@ exports.handler = async (event) => {
         await markTombstoneCompleted(claim.lockRef);
         continue;
       }
+
+      // Resolve inReplyTo to a parent Firestore doc id (best-effort; null if not found).
+      const replyToId = await findParentMessageDocId(firestore, inReplyTo);
 
       // ------------------------------------------------------------------
       // 4. Classify message type
@@ -1139,6 +1143,9 @@ exports.handler = async (event) => {
           receivedAt: admin.firestore.Timestamp.fromDate(receivedAt),
           rawEmailS3Key: objectKey,
           messageId: rfcMessageId,
+          inReplyTo,
+          references,
+          replyToId,
           sesMessageId,
           airbnbConfirmationCode: confirmationCode || null,
           subject,
@@ -1172,6 +1179,9 @@ exports.handler = async (event) => {
           receivedAt: admin.firestore.Timestamp.fromDate(receivedAt),
           rawEmailS3Key: objectKey,
           messageId: rfcMessageId,
+          inReplyTo,
+          references,
+          replyToId,
           sesMessageId,
           airbnbConfirmationCode: confirmationCode,
           guestName,
@@ -1195,6 +1205,9 @@ exports.handler = async (event) => {
         receivedAt: admin.firestore.Timestamp.fromDate(receivedAt),
         rawEmailS3Key: objectKey,
         messageId: rfcMessageId,
+        inReplyTo,
+        references,
+        replyToId,
         sesMessageId,
         airbnbConfirmationCode:
           confirmationCode || booking.data.airbnbConfirmationCode || null,
