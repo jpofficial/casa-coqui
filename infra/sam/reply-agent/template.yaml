@@ -167,25 +167,19 @@ Resources:
               Action: secretsmanager:GetSecretValue
               Resource:
                 - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AnthropicSecretName}-*
-            # AppConfig Data API authorization model — split by action.
-            # StartConfigurationSession authorizes on the configuration ARN
-            # (input includes Application/Environment/Configuration; IAM can match).
+            # AppConfig IAM model — uses the `appconfig:` prefix (NOT
+            # `appconfigdata:`) when called via the AWS-published Lambda Extension.
+            # This is a confusing AWS quirk: the API endpoint is appconfigdata,
+            # but the Extension authorizes with the `appconfig:` prefix actions.
+            # Verified from runtime AccessDeniedException showing the Extension
+            # checking `appconfig:StartConfigurationSession`.
+            # Direct SDK callers (without the Extension) use `appconfigdata:*`.
             - Effect: Allow
-              Action: appconfigdata:StartConfigurationSession
+              Action:
+                - appconfig:StartConfigurationSession
+                - appconfig:GetConfiguration
               Resource:
                 - !Sub arn:aws:appconfig:${AWS::Region}:${AWS::AccountId}:application/${ReplyAgentApplication}/environment/${ReplyAgentProdEnvironment}/configuration/${SystemPromptProfile}
-            # GetLatestConfiguration accepts only an opaque session token (no ARN
-            # in the request), so IAM has no resource to match against. AWS docs
-            # require Resource: '*'. Effective access is still scoped — the only
-            # tokens this role can mint come from StartConfigurationSession above
-            # (locked to SystemPromptProfile), so Drafter can ONLY ever read that
-            # one config. Belt-and-suspenders: aws:RequestedRegion locks to us-east-1.
-            - Effect: Allow
-              Action: appconfigdata:GetLatestConfiguration
-              Resource: '*'
-              Condition:
-                StringEquals:
-                  aws:RequestedRegion: us-east-1
 
   EvaluatorFunction:
     Type: AWS::Serverless::Function
@@ -224,17 +218,13 @@ Resources:
               Action: secretsmanager:GetSecretValue
               Resource:
                 - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AnthropicSecretName}-*
-            # See DrafterFunction for the appconfigdata IAM split rationale.
+            # See DrafterFunction for the appconfig: prefix rationale.
             - Effect: Allow
-              Action: appconfigdata:StartConfigurationSession
+              Action:
+                - appconfig:StartConfigurationSession
+                - appconfig:GetConfiguration
               Resource:
                 - !Sub arn:aws:appconfig:${AWS::Region}:${AWS::AccountId}:application/${ReplyAgentApplication}/environment/${ReplyAgentProdEnvironment}/configuration/${SystemPromptProfile}
-            - Effect: Allow
-              Action: appconfigdata:GetLatestConfiguration
-              Resource: '*'
-              Condition:
-                StringEquals:
-                  aws:RequestedRegion: us-east-1
 
   WriteBackFunction:
     Type: AWS::Serverless::Function
