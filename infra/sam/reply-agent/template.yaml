@@ -298,7 +298,11 @@ Resources:
       TreatMissingData: notBreaching   # CRITICAL — low-volume app
       Dimensions:
         - Name: StateMachineArn
-          Value: !Ref ReplyDraftStateMachine
+          # Hardcoded ARN via !Sub — no CFN dependency on ReplyDraftStateMachine
+          # so the AppConfig Monitor cycle is broken. The StateMachine name
+          # `casa-coqui-reply-draft` is fixed in the resource (line ~627);
+          # changing it requires updating both places.
+          Value: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:casa-coqui-reply-draft"
       AlarmActions:
         - !Ref ReplyDraftFailureTopic
 
@@ -348,7 +352,8 @@ Resources:
       TreatMissingData: notBreaching
       Dimensions:
         - Name: StateMachineArn
-          Value: !Ref ReplyDraftStateMachine
+          # Hardcoded ARN — same cycle-break reasoning as SFNExecutionsFailedAlarm.
+          Value: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:casa-coqui-reply-draft"
       AlarmActions:
         - !Ref ReplyDraftFailureTopic
 
