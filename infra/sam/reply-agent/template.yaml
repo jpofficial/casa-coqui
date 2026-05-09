@@ -167,17 +167,18 @@ Resources:
               Action: secretsmanager:GetSecretValue
               Resource:
                 - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AnthropicSecretName}-*
-            # AppConfig IAM model — uses the `appconfig:` prefix (NOT
-            # `appconfigdata:`) when called via the AWS-published Lambda Extension.
-            # This is a confusing AWS quirk: the API endpoint is appconfigdata,
-            # but the Extension authorizes with the `appconfig:` prefix actions.
-            # Verified from runtime AccessDeniedException showing the Extension
-            # checking `appconfig:StartConfigurationSession`.
-            # Direct SDK callers (without the Extension) use `appconfigdata:*`.
+            # AppConfig IAM model for the AWS Lambda Extension v2.0.1300:
+            # - StartConfigurationSession: gets a session token
+            # - GetLatestConfiguration: uses the token to fetch (NOT
+            #   GetConfiguration, which is the deprecated single-call legacy API)
+            # Both actions use the `appconfig:` prefix (NOT `appconfigdata:`),
+            # an AWS quirk: API endpoint is appconfigdata.<region>.amazonaws.com
+            # but IAM authorization uses appconfig: prefix for the Extension.
+            # Verified from runtime AccessDeniedException messages.
             - Effect: Allow
               Action:
                 - appconfig:StartConfigurationSession
-                - appconfig:GetConfiguration
+                - appconfig:GetLatestConfiguration
               Resource:
                 - !Sub arn:aws:appconfig:${AWS::Region}:${AWS::AccountId}:application/${ReplyAgentApplication}/environment/${ReplyAgentProdEnvironment}/configuration/${SystemPromptProfile}
 
@@ -218,11 +219,11 @@ Resources:
               Action: secretsmanager:GetSecretValue
               Resource:
                 - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AnthropicSecretName}-*
-            # See DrafterFunction for the appconfig: prefix rationale.
+            # See DrafterFunction for the appconfig: prefix + GetLatestConfiguration rationale.
             - Effect: Allow
               Action:
                 - appconfig:StartConfigurationSession
-                - appconfig:GetConfiguration
+                - appconfig:GetLatestConfiguration
               Resource:
                 - !Sub arn:aws:appconfig:${AWS::Region}:${AWS::AccountId}:application/${ReplyAgentApplication}/environment/${ReplyAgentProdEnvironment}/configuration/${SystemPromptProfile}
 
