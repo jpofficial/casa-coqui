@@ -77,6 +77,13 @@ async function getFirestore() {
 
 const crypto = require('crypto');
 
+/**
+ * Parser version stamped on every airbnb_messages / airbnb_messages_quarantine
+ * doc this Lambda writes. Bump when changing extraction or thread-keying logic
+ * so legacy docs are queryable and rollback is observable.
+ */
+const PARSER_VERSION = '2026-05-09';
+
 function sha256(input) {
   return crypto.createHash('sha256').update(input).digest('hex');
 }
@@ -529,6 +536,44 @@ async function matchByActiveWindow(firestore, fieldName, value, receivedAt) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Extract the local-part of an Airbnb per-thread Reply-To token.
+ * Airbnb sets Reply-To to <random>@reply.airbnb.com — the local-part is a
+ * stable, opaque thread identifier that's perfectly suited as a thread key.
+ *
+ * Returns null for non-Airbnb Reply-To addresses (or missing/empty values).
+ * Always lowercases the token before returning (defensive against future case
+ * drift on Airbnb's side).
+ *
+ * @param {object} parsed - mailparser output (or a subset for tests)
+ * @returns {string|null}
+ */
+function extractAirbnbReplyToToken(parsed) {
+  const value = parsed && parsed.replyTo && parsed.replyTo.value;
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const address = value[0] && value[0].address;
+  if (!address || typeof address !== 'string') return null;
+  const lower = address.trim().toLowerCase();
+  const m = lower.match(/^([^@\s]+)@reply\.airbnb\.com$/);
+  if (!m) return null;
+  return m[1];
+}
+
+/**
+ * Hash the Airbnb Reply-To token into a stable threadKey of the form
+ * "airbnb:<32-hex>" (first 32 chars of sha256). Returns null for non-Airbnb
+ * Reply-To addresses.
+ *
+ * @param {object} parsed
+ * @returns {string|null}
+ */
+function airbnbThreadKeyFromReplyTo(parsed) {
+  const token = extractAirbnbReplyToToken(parsed);
+  if (!token) return null;
+  const hash = crypto.createHash('sha256').update(token).digest('hex').slice(0, 32);
+  return 'airbnb:' + hash;
+}
+
+/**
  * Pull In-Reply-To and References from a mailparser parsed object.
  * Normalizes references to always be an array (mailparser may return
  * a single string OR an array depending on header format).
@@ -825,6 +870,10 @@ exports.handler = async (event) => {
       // The RFC-2822 Message-ID header (different from SES messageId)
       const rfcMessageId = parsed.messageId || null;
       const { inReplyTo, references } = extractHeaderRefs(parsed);
+      // Per-thread Reply-To token from Airbnb (e.g. <token>@reply.airbnb.com).
+      // When present, used as the canonical threadKey across all writes.
+      const replyToToken = extractAirbnbReplyToToken(parsed);
+      const airbnbThreadKey = airbnbThreadKeyFromReplyTo(parsed);
 
       console.log('Email parsed', {
         subject,
@@ -1134,6 +1183,14 @@ exports.handler = async (event) => {
           guestName,
         });
 
+        // Compute threadKey once — Airbnb Reply-To token wins when present.
+        const unmatchedThreadKey = airbnbThreadKey || buildThreadKey({
+          bookingCode: null,
+          senderEmail: fromAddress,
+          senderName: guestName || fromName,
+          receivedAt,
+        });
+
         // Write to airbnb_messages with null bookingId so it appears in admin UI
         await firestore.collection('airbnb_messages').add({
           bookingId: null,
@@ -1158,12 +1215,10 @@ exports.handler = async (event) => {
           sentAt: null,
           editedReply: null,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          threadKey: buildThreadKey({
-            bookingCode: null,
-            senderEmail: fromAddress,
-            senderName: guestName || fromName,
-            receivedAt,
-          }),
+          threadKey: unmatchedThreadKey,
+          replyToToken,
+          airbnbThreadKey,
+          parserVersion: PARSER_VERSION,
           source: 'inbound',
         });
 
@@ -1185,6 +1240,10 @@ exports.handler = async (event) => {
           sesMessageId,
           airbnbConfirmationCode: confirmationCode,
           guestName,
+          threadKey: unmatchedThreadKey,
+          replyToToken,
+          airbnbThreadKey,
+          parserVersion: PARSER_VERSION,
           quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
           reason: 'no_matching_booking',
         });
@@ -1220,12 +1279,15 @@ exports.handler = async (event) => {
         sentAt: null,
         editedReply: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        threadKey: buildThreadKey({
+        threadKey: airbnbThreadKey || buildThreadKey({
           bookingCode: booking.data.code,
           senderEmail: fromAddress,
           senderName: guestName || booking.data.guestName || null,
           receivedAt,
         }),
+        replyToToken,
+        airbnbThreadKey,
+        parserVersion: PARSER_VERSION,
         source: 'inbound',
       };
 
@@ -1286,3 +1348,5 @@ module.exports.matchByActiveWindow = matchByActiveWindow;
 module.exports.findMatchingBooking = findMatchingBooking;
 module.exports.extractHeaderRefs = extractHeaderRefs;
 module.exports.findParentMessageDocId = findParentMessageDocId;
+module.exports.extractAirbnbReplyToToken = extractAirbnbReplyToToken;
+module.exports.airbnbThreadKeyFromReplyTo = airbnbThreadKeyFromReplyTo;
