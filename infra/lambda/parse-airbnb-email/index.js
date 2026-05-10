@@ -540,6 +540,74 @@ function extractGuestNameFromBody(html, text) {
   return { name: null, source: null };
 }
 
+/**
+ * Resolve the guest name across the four-tier strategy
+ * (subject → HTML body → plaintext body → sentinel) and emit structured
+ * warn-logs ONLY for fallback paths actually attempted and failed.
+ *
+ * Emission rules:
+ *   - subject hit                                  → no warns
+ *   - body via HTML                                → 'subject' warn only
+ *   - body via plaintext, HTML attempted+missed    → 'subject' + 'html'
+ *   - body via plaintext, HTML never attempted     → 'subject' only
+ *   - all fail (each warn fires only if its strategy was attempted):
+ *        always 'subject' + 'sentinel'; 'html' iff html present;
+ *        'plaintext' iff text present.
+ *
+ * Pre-Improvement-4 the code emitted BOTH 'html' AND 'plaintext' warns
+ * unconditionally on body-failure, even when one of those paths was never
+ * tried. That produced noisy logs on text-only emails.
+ *
+ * @param {object} args
+ * @param {string} args.subject
+ * @param {string|null} args.html
+ * @param {string|null} args.text
+ * @param {string|null} args.sesMessageId
+ * @param {string|null} args.objectKey
+ * @param {string|null} args.fromDisplayName
+ * @returns {{ guestName: string, source: 'subject'|'html'|'plaintext'|'sentinel' }}
+ */
+function resolveGuestNameWithLogging({ subject, html, text, sesMessageId, objectKey, fromDisplayName }) {
+  const warn = (stage) => {
+    console.warn(JSON.stringify({
+      event: 'guest_name_fallback',
+      stage,
+      sesMessageId,
+      objectKey,
+      fromDisplayName,
+    }));
+  };
+
+  const subjectName = extractGuestNameFromSubject(subject);
+  if (subjectName) {
+    return { guestName: subjectName, source: 'subject' };
+  }
+
+  // Subject failed — log it.
+  warn('subject');
+
+  // A path is "attempted" iff its input is a non-empty string. Match the
+  // same gate extractGuestNameFromBody uses internally so the warn-log
+  // tracks reality.
+  const htmlAttempted = typeof html === 'string' && html.length > 0;
+  const textAttempted = typeof text === 'string' && text.length > 0;
+
+  const bodyResult = extractGuestNameFromBody(html, text);
+  if (bodyResult.name) {
+    // If we resolved via plaintext, HTML was attempted-and-missed; log it.
+    if (bodyResult.source === 'plaintext' && htmlAttempted) {
+      warn('html');
+    }
+    return { guestName: bodyResult.name, source: bodyResult.source };
+  }
+
+  // Total body failure — emit a warn for each path that was actually tried.
+  if (htmlAttempted) warn('html');
+  if (textAttempted) warn('plaintext');
+  warn('sentinel');
+  return { guestName: 'Unknown sender', source: 'sentinel' };
+}
+
 // ---------------------------------------------------------------------------
 // Enrichment field extraction
 // ---------------------------------------------------------------------------
@@ -1116,56 +1184,19 @@ exports.handler = async (event) => {
         extractConfirmationCode(subject) || extractConfirmationCode(bodyText);
 
       const fromDisplayName = fromName;
-      const subjectName = extractGuestNameFromSubject(subject);
-      let extractedFrom = subjectName ? 'subject' : null;
-      let bodyName = null;
-      if (!subjectName) {
-        console.warn(JSON.stringify({
-          event: 'guest_name_fallback',
-          stage: 'subject',
-          sesMessageId,
-          objectKey,
-          fromDisplayName,
-        }));
-        // Single call returns both the extracted name AND which strategy
-        // hit ('html' | 'plaintext') — no second redundant HTML scan.
-        const bodyResult = extractGuestNameFromBody(parsed.html, parsed.text);
-        bodyName = bodyResult.name;
-        if (bodyName) {
-          extractedFrom = bodyResult.source;
-        } else {
-          console.warn(JSON.stringify({
-            event: 'guest_name_fallback',
-            stage: 'html',
-            sesMessageId,
-            objectKey,
-            fromDisplayName,
-          }));
-          console.warn(JSON.stringify({
-            event: 'guest_name_fallback',
-            stage: 'plaintext',
-            sesMessageId,
-            objectKey,
-            fromDisplayName,
-          }));
-        }
-      }
-      const extractedName = subjectName || bodyName;
-      if (!extractedName) {
-        console.warn(JSON.stringify({
-          event: 'guest_name_fallback',
-          stage: 'sentinel',
-          sesMessageId,
-          objectKey,
-          fromDisplayName,
-        }));
-      }
-      const guestName = extractedName || 'Unknown sender';
+      const { guestName, source: guestNameSource } = resolveGuestNameWithLogging({
+        subject,
+        html: parsed.html,
+        text: parsed.text,
+        sesMessageId,
+        objectKey,
+        fromDisplayName,
+      });
 
       console.log('Extracted fields', {
         confirmationCode,
         guestName,
-        guestNameSource: extractedFrom || 'sentinel',
+        guestNameSource,
         fromDisplayName,
       });
 
@@ -1389,10 +1420,13 @@ exports.handler = async (event) => {
         // Compute threadKey once — Airbnb Reply-To token wins when present.
         // Avoid `fromName` here: for Airbnb mail it's always literally "Airbnb"
         // and would collapse unrelated threads under name:airbnb|y:YYYY.
+        // Use the actually-extracted name when available (source !== 'sentinel');
+        // falls through to buildThreadKey's 'unknown' branch when extraction failed.
+        const senderNameForKey = guestNameSource === 'sentinel' ? null : guestName;
         const unmatchedThreadKey = airbnbThreadKey || buildThreadKey({
           bookingCode: null,
           senderEmail: fromAddress,
-          senderName: extractedName, // null if extraction failed — falls through to 'unknown'
+          senderName: senderNameForKey,
           receivedAt,
         });
 
@@ -1546,6 +1580,7 @@ module.exports.classifyEmail = classifyEmail;
 module.exports.isAirbnbSender = isAirbnbSender;
 module.exports.extractGuestNameFromSubject = extractGuestNameFromSubject;
 module.exports.extractGuestNameFromBody = extractGuestNameFromBody;
+module.exports.resolveGuestNameWithLogging = resolveGuestNameWithLogging;
 module.exports.parseResolutionFields = parseResolutionFields;
 module.exports.normalizeName = normalizeName;
 module.exports.isInActiveWindow = isInActiveWindow;
