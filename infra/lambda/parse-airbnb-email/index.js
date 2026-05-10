@@ -1077,6 +1077,7 @@ exports.handler = async (event) => {
           rawEmailS3Key: objectKey,
           messageId: rfcMessageId,
           sesMessageId,
+          parserVersion: PARSER_VERSION,
           quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
           reason: 'non_airbnb_sender',
         });
@@ -1193,6 +1194,7 @@ exports.handler = async (event) => {
             sesMessageId,
             airbnbConfirmationCode: confirmationCode || null,
             enrichmentFields: fields,
+            parserVersion: PARSER_VERSION,
             quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
           console.log('reservation confirmation unmatched — quarantined', {
@@ -1295,6 +1297,7 @@ exports.handler = async (event) => {
             rawEmailS3Key: objectKey,
             messageId: rfcMessageId,
             sesMessageId,
+            parserVersion: PARSER_VERSION,
             updatedAt: nowTs,
           };
 
@@ -1354,6 +1357,7 @@ exports.handler = async (event) => {
           messageId: rfcMessageId,
           sesMessageId,
           airbnbConfirmationCode: confirmationCode,
+          parserVersion: PARSER_VERSION,
           quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
           reason: `messageType:${messageType}`,
         });
