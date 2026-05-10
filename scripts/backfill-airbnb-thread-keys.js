@@ -107,7 +107,11 @@ async function rekeyDoc(db, doc) {
   const airbnbThreadKey = airbnbThreadKeyFromReplyTo(parsed);
 
   const subjectName = extractGuestNameFromSubject(subject);
-  const bodyName = subjectName ? null : extractGuestNameFromBody(parsed.html, parsed.text);
+  // extractGuestNameFromBody returns { name, source } — destructure to keep
+  // the bare-string semantics callers had before.
+  const bodyName = subjectName
+    ? null
+    : extractGuestNameFromBody(parsed.html, parsed.text).name;
   const extractedName = subjectName || bodyName;
   const guestName = extractedName || 'Unknown sender';
 

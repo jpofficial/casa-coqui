@@ -482,12 +482,14 @@ function titleCaseName(name) {
  *   2) Plaintext — Unicode-aware match for an indented uppercase line
  *      followed by a "Booker" line. Title-cased on the way out.
  *
- * Returns null on no match — the CALLER substitutes the i18n-friendly
- * "Unknown sender" sentinel.
+ * Returns { name: null, source: null } on no match — the CALLER substitutes
+ * the i18n-friendly "Unknown sender" sentinel. The `source` field tells the
+ * caller which strategy hit ('html' | 'plaintext') so the caller does NOT
+ * need to re-run the HTML scan just to log a `guestNameSource` field.
  *
  * @param {string|null} html
  * @param {string|null} text
- * @returns {string|null}
+ * @returns {{ name: string|null, source: 'html'|'plaintext'|null }}
  */
 function extractGuestNameFromBody(html, text) {
   // ---- Strategy 1: HTML --------------------------------------------------
@@ -518,7 +520,7 @@ function extractGuestNameFromBody(html, text) {
       const tail = slice.slice(tailStart, tailStart + 500);
       if (!/\bBooker\b/.test(tail)) continue;
 
-      return candidate;
+      return { name: candidate, source: 'html' };
     }
   }
 
@@ -530,12 +532,12 @@ function extractGuestNameFromBody(html, text) {
     if (m) {
       const raw = m[1].trim();
       if (!isBlockedName(raw)) {
-        return titleCaseName(raw).normalize('NFC');
+        return { name: titleCaseName(raw).normalize('NFC'), source: 'plaintext' };
       }
     }
   }
 
-  return null;
+  return { name: null, source: null };
 }
 
 // ---------------------------------------------------------------------------
@@ -1125,12 +1127,12 @@ exports.handler = async (event) => {
           objectKey,
           fromDisplayName,
         }));
-        bodyName = extractGuestNameFromBody(parsed.html, parsed.text);
+        // Single call returns both the extracted name AND which strategy
+        // hit ('html' | 'plaintext') — no second redundant HTML scan.
+        const bodyResult = extractGuestNameFromBody(parsed.html, parsed.text);
+        bodyName = bodyResult.name;
         if (bodyName) {
-          // Tell which body strategy hit by checking presence of html match.
-          extractedFrom = parsed.html && extractGuestNameFromBody(parsed.html, '') === bodyName
-            ? 'html'
-            : 'plaintext';
+          extractedFrom = bodyResult.source;
         } else {
           console.warn(JSON.stringify({
             event: 'guest_name_fallback',
