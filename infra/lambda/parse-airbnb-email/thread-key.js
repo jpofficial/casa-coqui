@@ -57,7 +57,14 @@ function buildThreadKey({ bookingCode, senderEmail, senderName, receivedAt } = {
   return 'unknown';
 }
 
-/** Assumes input came from buildThreadKey — does NOT validate raw user input. */
+/**
+ * Assumes input came from buildThreadKey or the Lambda's Reply-To path —
+ * does NOT validate raw user input.
+ *
+ * Matched (returns false): bookingCode (raw), 'airbnb:<hash>' (per-thread
+ * Reply-To token from Airbnb — well-keyed even without a booking match).
+ * Unmatched (returns true): 'email:', 'name:', 'unknown', null/empty.
+ */
 function isUnmatchedKey(threadKey) {
   if (!threadKey) return true;
   return (
