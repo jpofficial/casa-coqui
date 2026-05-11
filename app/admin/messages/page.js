@@ -95,10 +95,16 @@ function buildThreads(messages) {
       });
 
     if (!threadMap[key]) {
+      // v2 keys are "booking:<id>" — strip the namespace prefix so the raw
+      // bookingId is exposed to the UI label + downstream callers. Legacy
+      // v1 keys are the raw bookingCode and pass through unchanged.
+      const bookingCode = isUnmatchedKey(key)
+        ? null
+        : (key.startsWith('booking:') ? key.slice('booking:'.length) : key);
       threadMap[key] = {
         threadKey: key,
-        bookingCode: isUnmatchedKey(key) ? null : key,
-        guestName: msg.guestName || msg.fromName || key,
+        bookingCode,
+        guestName: msg.guestName || msg.fromName || bookingCode || key,
         messages: [],
         lastMessage: null,
         unreadCount: 0,

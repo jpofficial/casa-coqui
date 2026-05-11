@@ -1,18 +1,22 @@
 #!/usr/bin/env node
 /**
- * One-time backfill: re-key legacy `airbnb_messages` documents that were
- * written by the old parser (bug: `guestName` set to literal "Airbnb" /
- * `threadKey` collapsed to `name:airbnb|y:YYYY` or `email:express@airbnb.com`).
+ * One-time backfill: re-key legacy `airbnb_messages` documents to the v2
+ * composite threadKey scheme (deriveAirbnbThreadKey). Matches:
+ *
+ *   - threadKey starts with "name:airbnb"            (very old parser)
+ *   - threadKey == "email:express@airbnb.com"        (very old parser)
+ *   - threadKey starts with "airbnb:"                (v1 Reply-To hash)
+ *   - threadKey starts with "subject:"               (older fallback)
+ *   - guestName == "Airbnb"                          (legacy bad data)
  *
  * For every match, re-fetches the raw email from S3, re-runs `simpleParser`,
- * re-extracts the Reply-To token + body-side guestName, and updates the doc:
- *   - threadKey         → "airbnb:<32-hex>" when Reply-To is from
- *                         @reply.airbnb.com, otherwise rebuilt via buildThreadKey
+ * re-extracts guestName (subject → HTML → plaintext), and updates the doc:
+ *   - threadKey         → deriveAirbnbThreadKey({bookingId,guestName,subject,receivedAt})
+ *                         "booking:<id>" | "guest:<sha16>" | "unknown"
  *   - guestName         → extracted from subject/HTML/plaintext, or
  *                         'Unknown sender' sentinel when extraction fails
  *   - fromDisplayName   → preserved (was usually "Airbnb")
  *   - replyToToken      → opaque per-thread token (forensics only)
- *   - airbnbThreadKey   → mirrors threadKey when Reply-To is Airbnb-keyed
  *   - parserVersion     → '2026-05-09'
  *
  * Idempotent: uses .update() (not .add()). Safe to re-run.
@@ -45,12 +49,11 @@
 const admin = require('firebase-admin');
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { simpleParser } = require('mailparser');
-const { buildThreadKey } = require('../infra/lambda/parse-airbnb-email/thread-key');
 const {
   extractAirbnbReplyToToken,
-  airbnbThreadKeyFromReplyTo,
   extractGuestNameFromSubject,
   extractGuestNameFromBody,
+  deriveAirbnbThreadKey,
 } = require('../infra/lambda/parse-airbnb-email/index');
 
 const PARSER_VERSION = '2026-05-09';
@@ -70,12 +73,19 @@ function streamToBuffer(s3Response) {
 
 function shouldRekey(data) {
   if (!data) return false;
-  if (data.parserVersion === PARSER_VERSION) return false; // already migrated
-  const tk = data.threadKey || '';
+  const tk = (data && data.threadKey) || '';
   if (typeof tk !== 'string') return false;
+
+  // v2 keys — already migrated. Skip.
+  if (tk.startsWith('booking:')) return false;
+  if (tk.startsWith('guest:')) return false;
+
+  // Legacy + v1 keys that need re-derivation to v2.
   if (tk.startsWith('name:airbnb')) return true;
   if (tk === 'email:express@airbnb.com') return true;
   if (tk.startsWith('email:') && tk.endsWith('@airbnb.com')) return true;
+  if (tk.startsWith('airbnb:')) return true;   // v1 Reply-To hash
+  if (tk.startsWith('subject:')) return true;  // older fallback
   if (data.guestName === 'Airbnb') return true;
   return false;
 }
@@ -87,10 +97,8 @@ async function rekeyDoc(db, doc) {
     return { id: doc.id, skipped: true, reason: 'no_rawEmailS3Key' };
   }
 
+  // main() exits before we get here if BUCKET_OVERRIDE is unset.
   const bucket = BUCKET_OVERRIDE;
-  if (!bucket) {
-    return { id: doc.id, skipped: true, reason: 'no_bucket_configured' };
-  }
 
   const s3Response = await s3.send(
     new GetObjectCommand({ Bucket: bucket, Key: objectKey })
@@ -104,7 +112,6 @@ async function rekeyDoc(db, doc) {
   const receivedAt = parsed.date ? new Date(parsed.date) : new Date();
 
   const replyToToken = extractAirbnbReplyToToken(parsed);
-  const airbnbThreadKey = airbnbThreadKeyFromReplyTo(parsed);
 
   const subjectName = extractGuestNameFromSubject(subject);
   // extractGuestNameFromBody returns { name, source } — destructure to keep
@@ -115,10 +122,12 @@ async function rekeyDoc(db, doc) {
   const extractedName = subjectName || bodyName;
   const guestName = extractedName || 'Unknown sender';
 
-  const newThreadKey = airbnbThreadKey || buildThreadKey({
-    bookingCode: data.bookingId ? data.airbnbConfirmationCode || null : null,
-    senderEmail: fromAddress,
-    senderName: extractedName,
+  // v2: composite-key threading. bookingId wins; else (name + stayWindow);
+  // else (name + yearMonth); else "unknown". Returns { threadKey, threadKeyPath }.
+  const { threadKey: newThreadKey } = deriveAirbnbThreadKey({
+    bookingId: data.bookingId || null,
+    guestName: extractedName,
+    subject,
     receivedAt,
   });
 
@@ -127,7 +136,6 @@ async function rekeyDoc(db, doc) {
     guestName,
     fromDisplayName: fromName,
     replyToToken,
-    airbnbThreadKey,
     parserVersion: PARSER_VERSION,
   };
 
@@ -150,10 +158,13 @@ async function main() {
     process.exit(1);
   }
   if (!BUCKET_OVERRIDE) {
-    console.warn(
-      '[warn] SES_RAW_BUCKET env not set — script cannot fetch raw emails. ' +
-        'Pass --dry-run friendly: still scans, but every match will be skipped.'
+    console.error(
+      '[error] SES_RAW_BUCKET env var is not set — every candidate would be ' +
+        'skipped (the script needs to re-fetch raw email bodies from S3 to ' +
+        're-derive threadKeys). Set SES_RAW_BUCKET to the SES raw-email ' +
+        'bucket and re-run.'
     );
+    process.exit(1);
   }
 
   if (!admin.apps.length) {
@@ -191,7 +202,6 @@ async function main() {
       console.log('       after :', JSON.stringify({
         threadKey: result.after.threadKey,
         guestName: result.after.guestName,
-        airbnbThreadKey: result.after.airbnbThreadKey,
       }));
 
       if (APPLY) {
