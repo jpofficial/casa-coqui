@@ -30,6 +30,18 @@ describe('isUnmatchedKey', () => {
       isUnmatchedKey('airbnb:1234567890abcdef1234567890abcdef')
     ).toBe(false);
   });
+
+  // v2 namespace contract (2026-05-11)
+  // `booking:<id>` = MATCHED, `guest:<hash>` = UNMATCHED.
+  test('treats v2 booking:<id> prefix as MATCHED', () => {
+    expect(isUnmatchedKey('booking:abc123')).toBe(false);
+    expect(isUnmatchedKey('booking:HMXYZ987')).toBe(false);
+  });
+
+  test('treats v2 guest:<hash> prefix as UNMATCHED', () => {
+    expect(isUnmatchedKey('guest:abc123')).toBe(true);
+    expect(isUnmatchedKey('guest:0123456789abcdef')).toBe(true);
+  });
 });
 
 describe('buildThreadKey (sanity)', () => {
