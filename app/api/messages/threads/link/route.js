@@ -6,9 +6,9 @@ import { isUnmatchedKey } from '@/lib/thread-key';
 // ---------------------------------------------------------------------------
 // POST /api/messages/threads/link
 //
-// Migrate an unmatched thread (threadKey starts with 'email:' or 'name:') to
-// a real booking's thread key. Updates every airbnb_messages doc in the
-// thread so it joins the booking's conversation.
+// Migrate an unmatched thread (v1: 'email:'/'name:'/'unknown'; v2: 'guest:'/
+// 'unknown') to a real booking's v2 thread key. Updates every airbnb_messages
+// doc in the thread so it joins the booking's conversation.
 //
 // Body: { fromThreadKey: string, bookingId: string }
 // ---------------------------------------------------------------------------
@@ -43,14 +43,10 @@ export async function POST(request) {
       );
     }
     const booking = { id: bookingDoc.id, ...bookingDoc.data() };
-    const newKey = booking.code;
-
-    if (!newKey) {
-      return NextResponse.json(
-        { success: false, error: 'Booking is missing a code.' },
-        { status: 400 }
-      );
-    }
+    // v2 composite-key threading: match the EXACT format the Lambda emits on
+    // a successful booking match (deriveAirbnbThreadKey uses bookingId / doc
+    // id — not booking.code). Aligns linked threads with inbound writes.
+    const newKey = `booking:${booking.id}`;
 
     const snap = await adminDb
       .collection('airbnb_messages')
@@ -69,7 +65,7 @@ export async function POST(request) {
       batch.update(doc.ref, {
         threadKey: newKey,
         bookingId: booking.id,
-        bookingCode: newKey,
+        bookingCode: booking.code || null,
       });
       batchCount++;
       migrated++;

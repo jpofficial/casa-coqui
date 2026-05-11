@@ -3,7 +3,6 @@ import { adminDb } from '@/lib/firebase-admin';
 import { requireRole } from '@/lib/api-auth';
 import { generateWelcomeMessage } from '@/lib/welcome-ai';
 import { FieldValue } from 'firebase-admin/firestore';
-import { buildThreadKey } from '@/lib/thread-key';
 
 // ---------------------------------------------------------------------------
 // POST /api/bookings/[id]/welcome
@@ -128,11 +127,12 @@ export async function PATCH(request, { params }) {
 
     // Helper: create or update the single welcome message doc tied to this booking.
     async function upsertWelcomeMessageDoc({ welcomeState, text, snoozedUntil }) {
-      const threadKey = buildThreadKey({
-        bookingCode: booking.code,
-        senderEmail: booking.guestEmail || null,
-        senderName: booking.guestName || null,
-      });
+      // v2 composite-key threading: match the EXACT format the Lambda emits
+      // when a booking match succeeds (deriveAirbnbThreadKey uses bookingId,
+      // i.e. the Firestore doc id — not booking.code). Aligns the welcome
+      // write path with inbound writes so both ends of the conversation
+      // collapse into the same thread.
+      const threadKey = `booking:${booking.id}`;
 
       const baseFields = {
         bookingId: booking.id,
