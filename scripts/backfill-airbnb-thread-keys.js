@@ -125,8 +125,8 @@ async function rekeyDoc(db, doc) {
   const guestName = extractedName || 'Unknown sender';
 
   // v2: composite-key threading. bookingId wins; else (name + stayWindow);
-  // else (name + yearMonth); else "unknown".
-  const newThreadKey = deriveAirbnbThreadKey({
+  // else (name + yearMonth); else "unknown". Returns { threadKey, threadKeyPath }.
+  const { threadKey: newThreadKey } = deriveAirbnbThreadKey({
     bookingId: data.bookingId || null,
     guestName: extractedName,
     subject,

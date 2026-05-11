@@ -92,23 +92,25 @@ describe('regression canary — sanitized real Airbnb email', () => {
     const bodyResult = extractGuestNameFromBody(parsed.html, parsed.text);
     const guestName = typeof bodyResult === 'string' ? bodyResult : bodyResult && bodyResult.name;
 
-    const tk = deriveAirbnbThreadKey({
+    const r = deriveAirbnbThreadKey({
       bookingId: null,
       guestName,
       subject: parsed.subject,
       receivedAt: parsed.date,
     });
 
-    expect(tk).toMatch(/^guest:[a-f0-9]{16}$/);
-    expect(tk).not.toMatch(/^airbnb:/);
+    expect(r.threadKey).toMatch(/^guest:[a-f0-9]{16}$/);
+    expect(r.threadKey).not.toMatch(/^airbnb:/);
+    expect(r.threadKeyPath).toBe('guest-stay');
 
     // Determinism: calling twice with the same inputs returns identical key.
-    const tk2 = deriveAirbnbThreadKey({
+    const r2 = deriveAirbnbThreadKey({
       bookingId: null,
       guestName,
       subject: parsed.subject,
       receivedAt: parsed.date,
     });
-    expect(tk).toBe(tk2);
+    expect(r.threadKey).toBe(r2.threadKey);
+    expect(r.threadKeyPath).toBe(r2.threadKeyPath);
   });
 });

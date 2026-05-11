@@ -932,11 +932,14 @@ function extractStayYearFromSubject(subject, receivedAt) {
 /**
  * Derive a v2 composite threadKey for an Airbnb message.
  *
- * Priority:
- *   1. matched booking            → "booking:<id>"
- *   2. guestName + stay window    → "guest:<sha16>" of (name|window|year)
- *   3. guestName w/o stay window  → "guest:<sha16>" of (name|yearMonth)
- *   4. fully anonymous            → "unknown"
+ * Priority (the `threadKeyPath` tag identifies which priority tier won;
+ * emitted alongside the threadKey for observability):
+ *   1. matched booking            → "booking:<id>"            path='booking'
+ *   2. guestName + stay window    → "guest:<sha16>" of
+ *                                   (name|window|year)        path='guest-stay'
+ *   3. guestName w/o stay window  → "guest:<sha16>" of
+ *                                   (name|yearMonth)          path='guest-month'
+ *   4. fully anonymous            → "unknown"                 path='unknown'
  *
  * @param {{
  *   bookingId?: string|null,
@@ -944,11 +947,14 @@ function extractStayYearFromSubject(subject, receivedAt) {
  *   subject?: string|null,
  *   receivedAt?: Date|string|number|null,
  * }} input
- * @returns {string}
+ * @returns {{ threadKey: string, threadKeyPath: 'booking'|'guest-stay'|'guest-month'|'unknown' }}
  */
 function deriveAirbnbThreadKey({ bookingId, guestName, subject, receivedAt } = {}) {
   if (bookingId && String(bookingId).trim()) {
-    return `booking:${String(bookingId).trim()}`;
+    return {
+      threadKey: `booking:${String(bookingId).trim()}`,
+      threadKeyPath: 'booking',
+    };
   }
 
   if (
@@ -963,7 +969,7 @@ function deriveAirbnbThreadKey({ bookingId, guestName, subject, receivedAt } = {
       const year = extractStayYearFromSubject(subject, receivedAt);
       const composite = [lowerName, stayWindow, year].join('|');
       const hash = crypto.createHash('sha256').update(composite).digest('hex').slice(0, 16);
-      return `guest:${hash}`;
+      return { threadKey: `guest:${hash}`, threadKeyPath: 'guest-stay' };
     }
     // No stay window — fall back to year-month from receivedAt.
     const dt = receivedAt instanceof Date
@@ -972,10 +978,10 @@ function deriveAirbnbThreadKey({ bookingId, guestName, subject, receivedAt } = {
     const yearMonth = dt.toISOString().slice(0, 7); // "YYYY-MM"
     const composite = [lowerName, yearMonth].join('|');
     const hash = crypto.createHash('sha256').update(composite).digest('hex').slice(0, 16);
-    return `guest:${hash}`;
+    return { threadKey: `guest:${hash}`, threadKeyPath: 'guest-month' };
   }
 
-  return 'unknown';
+  return { threadKey: 'unknown', threadKeyPath: 'unknown' };
 }
 
 /**
@@ -1619,7 +1625,10 @@ exports.handler = async (event) => {
         // the derivation falls through to the guestName+stayWindow path
         // (or 'unknown' when no name was extracted).
         const senderNameForKey = guestNameSource === 'sentinel' ? null : guestName;
-        const unmatchedThreadKey = deriveAirbnbThreadKey({
+        const {
+          threadKey: unmatchedThreadKey,
+          threadKeyPath: unmatchedThreadKeyPath,
+        } = deriveAirbnbThreadKey({
           bookingId: null,
           guestName: senderNameForKey,
           subject,
@@ -1657,7 +1666,10 @@ exports.handler = async (event) => {
           source: 'inbound',
         });
 
-        console.log('Written unmatched guest_message to airbnb_messages');
+        console.log('Written unmatched guest_message to airbnb_messages', {
+          threadKey: unmatchedThreadKey,
+          threadKeyPath: unmatchedThreadKeyPath,
+        });
 
         // Also archive to quarantine for record-keeping
         await firestore.collection('airbnb_messages_quarantine').add({
@@ -1691,6 +1703,14 @@ exports.handler = async (event) => {
       // ------------------------------------------------------------------
       // 9. Write to airbnb_messages
       // ------------------------------------------------------------------
+      const { threadKey: matchedThreadKey, threadKeyPath: matchedThreadKeyPath } =
+        deriveAirbnbThreadKey({
+          bookingId: booking.id,
+          guestName: guestName || booking.data.guestName || null,
+          subject,
+          receivedAt,
+        });
+
       const docData = {
         bookingId: booking.id,
         guestName: guestName || booking.data.guestName || null,
@@ -1715,12 +1735,7 @@ exports.handler = async (event) => {
         sentAt: null,
         editedReply: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        threadKey: deriveAirbnbThreadKey({
-          bookingId: booking.id,
-          guestName: guestName || booking.data.guestName || null,
-          subject,
-          receivedAt,
-        }),
+        threadKey: matchedThreadKey,
         replyToToken,
         parserVersion: PARSER_VERSION,
         source: 'inbound',
@@ -1733,6 +1748,8 @@ exports.handler = async (event) => {
         bookingId: booking.id,
         confirmationCode,
         guestName: docData.guestName,
+        threadKey: matchedThreadKey,
+        threadKeyPath: matchedThreadKeyPath,
       });
 
       processedCount++;
