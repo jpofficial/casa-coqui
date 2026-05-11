@@ -21,7 +21,6 @@ const {
 } = require('@aws-sdk/client-secrets-manager');
 const { simpleParser } = require('mailparser');
 const admin = require('firebase-admin');
-const { buildThreadKey } = require('./thread-key');
 
 // ---------------------------------------------------------------------------
 // AWS clients (module-level — reused across warm invocations)
@@ -1256,9 +1255,10 @@ exports.handler = async (event) => {
       const rfcMessageId = parsed.messageId || null;
       const { inReplyTo, references } = extractHeaderRefs(parsed);
       // Per-thread Reply-To token from Airbnb (e.g. <token>@reply.airbnb.com).
-      // When present, used as the canonical threadKey across all writes.
+      // v2: kept as a debug field on the Firestore doc only — no longer
+      // load-bearing for threading because Airbnb rotates Reply-To per email.
+      // See deriveAirbnbThreadKey for the canonical v2 threadKey derivation.
       const replyToToken = extractAirbnbReplyToToken(parsed);
-      const airbnbThreadKey = airbnbThreadKeyFromReplyTo(parsed);
 
       console.log('Email parsed', {
         subject,
@@ -1594,16 +1594,14 @@ exports.handler = async (event) => {
           guestName,
         });
 
-        // Compute threadKey once — Airbnb Reply-To token wins when present.
-        // Avoid `fromName` here: for Airbnb mail it's always literally "Airbnb"
-        // and would collapse unrelated threads under name:airbnb|y:YYYY.
-        // Use the actually-extracted name when available (source !== 'sentinel');
-        // falls through to buildThreadKey's 'unknown' branch when extraction failed.
+        // v2 composite threadKey — bookingId is null on the unmatched path, so
+        // the derivation falls through to the guestName+stayWindow path
+        // (or 'unknown' when no name was extracted).
         const senderNameForKey = guestNameSource === 'sentinel' ? null : guestName;
-        const unmatchedThreadKey = airbnbThreadKey || buildThreadKey({
-          bookingCode: null,
-          senderEmail: fromAddress,
-          senderName: senderNameForKey,
+        const unmatchedThreadKey = deriveAirbnbThreadKey({
+          bookingId: null,
+          guestName: senderNameForKey,
+          subject,
           receivedAt,
         });
 
@@ -1634,7 +1632,6 @@ exports.handler = async (event) => {
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           threadKey: unmatchedThreadKey,
           replyToToken,
-          airbnbThreadKey,
           parserVersion: PARSER_VERSION,
           source: 'inbound',
         });
@@ -1660,7 +1657,6 @@ exports.handler = async (event) => {
           guestName,
           threadKey: unmatchedThreadKey,
           replyToToken,
-          airbnbThreadKey,
           parserVersion: PARSER_VERSION,
           quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
           reason: 'no_matching_booking',
@@ -1698,14 +1694,13 @@ exports.handler = async (event) => {
         sentAt: null,
         editedReply: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        threadKey: airbnbThreadKey || buildThreadKey({
-          bookingCode: booking.data.code,
-          senderEmail: fromAddress,
-          senderName: guestName || booking.data.guestName || null,
+        threadKey: deriveAirbnbThreadKey({
+          bookingId: booking.id,
+          guestName: guestName || booking.data.guestName || null,
+          subject,
           receivedAt,
         }),
         replyToToken,
-        airbnbThreadKey,
         parserVersion: PARSER_VERSION,
         source: 'inbound',
       };
