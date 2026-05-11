@@ -820,17 +820,36 @@ const MONTH_TOKENS = {
   dec: 12, december: 12,
 };
 
+// Canonicalize month tokens to 3-letter form so cosmetic variations
+// ("Sept" vs "Sep" vs "September") collapse to the same threadKey.
+const MONTH_CANONICAL = {
+  jan: 'jan', january: 'jan',
+  feb: 'feb', february: 'feb',
+  mar: 'mar', march: 'mar',
+  apr: 'apr', april: 'apr',
+  may: 'may',
+  jun: 'jun', june: 'jun',
+  jul: 'jul', july: 'jul',
+  aug: 'aug', august: 'aug',
+  sep: 'sep', sept: 'sep', september: 'sep',
+  oct: 'oct', october: 'oct',
+  nov: 'nov', november: 'nov',
+  dec: 'dec', december: 'dec',
+};
+
 /** Match a stay-window like "May 5 – 13" or "Apr 30 – May 9", with optional
  *  trailing ", 2026". Accepts both en-dash (U+2013) and ascii hyphen.
  *  Captures: 1=month1, 2=day1, 3=optional month2, 4=day2.
  *  The optional "for " preposition can sit ahead of the month — handled by
- *  the caller's anchor. */
+ *  the caller's anchor.
+ *  Day bounds: 01-31 only — rejects "May 0 – 99" garbage. */
+const DAY_RE = '(0?[1-9]|[12][0-9]|3[01])';
 const STAY_WINDOW_RE = new RegExp(
   '\\b(' + Object.keys(MONTH_TOKENS).join('|') + ')' + // month1
-  '\\s+(\\d{1,2})' +                                     // day1
-  '\\s*[\\u2013\\-]\\s*' +                                // dash (en or ascii)
+  '\\s+' + DAY_RE +                                     // day1 (01-31)
+  '\\s*[\\u2013\\-]\\s*' +                              // dash (en or ascii)
   '(?:(' + Object.keys(MONTH_TOKENS).join('|') + ')\\s+)?' + // optional month2
-  '(\\d{1,2})\\b',                                       // day2
+  DAY_RE + '\\b',                                       // day2 (01-31)
   'i'
 );
 
@@ -852,9 +871,11 @@ function extractStayWindowFromSubject(subject) {
   const m = subject.match(STAY_WINDOW_RE);
   if (!m) return null;
 
-  const month1 = m[1].toLowerCase();
+  // Canonicalize months to 3-letter form so "Sept" / "September" / "Sep"
+  // all produce the same stay-window token.
+  const month1 = MONTH_CANONICAL[m[1].toLowerCase()];
   const day1 = m[2];
-  const month2 = m[3] ? m[3].toLowerCase() : null;
+  const month2 = m[3] ? MONTH_CANONICAL[m[3].toLowerCase()] : null;
   const day2 = m[4];
 
   const parts = month2

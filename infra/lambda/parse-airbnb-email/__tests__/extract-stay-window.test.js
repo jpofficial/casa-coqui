@@ -78,6 +78,48 @@ describe('extractStayWindowFromSubject', () => {
     const subject = 'Inquiry for Place, Apr 24 – 28, 2026';
     expect(extractStayWindowFromSubject(subject)).toBe('apr-24-28');
   });
+
+  // Month canonicalization — Airbnb may emit "Sept 5 – 13" or "September 5 – 13"
+  // for the same conversation. We canonicalize every month token to its 3-letter
+  // form so threadKeys do not split on cosmetic variations.
+  test('canonicalizes "Sept" → "sep" (same window as "Sep")', () => {
+    expect(extractStayWindowFromSubject('Reservation for X, Sept 5 – 13'))
+      .toBe(extractStayWindowFromSubject('Reservation for X, Sep 5 – 13'));
+  });
+
+  test('canonicalizes "September" → "sep" (same window as "Sep")', () => {
+    expect(extractStayWindowFromSubject('Reservation for X, September 5 – 13'))
+      .toBe(extractStayWindowFromSubject('Reservation for X, Sep 5 – 13'));
+  });
+
+  test('canonicalizes full month names ("January" → "jan")', () => {
+    expect(extractStayWindowFromSubject('Reservation for X, January 5 – 9'))
+      .toBe('jan-5-9');
+    expect(extractStayWindowFromSubject('Reservation for X, December 28 – 30'))
+      .toBe('dec-28-30');
+  });
+
+  test('canonicalizes month2 in cross-month windows', () => {
+    expect(extractStayWindowFromSubject('Reservation, Apr 30 – September 9'))
+      .toBe(extractStayWindowFromSubject('Reservation, Apr 30 – Sep 9'));
+  });
+
+  // Day bounds — only 01-31 are valid calendar days. Reject obvious garbage.
+  test('rejects day "0" (zero is not a valid day)', () => {
+    expect(extractStayWindowFromSubject('Reservation, May 0 – 13')).toBeNull();
+  });
+
+  test('rejects day "99" (out of range)', () => {
+    expect(extractStayWindowFromSubject('Reservation, May 5 – 99')).toBeNull();
+  });
+
+  test('accepts day 31 (upper bound)', () => {
+    expect(extractStayWindowFromSubject('Reservation, May 5 – 31')).toBe('may-5-31');
+  });
+
+  test('accepts day 01 (zero-padded lower bound)', () => {
+    expect(extractStayWindowFromSubject('Reservation, May 01 – 13')).toBe('may-01-13');
+  });
 });
 
 describe('extractStayYearFromSubject', () => {
