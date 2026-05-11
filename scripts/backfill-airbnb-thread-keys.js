@@ -97,10 +97,8 @@ async function rekeyDoc(db, doc) {
     return { id: doc.id, skipped: true, reason: 'no_rawEmailS3Key' };
   }
 
+  // main() exits before we get here if BUCKET_OVERRIDE is unset.
   const bucket = BUCKET_OVERRIDE;
-  if (!bucket) {
-    return { id: doc.id, skipped: true, reason: 'no_bucket_configured' };
-  }
 
   const s3Response = await s3.send(
     new GetObjectCommand({ Bucket: bucket, Key: objectKey })
@@ -160,10 +158,13 @@ async function main() {
     process.exit(1);
   }
   if (!BUCKET_OVERRIDE) {
-    console.warn(
-      '[warn] SES_RAW_BUCKET env not set — script cannot fetch raw emails. ' +
-        'Pass --dry-run friendly: still scans, but every match will be skipped.'
+    console.error(
+      '[error] SES_RAW_BUCKET env var is not set — every candidate would be ' +
+        'skipped (the script needs to re-fetch raw email bodies from S3 to ' +
+        're-derive threadKeys). Set SES_RAW_BUCKET to the SES raw-email ' +
+        'bucket and re-run.'
     );
+    process.exit(1);
   }
 
   if (!admin.apps.length) {
