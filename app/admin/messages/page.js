@@ -79,6 +79,34 @@ function welcomeStateLabel(msg, locale) {
   return null;
 }
 
+// Normalize timestamp across in-app (`createdAt`) and airbnb_messages
+// (`receivedAt` for inbound, `createdAt` for welcome outbound) docs so
+// sorting/grouping works for both shapes.
+function msgTimestamp(msg) {
+  return msg.createdAt || msg.receivedAt || null;
+}
+
+// Normalize body across in-app messages (`text`), airbnb inbound (`body`
+// requires stripping email boilerplate via `extractGuestMessage`), and
+// airbnb outbound mark-sent (`body`, no stripping needed).
+function msgPreviewText(msg) {
+  if (msg.text) return msg.text;
+  if (msg.body) {
+    if (msg.direction === 'inbound') return extractGuestMessage(msg.body);
+    return msg.body;
+  }
+  return msg.messageBody || msg.draftReply || '';
+}
+
+// Treat outbound airbnb messages (welcome drafts + mark-sent replies) as
+// host-side for chat-bubble alignment. In-app messages have `sender: 'host'`
+// directly; airbnb docs use `direction: 'outbound' | 'outbound_draft'`.
+function isHostMessage(msg) {
+  if (msg.sender === 'host') return true;
+  if (typeof msg.direction === 'string' && msg.direction.startsWith('outbound')) return true;
+  return false;
+}
+
 // Build a thread list from a flat array of messages.
 // Groups by threadKey so unmatched senders get their own threads instead of
 // all being lumped into one 'unknown' bucket.
@@ -108,9 +136,14 @@ function buildThreads(messages) {
     threadMap[key].messages.push(msg);
     if (
       !threadMap[key].lastMessage ||
-      compareFirestoreDates(msg.createdAt, threadMap[key].lastMessage.createdAt) > 0
+      compareFirestoreDates(msgTimestamp(msg), msgTimestamp(threadMap[key].lastMessage)) > 0
     ) {
       threadMap[key].lastMessage = msg;
+    }
+    // Backfill guestName if a later message has a better one (airbnb inbound
+    // often has the real name where unmatched key was named after threadKey).
+    if (!threadMap[key].guestName || threadMap[key].guestName === key) {
+      threadMap[key].guestName = msg.guestName || msg.fromName || threadMap[key].guestName;
     }
     if (msg.sender === 'guest' && !msg.read) {
       threadMap[key].unreadCount += 1;
@@ -118,7 +151,7 @@ function buildThreads(messages) {
   }
   // Sort threads by last message descending
   return Object.values(threadMap).sort((a, b) =>
-    compareFirestoreDates(b.lastMessage?.createdAt, a.lastMessage?.createdAt)
+    compareFirestoreDates(msgTimestamp(b.lastMessage), msgTimestamp(a.lastMessage))
   );
 }
 
@@ -136,7 +169,7 @@ function groupByDay(messages, locale) {
   const groups = [];
   let currentDay = null;
   for (const msg of messages) {
-    const dayLabel = formatDateDivider(msg.createdAt, locale);
+    const dayLabel = formatDateDivider(msgTimestamp(msg), locale);
     if (dayLabel !== currentDay) {
       currentDay = dayLabel;
       groups.push({ type: 'divider', label: dayLabel, key: `divider-${dayLabel}-${msg.id}` });
@@ -171,12 +204,12 @@ function ThreadItem({ thread, onSelect }) {
               {t(locale, 'admin_msg_unmatched_badge')}
             </span>
           )}
-          <span className="text-[11px] text-gray-400 flex-shrink-0">{timeAgo(last?.createdAt, locale)}</span>
+          <span className="text-[11px] text-gray-400 flex-shrink-0">{timeAgo(last ? msgTimestamp(last) : null, locale)}</span>
         </div>
         <div className="flex items-center gap-2 mt-0.5">
           <p className="text-xs text-gray-500 truncate flex-1">
-            {last?.sender === 'host' ? t(locale, 'admin_msg_you') + ' ' : ''}
-            {last?.text || ''}
+            {last && isHostMessage(last) ? t(locale, 'admin_msg_you') + ' ' : ''}
+            {last ? msgPreviewText(last) : ''}
           </p>
           {thread.unreadCount > 0 && (
             <span className="flex-shrink-0 bg-green-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
@@ -209,13 +242,19 @@ function ChatView({ thread, allMessages, onBack, onLinkClick }) {
         });
       return key === thread.threadKey;
     })
-    .sort((a, b) => compareFirestoreDates(a.createdAt, b.createdAt));
+    .sort((a, b) => compareFirestoreDates(msgTimestamp(a), msgTimestamp(b)));
 
   const grouped = groupByDay(threadMessages, locale);
 
-  // Mark all unread guest messages as read when thread opens
+  // Mark all unread guest messages as read when thread opens.
+  // Only applies to in-app `messages` docs (sender === 'guest', read field).
+  // Airbnb message docs use different fields (draftStatus / welcomeState) and
+  // live in a different collection — skip them here. We detect via `_source`
+  // tag we set when subscribing.
   useEffect(() => {
-    const unread = threadMessages.filter((m) => m.sender === 'guest' && !m.read);
+    const unread = threadMessages.filter(
+      (m) => m._source === 'messages' && m.sender === 'guest' && !m.read
+    );
     if (unread.length === 0) return;
     const batch = writeBatch(db);
     unread.forEach((m) => {
@@ -327,7 +366,7 @@ function ChatView({ thread, allMessages, onBack, onLinkClick }) {
             );
           }
           const { msg } = item;
-          const isHost = msg.sender === 'host';
+          const isHost = isHostMessage(msg);
           const isDraft = msg.direction === 'outbound_draft';
           const draftLabel = welcomeStateLabel(msg, locale);
           return (
@@ -341,9 +380,9 @@ function ChatView({ thread, allMessages, onBack, onLinkClick }) {
                     : 'bg-white text-gray-800 rounded-bl-sm'
                 }`}
               >
-                <p>{msg.text}</p>
+                <p className="whitespace-pre-wrap">{msgPreviewText(msg)}</p>
                 <p className={`text-[10px] mt-1 ${isHost && !isDraft ? 'text-green-200' : 'text-gray-400'} text-right`}>
-                  {formatTime(msg.createdAt, locale)}
+                  {formatTime(msgTimestamp(msg), locale)}
                 </p>
                 {isDraft && draftLabel && (
                   <div className="mt-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full inline-block">
@@ -386,6 +425,14 @@ function ChatView({ thread, allMessages, onBack, onLinkClick }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Airbnb Messages Tab
 // ─────────────────────────────────────────────────────────────────────────────
+//
+// NOTE (2026-05-11): The Airbnb tab now reuses ThreadItem + ChatView for a
+// unified threaded view (one row per guest conversation, grouped by
+// threadKey). The components below — AirbnbMessageCard, MarkSentModal,
+// DraftStatusBadge, AirbnbMessagesView — are intentionally kept around. They
+// host the only UI for the mark-sent / refine / regenerate / escalate
+// workflows on individual draft replies. A follow-up should surface those
+// actions inside ChatView so this dead-code block can be removed.
 
 const DRAFT_STATUS_CONFIG = {
   pending: { labelKey: 'admin_msg_draftPending', color: 'bg-yellow-100 text-yellow-700' },
@@ -792,13 +839,17 @@ export default function MessagesPage() {
   const [selectedThread, setSelectedThread] = useState(null);
   const [linkTarget, setLinkTarget] = useState(null); // { threadKey, guestName } or null
 
-  // Subscribe to in-app messages (guest-portal chat)
+  // Subscribe to in-app messages (guest-portal chat). Tag each doc with
+  // `_source: 'messages'` so downstream code can route Firestore writes (e.g.
+  // mark-as-read batch) to the correct collection.
   useEffect(() => {
     const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        setInAppMessages(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setInAppMessages(
+          snapshot.docs.map((d) => ({ id: d.id, _source: 'messages', ...d.data() }))
+        );
         setLoadingMessages(false);
       },
       (err) => {
@@ -819,18 +870,25 @@ export default function MessagesPage() {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        setAirbnbThreadMessages(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setAirbnbThreadMessages(
+          snapshot.docs.map((d) => ({ id: d.id, _source: 'airbnb_messages', ...d.data() }))
+        );
       },
       (err) => console.error('airbnb_messages subscription error:', err)
     );
     return unsubscribe;
   }, []);
 
-  // Merge both sources. `buildThreads` groups by threadKey (falling back to
-  // bookingCode for legacy in-app docs), so a guest's welcome drafts and
-  // portal chat coalesce into one conversation.
+  // Merge both sources for the In-app tab + ChatView. `buildThreads` groups by
+  // threadKey (falling back to bookingCode for legacy in-app docs), so a
+  // guest's welcome drafts and portal chat coalesce into one conversation.
   const messages = [...inAppMessages, ...airbnbThreadMessages];
   const threads = buildThreads(messages);
+
+  // Airbnb tab: thread list built ONLY from airbnb_messages, so the tab shows
+  // one row per guest conversation (not one row per email). Clicking a thread
+  // opens the same ChatView used by the In-app tab.
+  const airbnbThreads = buildThreads(airbnbThreadMessages);
 
   // Keep selectedThread in sync when messages update
   useEffect(() => {
@@ -930,8 +988,34 @@ export default function MessagesPage() {
             ))}
           </div>
         )
+      ) : loadingMessages ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-3 animate-pulse">
+              <div className="w-10 h-10 rounded-full bg-gray-100 flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3.5 bg-gray-100 rounded w-1/3" />
+                <div className="h-3 bg-gray-100 rounded w-2/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : airbnbThreads.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm p-10 text-center">
+          <div className="text-gray-300 mb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <p className="text-gray-500 text-sm font-medium">{t(locale, 'admin_msg_airbnbEmpty')}</p>
+          <p className="text-gray-400 text-xs mt-1">{t(locale, 'admin_msg_airbnbEmptyDesc')}</p>
+        </div>
       ) : (
-        <AirbnbMessagesView />
+        <div className="space-y-2">
+          {airbnbThreads.map((thread) => (
+            <ThreadItem key={thread.threadKey} thread={thread} onSelect={setSelectedThread} />
+          ))}
+        </div>
       )}
     </div>
   );
