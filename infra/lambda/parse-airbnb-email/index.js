@@ -21,7 +21,6 @@ const {
 } = require('@aws-sdk/client-secrets-manager');
 const { simpleParser } = require('mailparser');
 const admin = require('firebase-admin');
-const { buildThreadKey } = require('./thread-key');
 
 // ---------------------------------------------------------------------------
 // AWS clients (module-level — reused across warm invocations)
@@ -771,6 +770,13 @@ function extractAirbnbReplyToToken(parsed) {
  * "airbnb:<32-hex>" (first 32 chars of sha256). Returns null for non-Airbnb
  * Reply-To addresses.
  *
+ * NOTE: v1 of the threading fix used this as the canonical threadKey, but
+ * production data showed Airbnb rotates Reply-To per email — so it does NOT
+ * merge multi-message conversations. v2 (deriveAirbnbThreadKey) supersedes
+ * this for threadKey use. We keep this helper exported so the
+ * `replyToToken` debug field can still be populated (and so existing tests
+ * continue to lock in its narrow contract).
+ *
  * @param {object} parsed
  * @returns {string|null}
  */
@@ -779,6 +785,203 @@ function airbnbThreadKeyFromReplyTo(parsed) {
   if (!token) return null;
   const hash = crypto.createHash('sha256').update(token).digest('hex').slice(0, 32);
   return 'airbnb:' + hash;
+}
+
+// ---------------------------------------------------------------------------
+// v2 composite-key threading (2026-05-11)
+//
+// Airbnb rotates Reply-To per email, so v1's airbnbThreadKeyFromReplyTo
+// produced different keys for each message in the same conversation. v2
+// derives a threadKey from a priority chain:
+//
+//   1. bookingId          → "booking:<id>"             (matched booking)
+//   2. guestName + stay   → "guest:<sha16>" of
+//                           (name | stay-window | year)
+//   3. guestName only     → "guest:<sha16>" of
+//                           (name | yearMonth-from-receivedAt)
+//   4. otherwise          → "unknown"
+//
+// This collapses multi-message threads when they share either a bookingId
+// or a (guestName, stayWindow) signature.
+// ---------------------------------------------------------------------------
+
+const MONTH_TOKENS = {
+  jan: 1, january: 1,
+  feb: 2, february: 2,
+  mar: 3, march: 3,
+  apr: 4, april: 4,
+  may: 5,
+  jun: 6, june: 6,
+  jul: 7, july: 7,
+  aug: 8, august: 8,
+  sep: 9, sept: 9, september: 9,
+  oct: 10, october: 10,
+  nov: 11, november: 11,
+  dec: 12, december: 12,
+};
+
+// Canonicalize month tokens to 3-letter form so cosmetic variations
+// ("Sept" vs "Sep" vs "September") collapse to the same threadKey.
+const MONTH_CANONICAL = {
+  jan: 'jan', january: 'jan',
+  feb: 'feb', february: 'feb',
+  mar: 'mar', march: 'mar',
+  apr: 'apr', april: 'apr',
+  may: 'may',
+  jun: 'jun', june: 'jun',
+  jul: 'jul', july: 'jul',
+  aug: 'aug', august: 'aug',
+  sep: 'sep', sept: 'sep', september: 'sep',
+  oct: 'oct', october: 'oct',
+  nov: 'nov', november: 'nov',
+  dec: 'dec', december: 'dec',
+};
+
+/** Match a stay-window like "May 5 – 13" or "Apr 30 – May 9", with optional
+ *  trailing ", 2026". Accepts both en-dash (U+2013) and ascii hyphen.
+ *  Captures: 1=month1, 2=day1, 3=optional month2, 4=day2.
+ *  The optional "for " preposition can sit ahead of the month — handled by
+ *  the caller's anchor.
+ *  Day bounds: 01-31 only — rejects "May 0 – 99" garbage. */
+const DAY_RE = '(0?[1-9]|[12][0-9]|3[01])';
+const STAY_WINDOW_RE = new RegExp(
+  '\\b(' + Object.keys(MONTH_TOKENS).join('|') + ')' + // month1
+  '\\s+' + DAY_RE +                                     // day1 (01-31)
+  '\\s*[\\u2013\\-]\\s*' +                              // dash (en or ascii)
+  '(?:(' + Object.keys(MONTH_TOKENS).join('|') + ')\\s+)?' + // optional month2
+  DAY_RE + '\\b',                                       // day2 (01-31)
+  'i'
+);
+
+/**
+ * Extract a stay-window token from an Airbnb subject line, e.g.
+ *   "RE: Reservation for Casa Coqui #1 Next to everything, May 5 – 13"
+ *     → "may-5-13"
+ *   "Inquiry for Cozy 4BR..., for Apr 30 – May 9"
+ *     → "apr-30-may-9"
+ *
+ * Lowercase, dash-separated, no spaces. Tolerates en-dash and ascii hyphen.
+ * Returns null when no date range is present.
+ *
+ * @param {string|null|undefined} subject
+ * @returns {string|null}
+ */
+function extractStayWindowFromSubject(subject) {
+  if (!subject || typeof subject !== 'string') return null;
+  const m = subject.match(STAY_WINDOW_RE);
+  if (!m) return null;
+
+  // Canonicalize months to 3-letter form so "Sept" / "September" / "Sep"
+  // all produce the same stay-window token.
+  const month1 = MONTH_CANONICAL[m[1].toLowerCase()];
+  const day1 = m[2];
+  const month2 = m[3] ? MONTH_CANONICAL[m[3].toLowerCase()] : null;
+  const day2 = m[4];
+
+  const parts = month2
+    ? [month1, day1, month2, day2]
+    : [month1, day1, day2];
+
+  return parts.join('-');
+}
+
+/** Match an explicit 4-digit year in the subject (e.g. ", 2026"). */
+const SUBJECT_YEAR_RE = /,\s*(\d{4})\b/;
+
+/**
+ * Extract the stay year from a subject.
+ *   - If subject contains an explicit 4-digit year, use it.
+ *   - Otherwise infer from receivedAt year.
+ *   - Edge case (December receivedAt + January stay-month) → assume next year.
+ *   - Edge case (January receivedAt + December stay-month) → assume previous year.
+ *
+ * @param {string|null|undefined} subject
+ * @param {Date|string|number} receivedAt
+ * @returns {string} 4-digit year
+ */
+function extractStayYearFromSubject(subject, receivedAt) {
+  if (subject && typeof subject === 'string') {
+    const ym = subject.match(SUBJECT_YEAR_RE);
+    if (ym) return ym[1];
+  }
+
+  const dt = receivedAt instanceof Date
+    ? receivedAt
+    : (receivedAt ? new Date(receivedAt) : new Date());
+  const receivedYear = dt.getUTCFullYear();
+  const receivedMonth = dt.getUTCMonth() + 1; // 1..12
+
+  if (subject && typeof subject === 'string') {
+    const mm = subject.match(STAY_WINDOW_RE);
+    if (mm) {
+      const stayMonth = MONTH_TOKENS[mm[1].toLowerCase()];
+      // December received + January stay → next year
+      if (receivedMonth === 12 && stayMonth === 1) {
+        return String(receivedYear + 1);
+      }
+      // January received + December stay → previous year
+      if (receivedMonth === 1 && stayMonth === 12) {
+        return String(receivedYear - 1);
+      }
+    }
+  }
+
+  return String(receivedYear);
+}
+
+/**
+ * Derive a v2 composite threadKey for an Airbnb message.
+ *
+ * Priority (the `threadKeyPath` tag identifies which priority tier won;
+ * emitted alongside the threadKey for observability):
+ *   1. matched booking            → "booking:<id>"            path='booking'
+ *   2. guestName + stay window    → "guest:<sha16>" of
+ *                                   (name|window|year)        path='guest-stay'
+ *   3. guestName w/o stay window  → "guest:<sha16>" of
+ *                                   (name|yearMonth)          path='guest-month'
+ *   4. fully anonymous            → "unknown"                 path='unknown'
+ *
+ * @param {{
+ *   bookingId?: string|null,
+ *   guestName?: string|null,
+ *   subject?: string|null,
+ *   receivedAt?: Date|string|number|null,
+ * }} input
+ * @returns {{ threadKey: string, threadKeyPath: 'booking'|'guest-stay'|'guest-month'|'unknown' }}
+ */
+function deriveAirbnbThreadKey({ bookingId, guestName, subject, receivedAt } = {}) {
+  if (bookingId && String(bookingId).trim()) {
+    return {
+      threadKey: `booking:${String(bookingId).trim()}`,
+      threadKeyPath: 'booking',
+    };
+  }
+
+  if (
+    guestName &&
+    typeof guestName === 'string' &&
+    guestName.trim() &&
+    guestName !== 'Unknown sender'
+  ) {
+    const lowerName = guestName.toLowerCase().trim();
+    const stayWindow = extractStayWindowFromSubject(subject);
+    if (stayWindow) {
+      const year = extractStayYearFromSubject(subject, receivedAt);
+      const composite = [lowerName, stayWindow, year].join('|');
+      const hash = crypto.createHash('sha256').update(composite).digest('hex').slice(0, 16);
+      return { threadKey: `guest:${hash}`, threadKeyPath: 'guest-stay' };
+    }
+    // No stay window — fall back to year-month from receivedAt.
+    const dt = receivedAt instanceof Date
+      ? receivedAt
+      : (receivedAt ? new Date(receivedAt) : new Date());
+    const yearMonth = dt.toISOString().slice(0, 7); // "YYYY-MM"
+    const composite = [lowerName, yearMonth].join('|');
+    const hash = crypto.createHash('sha256').update(composite).digest('hex').slice(0, 16);
+    return { threadKey: `guest:${hash}`, threadKeyPath: 'guest-month' };
+  }
+
+  return { threadKey: 'unknown', threadKeyPath: 'unknown' };
 }
 
 /**
@@ -1079,9 +1282,10 @@ exports.handler = async (event) => {
       const rfcMessageId = parsed.messageId || null;
       const { inReplyTo, references } = extractHeaderRefs(parsed);
       // Per-thread Reply-To token from Airbnb (e.g. <token>@reply.airbnb.com).
-      // When present, used as the canonical threadKey across all writes.
+      // v2: kept as a debug field on the Firestore doc only — no longer
+      // load-bearing for threading because Airbnb rotates Reply-To per email.
+      // See deriveAirbnbThreadKey for the canonical v2 threadKey derivation.
       const replyToToken = extractAirbnbReplyToToken(parsed);
-      const airbnbThreadKey = airbnbThreadKeyFromReplyTo(parsed);
 
       console.log('Email parsed', {
         subject,
@@ -1417,16 +1621,17 @@ exports.handler = async (event) => {
           guestName,
         });
 
-        // Compute threadKey once — Airbnb Reply-To token wins when present.
-        // Avoid `fromName` here: for Airbnb mail it's always literally "Airbnb"
-        // and would collapse unrelated threads under name:airbnb|y:YYYY.
-        // Use the actually-extracted name when available (source !== 'sentinel');
-        // falls through to buildThreadKey's 'unknown' branch when extraction failed.
+        // v2 composite threadKey — bookingId is null on the unmatched path, so
+        // the derivation falls through to the guestName+stayWindow path
+        // (or 'unknown' when no name was extracted).
         const senderNameForKey = guestNameSource === 'sentinel' ? null : guestName;
-        const unmatchedThreadKey = airbnbThreadKey || buildThreadKey({
-          bookingCode: null,
-          senderEmail: fromAddress,
-          senderName: senderNameForKey,
+        const {
+          threadKey: unmatchedThreadKey,
+          threadKeyPath: unmatchedThreadKeyPath,
+        } = deriveAirbnbThreadKey({
+          bookingId: null,
+          guestName: senderNameForKey,
+          subject,
           receivedAt,
         });
 
@@ -1457,12 +1662,14 @@ exports.handler = async (event) => {
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           threadKey: unmatchedThreadKey,
           replyToToken,
-          airbnbThreadKey,
           parserVersion: PARSER_VERSION,
           source: 'inbound',
         });
 
-        console.log('Written unmatched guest_message to airbnb_messages');
+        console.log('Written unmatched guest_message to airbnb_messages', {
+          threadKey: unmatchedThreadKey,
+          threadKeyPath: unmatchedThreadKeyPath,
+        });
 
         // Also archive to quarantine for record-keeping
         await firestore.collection('airbnb_messages_quarantine').add({
@@ -1483,7 +1690,6 @@ exports.handler = async (event) => {
           guestName,
           threadKey: unmatchedThreadKey,
           replyToToken,
-          airbnbThreadKey,
           parserVersion: PARSER_VERSION,
           quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
           reason: 'no_matching_booking',
@@ -1497,6 +1703,14 @@ exports.handler = async (event) => {
       // ------------------------------------------------------------------
       // 9. Write to airbnb_messages
       // ------------------------------------------------------------------
+      const { threadKey: matchedThreadKey, threadKeyPath: matchedThreadKeyPath } =
+        deriveAirbnbThreadKey({
+          bookingId: booking.id,
+          guestName: guestName || booking.data.guestName || null,
+          subject,
+          receivedAt,
+        });
+
       const docData = {
         bookingId: booking.id,
         guestName: guestName || booking.data.guestName || null,
@@ -1521,14 +1735,8 @@ exports.handler = async (event) => {
         sentAt: null,
         editedReply: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        threadKey: airbnbThreadKey || buildThreadKey({
-          bookingCode: booking.data.code,
-          senderEmail: fromAddress,
-          senderName: guestName || booking.data.guestName || null,
-          receivedAt,
-        }),
+        threadKey: matchedThreadKey,
         replyToToken,
-        airbnbThreadKey,
         parserVersion: PARSER_VERSION,
         source: 'inbound',
       };
@@ -1540,6 +1748,8 @@ exports.handler = async (event) => {
         bookingId: booking.id,
         confirmationCode,
         guestName: docData.guestName,
+        threadKey: matchedThreadKey,
+        threadKeyPath: matchedThreadKeyPath,
       });
 
       processedCount++;
@@ -1594,3 +1804,6 @@ module.exports.extractHeaderRefs = extractHeaderRefs;
 module.exports.findParentMessageDocId = findParentMessageDocId;
 module.exports.extractAirbnbReplyToToken = extractAirbnbReplyToToken;
 module.exports.airbnbThreadKeyFromReplyTo = airbnbThreadKeyFromReplyTo;
+module.exports.extractStayWindowFromSubject = extractStayWindowFromSubject;
+module.exports.extractStayYearFromSubject = extractStayYearFromSubject;
+module.exports.deriveAirbnbThreadKey = deriveAirbnbThreadKey;
