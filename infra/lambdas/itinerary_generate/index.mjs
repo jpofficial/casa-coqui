@@ -25,7 +25,17 @@ export const handler = async (event) => {
     const activities = await loadActivities(interests);
     const prompt = buildPrompt({ interests, num_days, traveler_type, pace, activities });
 
-    const days = await generateWithBedrock(prompt);
+    const { days, usage } = await generateWithBedrock(prompt);
+    console.log(JSON.stringify({
+      metric_type: 'bedrock_invocation',
+      model: MODEL_ID,
+      input_tokens: usage?.input_tokens,
+      output_tokens: usage?.output_tokens,
+      plan_id,
+      num_days,
+      interests_count: interests.length,
+      ts: new Date().toISOString(),
+    }));
 
     const ttl_epoch = Math.floor(Date.now() / 1000) + 90 * 86400;
     await ddb.send(
@@ -123,7 +133,7 @@ async function generateWithBedrock(messages) {
   const start = text.indexOf('[');
   const end = text.lastIndexOf(']');
   if (start === -1 || end === -1) throw new Error('Bedrock response had no JSON array');
-  return JSON.parse(text.slice(start, end + 1));
+  return { days: JSON.parse(text.slice(start, end + 1)), usage: raw.usage };
 }
 
 function resp(status, body) {

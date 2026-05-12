@@ -16,6 +16,7 @@ from aws_cdk import (
     aws_apigatewayv2 as apigw,
     aws_apigatewayv2_integrations as apigw_int,
     aws_iam as iam,
+    aws_cloudwatch as cw,
     Duration,
     RemovalPolicy,
 )
@@ -159,6 +160,25 @@ class MiItinerarioStack(Stack):
         )
 
         self.refine_fn = refine_fn
+
+        # ── CloudWatch Alarms ─────────────────────────────────────────────────
+        cw.Alarm(
+            self,
+            "GenerateFnErrorsAlarm",
+            metric=generate_fn.metric_errors(period=Duration.minutes(5)),
+            threshold=10,
+            evaluation_periods=1,
+            alarm_description="Itinerary generate function errors >10 in 5 min",
+        )
+
+        cw.Alarm(
+            self,
+            "GenerateFnDurationAlarm",
+            metric=generate_fn.metric_duration(period=Duration.minutes(5)),
+            threshold=25_000,  # ms
+            evaluation_periods=2,
+            alarm_description="Itinerary generation slower than 25s p99",
+        )
 
         # ── HTTP API ──────────────────────────────────────────────────────────
         http_api = apigw.HttpApi(

@@ -20,7 +20,17 @@ export const handler = async (event) => {
       (a.best_for_persona || []).some((p) => (cur.Item.interests || []).includes(p))
     );
 
-    const newDay = await regenerateDay({ existing: cur.Item, day_num, user_request, activities: matched });
+    const { day: newDay, usage } = await regenerateDay({ existing: cur.Item, day_num, user_request, activities: matched });
+    console.log(JSON.stringify({
+      metric_type: 'bedrock_invocation',
+      model: MODEL_ID,
+      input_tokens: usage?.input_tokens,
+      output_tokens: usage?.output_tokens,
+      plan_id,
+      day_num,
+      interests_count: (cur.Item.interests || []).length,
+      ts: new Date().toISOString(),
+    }));
     const updatedDays = (cur.Item.days || []).map((d) => (d.day_num === day_num ? newDay : d));
 
     await ddb.send(
@@ -73,7 +83,7 @@ ${JSON.stringify(compact)}` }],
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start === -1) throw new Error('Bedrock response had no JSON object');
-  return JSON.parse(text.slice(start, end + 1));
+  return { day: JSON.parse(text.slice(start, end + 1)), usage: raw.usage };
 }
 
 function resp(status, body) {
