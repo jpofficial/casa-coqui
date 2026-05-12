@@ -9,7 +9,13 @@ Branch: `feat/phase-3-sfn-bridge` (squash-merged to main)
 - [ ] Step 2 — decideRoute pure function (TDD)
 - [ ] Step 3 — bridge-metrics.js (EMF emitter)
 - [ ] Step 4 — appconfig-client.js (TDD, fail-closed contract)
-- [ ] Step 5.0 — Read ai-chain.asl.json, confirm per-stage token shape (F1)
+- [x] Step 5.0 — Read ai-chain.asl.json, confirm per-stage token shape (F1)
+  - **Findings (2026-05-08, Pass 2):** Confirmed `ai-chain.asl.json` has NO top-level token aggregation.
+    Per-stage `ResultPath` writes at `$.reasoner` / `$.drafter` / `$.evaluator` / `$.reviser`
+    (ASL lines 13/46/79/140). Drafter Lambda returns `{ draft, tokens: { input, output }, appConfigVersion }`
+    (`infra/sam/reply-agent/functions/drafter/index.js` lines 207-211). Therefore WriteBack must sum
+    `$.reasoner.tokens` + `$.drafter.tokens` + `$.evaluator.tokens` + `$.reviser?.tokens` in JS
+    (Decision 17 v3.1). Verification only — no commit.
 - [ ] Step 5 — WriteBack Lambda real (WriteBack-side token sum + executionStartTime latency proxy)
 - [ ] Step 6 — aws-sfn-bridge.js (TDD)
 - [ ] Step 7 — Wire bridge into onAirbnbMessageCreated (BETWEEN context build and LLM call)
