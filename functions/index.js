@@ -26,8 +26,8 @@ const { defineSecret, defineString } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
 
 // ── Phase 3 v3.1 — F2: v2 secrets/params, NOT functions.config() ─────────
-const AWS_ACCESS_KEY_ID = defineSecret('AWS_ACCESS_KEY_ID');
-const AWS_SECRET_ACCESS_KEY = defineSecret('AWS_SECRET_ACCESS_KEY');
+const BRIDGE_AWS_ACCESS_KEY_ID = defineSecret('BRIDGE_AWS_ACCESS_KEY_ID');
+const BRIDGE_AWS_SECRET_ACCESS_KEY = defineSecret('BRIDGE_AWS_SECRET_ACCESS_KEY');
 const REPLY_DRAFT_STATE_MACHINE_ARN = defineString('REPLY_DRAFT_STATE_MACHINE_ARN', {
   default: 'arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft',
 });
@@ -233,7 +233,7 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
     document: 'airbnb_messages/{messageId}',
     memory: '512MiB',
     timeoutSeconds: 120,
-    secrets: ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY],
+    secrets: ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', BRIDGE_AWS_ACCESS_KEY_ID, BRIDGE_AWS_SECRET_ACCESS_KEY],
   },
   async (event) => {
     const snap = event.data;
