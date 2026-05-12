@@ -2,15 +2,36 @@ import DayCard from '../components/DayCard';
 import WhereToStayPanel from '../components/WhereToStayPanel';
 import TipJar from '../components/TipJar';
 import { casaCoquiFits } from '@/lib/itinerary/persona-fit';
+import { getItinerary, getActivitiesByIds } from '@/lib/itinerary/dynamodb';
+
+export const dynamic = 'force-dynamic';
 
 async function fetchPlan(plan_id) {
-  // Server-side fetch — runs in the same Vercel Function
-  const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-    : 'http://localhost:3000';
-  const res = await fetch(`${baseUrl}/api/plan/${plan_id}`, { cache: 'no-store' });
-  if (!res.ok) return null;
-  return res.json();
+  // Direct DDB read from the server component. Skipping an internal
+  // /api round-trip avoids Vercel Deployment Protection 401s on previews
+  // and removes an unnecessary network hop in production.
+  try {
+    const itinerary = await getItinerary(plan_id);
+    if (!itinerary) return null;
+    const allIds = (itinerary.days || []).flatMap((d) =>
+      (d.items || []).map((i) => i.activity_id)
+    );
+    const activities = await getActivitiesByIds([...new Set(allIds)]);
+    const byId = Object.fromEntries(activities.map((a) => [a.activity_id, a]));
+    return {
+      ...itinerary,
+      days: (itinerary.days || []).map((d) => ({
+        ...d,
+        items: (d.items || []).map((it) => ({
+          ...it,
+          activity: byId[it.activity_id] || null,
+        })),
+      })),
+    };
+  } catch (err) {
+    console.error('[itinerary page] fetchPlan failed', { plan_id, err: err?.message });
+    return null;
+  }
 }
 
 export default async function ItineraryPage({ params }) {
