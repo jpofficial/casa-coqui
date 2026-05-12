@@ -39,6 +39,12 @@ export default async function ItineraryPage({ params }) {
         </h1>
       </header>
 
+      {plan.is_fallback && (
+        <div className="mx-5 mb-4 rounded-xl border border-atardecer-200 bg-atardecer-50 p-3 text-center text-sm text-atardecer-700">
+          🌅 We had a hiccup. Showing our default 5-day plan — try again in a minute for a personalized one.
+        </div>
+      )}
+
       {(plan.days || []).map((day) => (
         <DayCard key={day.day_num} day={day} plan_id={plan.plan_id} />
       ))}
