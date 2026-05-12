@@ -1,0 +1,271 @@
+{
+  "agent": "culture-history-researcher",
+  "generated_at": "2026-05-11",
+  "count": 12,
+  "items": [
+    {
+      "name": "Castillo San Felipe del Morro (El Morro) — San Juan National Historic Site",
+      "neighborhood": "Old San Juan",
+      "type": "Spanish colonial fort (16th–18th century)",
+      "hours": "Daily 9:00 AM – 5:00 PM (last entry 4:30 PM); closed Thanksgiving & Christmas Day",
+      "price_tier": "$",
+      "admission_cost": "Adults $10 (covers both forts, valid 7 days); under 16 free; NPS annual pass accepted",
+      "description": "A six-level 16th-century citadel guarding the entrance to San Juan Bay, with cannon bastions, sentry boxes (garitas), and sweeping Atlantic views. Built by Spain starting 1539, expanded through 1787.",
+      "why_it_matters": "El Morro is ground zero of Puerto Rico's 400-year colonial story — the physical embodiment of why Spain, Britain, and the Netherlands fought over this island, and why the US seized it in 1898.",
+      "best_for_persona": ["history_buff", "photographer", "family", "couples", "culture_seeker"],
+      "walkability_from_old_san_juan": "15-minute walk along Paseo del Morro from Plaza de Armas; part of a scenic waterfront promenade",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "early_morning",
+      "time_to_allocate_min": 120,
+      "accessibility_notes": "Main esplanade and lower levels wheelchair accessible via ramp; upper gun decks and lighthouse require stairs; grassy kite-flying field is flat",
+      "source_urls": [
+        "https://www.nps.gov/saju/planyourvisit/el-morro.htm",
+        "https://www.nps.gov/saju/index.htm"
+      ]
+    },
+    {
+      "name": "Castillo San Cristóbal — San Juan National Historic Site",
+      "neighborhood": "Old San Juan",
+      "type": "Spanish colonial fort (18th century)",
+      "hours": "Daily 9:00 AM – 5:00 PM (last entry 4:30 PM); closed Thanksgiving & Christmas Day",
+      "price_tier": "$",
+      "admission_cost": "Adults $10 (covers both forts, valid 7 days); under 16 free; NPS annual pass accepted",
+      "description": "The largest fort built by Spain in the Americas, San Cristóbal was designed to repel land attacks on San Juan using a sophisticated system of independent defense zones connected by tunnels.",
+      "why_it_matters": "San Cristóbal represents the mature, paranoid genius of Spanish imperial military engineering — its tunnel networks reveal how Spain tried to make Old San Juan truly impregnable after the 1625 Dutch raid.",
+      "best_for_persona": ["history_buff", "photographer", "family", "culture_seeker", "solo"],
+      "walkability_from_old_san_juan": "At the eastern entrance of Old San Juan on Calle Norzagaray — walkable from Plaza de Armas in 10 minutes",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 90,
+      "accessibility_notes": "Main plaza and several levels accessible; tunnel sections involve narrow stairs and low ceilings — not suitable for wheelchairs or limited mobility",
+      "source_urls": [
+        "https://www.nps.gov/saju/planyourvisit/san-cristobal.htm",
+        "https://www.nps.gov/saju/index.htm"
+      ]
+    },
+    {
+      "name": "Capilla del Cristo (Christ Chapel)",
+      "neighborhood": "Old San Juan",
+      "type": "18th-century votive chapel",
+      "hours": "Tuesday – Saturday 9:30 AM – 4:00 PM (hours subject to change; closed Sunday–Monday and Catholic holidays)",
+      "price_tier": "FREE",
+      "admission_cost": "Free; donations welcome",
+      "description": "A tiny 1753 chapel perched at the southern tip of Old San Juan's city walls, built — according to legend — where a rider's horse plunged off the cliff and miraculously survived. Ornate silver altar visible through iron gates.",
+      "why_it_matters": "The chapel illustrates the deep intertwining of Catholicism and Puerto Rican civic life; its legend has been retold for 270 years as a living piece of oral heritage.",
+      "best_for_persona": ["history_buff", "culture_seeker", "couples", "photographer", "solo"],
+      "walkability_from_old_san_juan": "At the southern end of Calle Cristo — central Old San Juan, steps from Paseo de la Princesa",
+      "kid_friendly": true,
+      "guided_tour_available": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 60,
+      "accessibility_notes": "Street-level access; interior is small and may be viewed through the gate when closed; cobblestone surroundings may challenge wheelchairs",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/capilla-del-cristo/8493",
+        "https://en.wikipedia.org/wiki/Cristo_Chapel"
+      ]
+    },
+    {
+      "name": "Casa Blanca Museum (Casa Blanca de Puerto Rico)",
+      "neighborhood": "Old San Juan",
+      "type": "16th-century colonial residence / history museum",
+      "hours": "Tuesday – Saturday 9:00 AM – 4:00 PM; closed Sunday–Monday and Puerto Rico public holidays",
+      "price_tier": "$",
+      "admission_cost": "Adults $3; children (under 12) $1.50; free for seniors 75+",
+      "description": "Built in 1521 as the home of Ponce de León's family, Casa Blanca is the oldest continuously occupied European-built residence in the Western Hemisphere. Now a museum with period rooms, Taíno artifacts, and a lush courtyard garden.",
+      "why_it_matters": "Walking through Casa Blanca collapses 500 years at once — Taíno pottery in the same rooms where conquistadors lived, then generations of Spanish governors, then the US Army (1898–1967). It's Puerto Rico's entire arc in one house.",
+      "best_for_persona": ["history_buff", "culture_seeker", "family", "rainy_day", "solo"],
+      "walkability_from_old_san_juan": "Northern Old San Juan near San Felipe del Morro, a 5-minute walk from the fort entrance on Calle San Sebastián",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 60,
+      "accessibility_notes": "Ground floor and garden mostly accessible; some upper rooms have narrow historic staircases",
+      "source_urls": [
+        "https://www.icp.pr.gov/programas/museos/casa-blanca/",
+        "https://www.discoverpuertorico.com/profile/casa-blanca-museum/8476"
+      ]
+    },
+    {
+      "name": "La Fortaleza (Palacio de Santa Catalina) — Official Governor's Residence",
+      "neighborhood": "Old San Juan",
+      "type": "16th-century fortress / active governmental palace",
+      "hours": "Guided tours Monday – Friday 8:30 AM – 3:30 PM (last tour ~3:00 PM); closed weekends and Puerto Rico holidays",
+      "price_tier": "FREE",
+      "admission_cost": "Free; advance registration required for tours (walk-in availability limited)",
+      "description": "Built in 1533 as San Juan's original harbor fortress, La Fortaleza is now the governor's official residence and a UNESCO World Heritage Site — the oldest executive mansion still in continuous official use in the Americas.",
+      "why_it_matters": "La Fortaleza is a living symbol of Puerto Rico's political status — a UNESCO World Heritage governor's palace that is still the seat of power for a US territory, a tension visitors feel in every gilded room.",
+      "best_for_persona": ["history_buff", "culture_seeker", "couples", "solo"],
+      "walkability_from_old_san_juan": "On Calle Recinto Oeste along the harbor wall — central Old San Juan, a 5-minute walk from Plaza de Armas",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 60,
+      "accessibility_notes": "Main reception areas and gardens wheelchair accessible; some historic interior rooms require steps; contact in advance for accessibility arrangements",
+      "source_urls": [
+        "https://www.lafortaleza.pr.gov/",
+        "https://whc.unesco.org/en/list/266"
+      ]
+    },
+    {
+      "name": "Museo de Arte de Puerto Rico (MAPR)",
+      "neighborhood": "Santurce",
+      "type": "Fine arts museum — Puerto Rican art, 17th century to present",
+      "hours": "Tuesday – Saturday 10:00 AM – 5:00 PM; Sunday 11:00 AM – 6:00 PM; closed Monday",
+      "price_tier": "$$",
+      "admission_cost": "Adults $15; seniors & students $9; children under 12 free; free first Sunday of each month",
+      "description": "Puerto Rico's premier fine arts museum spanning 18,000 sq ft and five centuries of Puerto Rican visual art — from the earliest santos de palo wood carvings to contemporary installation art — housed in a beaux-arts former municipal hospital.",
+      "why_it_matters": "MAPR is the definitive visual record of Puerto Rican identity: Taíno influences, Spanish religious art, plantation-era portraits, the political murals of the 1950s–70s, and the post-María generation of artists reshaping what the island means.",
+      "best_for_persona": ["art_lover", "culture_seeker", "rainy_day", "solo", "couples"],
+      "walkability_from_old_san_juan": "15-minute ride-share or bus from Old San Juan; walkable via Condado bridge (~40 min) for the dedicated",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 180,
+      "accessibility_notes": "Fully wheelchair accessible — elevator, ramps, accessible restrooms throughout the main building and sculpture garden",
+      "source_urls": [
+        "https://mapr.org/",
+        "https://mapr.org/plan-your-visit/"
+      ]
+    },
+    {
+      "name": "Museo de Arte Contemporáneo de Puerto Rico (MAC)",
+      "neighborhood": "Santurce",
+      "type": "Contemporary and experimental art museum",
+      "hours": "Tuesday – Friday 10:00 AM – 4:00 PM; Saturday 11:00 AM – 5:00 PM; closed Sunday–Monday",
+      "price_tier": "$",
+      "admission_cost": "Adults $5 suggested donation; some exhibitions free; first Saturday free",
+      "description": "A converted 1913 school building housing Puerto Rico's most challenging contemporary art, focusing on Caribbean and Latin American artists working in installation, video, performance, and conceptual media.",
+      "why_it_matters": "MAC is where Puerto Rican artists process the present — Hurricane María recovery, diasporic identity, post-colonial politics — making it essential for understanding how the island sees itself right now, not just historically.",
+      "best_for_persona": ["art_lover", "culture_seeker", "solo", "couples", "rainy_day"],
+      "walkability_from_old_san_juan": "In Miramar/Santurce near MAPR — best combined in a single Santurce art day; 15-minute ride-share from Old San Juan",
+      "kid_friendly": false,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 90,
+      "accessibility_notes": "Main gallery floors accessible by elevator; some event-format exhibitions in historic classrooms may have limited access — call ahead",
+      "source_urls": [
+        "https://www.mac-pr.org/",
+        "https://www.discoverpuertorico.com/profile/museo-de-arte-contemporaneo-de-puerto-rico/8514"
+      ]
+    },
+    {
+      "name": "Museo de las Américas",
+      "neighborhood": "Old San Juan",
+      "type": "Pan-American cultural history museum",
+      "hours": "Tuesday – Friday 9:00 AM – 4:00 PM; Saturday – Sunday 11:00 AM – 5:00 PM; closed Monday",
+      "price_tier": "$",
+      "admission_cost": "Adults $6; children (6–12) $3; under 6 free",
+      "description": "Housed in the historic Cuartel de Ballajá (the largest building constructed by Spain in the Americas), this museum presents the cultural heritage of all the Americas — from pre-Columbian civilizations through African diaspora traditions to Caribbean folk art.",
+      "why_it_matters": "Located in the same barracks where Spanish soldiers and enslaved workers once coexisted blocks from El Morro, this museum reframes Puerto Rico not as an island apart but as the crossroads where indigenous, African, and European Americas collided and blended.",
+      "best_for_persona": ["history_buff", "culture_seeker", "family", "rainy_day", "art_lover"],
+      "walkability_from_old_san_juan": "On the Plaza del Quinto Centenario in Old San Juan — 10-minute walk from El Morro; free outdoor plaza entrance",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 90,
+      "accessibility_notes": "First floor and central courtyard fully accessible; upper galleries accessible by elevator; restrooms accessible",
+      "source_urls": [
+        "https://www.museodelasamericas.pr.gov/",
+        "https://www.discoverpuertorico.com/profile/museo-de-las-americas/8515"
+      ]
+    },
+    {
+      "name": "Santurce Street Art Walk — Calle Cerra & Distrito de Arte Santurce",
+      "neighborhood": "Santurce",
+      "type": "Open-air street art district / mural walk",
+      "hours": "Outdoors — accessible 24/7; best experienced during daylight; La Marketa weekend market typically Saturdays 9:00 AM – 2:00 PM",
+      "price_tier": "FREE",
+      "admission_cost": "Free (self-guided); occasional guided tours ~$20–30 with local arts organizations",
+      "description": "Santurce's former urban decay was transformed post-2011 by Santurce es Ley festival and local artists into one of the Caribbean's most vibrant outdoor mural collections — hundreds of works on Calle Cerra, Calle Loíza, and surrounding blocks.",
+      "why_it_matters": "The murals of Santurce are Puerto Rico's visual diary of the post-financial-crisis, post-María era — a neighborhood that refused to abandon itself, turning every peeling wall into a statement about resilience, Afro-Puerto Rican identity, and self-determination.",
+      "best_for_persona": ["art_lover", "photographer", "culture_seeker", "solo", "couples"],
+      "walkability_from_old_san_juan": "20-minute walk across Puente Dos Hermanos into Condado, then south into Santurce; or 10-minute ride-share",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 120,
+      "accessibility_notes": "Flat urban sidewalks, generally wheelchair navigable; some blocks have uneven pavement — sturdy shoes recommended; no indoor portion",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/article/santurce-street-art",
+        "https://www.sanjuanpuertorico.com/things-to-do/santurce-street-art-walking-tour/"
+      ]
+    },
+    {
+      "name": "Galería Santurce & La Marketa — Mercado Santurce Cultural Hub",
+      "neighborhood": "Santurce",
+      "type": "Community market / gallery / cultural gathering space",
+      "hours": "La Marketa: Saturdays 9:00 AM – 2:00 PM; Gallery spaces: Tuesday – Saturday 10:00 AM – 5:00 PM (hours vary by vendor)",
+      "price_tier": "FREE",
+      "admission_cost": "Free entry; individual vendor purchases vary",
+      "description": "Santurce's historic public market (Mercado de Santurce, 1941) reborn as a weekly artisan market and year-round gallery anchor, where local artists sell prints, ceramics, and handcrafted goods alongside fresh produce and street food.",
+      "why_it_matters": "The Mercado represents Santurce's stubborn, joyful insistence on community — a working-class food market that became a cultural institution by refusing to gentrify away its roots, blending art commerce with everyday Puerto Rican life.",
+      "best_for_persona": ["culture_seeker", "art_lover", "family", "food_lover", "solo"],
+      "walkability_from_old_san_juan": "15-minute ride-share from Old San Juan; pairs naturally with Calle Cerra mural walk",
+      "kid_friendly": true,
+      "guided_tour_available": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 90,
+      "accessibility_notes": "Market is single-level with wide aisles; wheelchair accessible; outdoor seating areas available around the building",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/mercado-de-santurce/8561",
+        "https://www.instagram.com/mercadosanturce/"
+      ]
+    },
+    {
+      "name": "Loíza Bomba & Plena Cultural Experience — Casa Ayala / Ballet Folkórico Hermanos Ayala",
+      "neighborhood": "Loíza",
+      "type": "Bomba & plena cultural workshop / Afro–Puerto Rican heritage center",
+      "hours": "Workshop schedule varies; contact Casa Ayala directly for current session calendar; typically weekends",
+      "price_tier": "$",
+      "admission_cost": "Workshop participation typically $15–25 per person; demonstrations sometimes free at community events",
+      "description": "Loíza is Puerto Rico's most African-heritage town, and Casa Ayala — home of the legendary Ayala family — is the living repository of Bomba, a call-and-response drum and dance tradition brought by enslaved Yoruba and Igbo people in the 1600s.",
+      "why_it_matters": "Bomba is not a performance for tourists — it is a 400-year-old conversation between drummer and dancer that encodes African resistance and joy. In Loíza, it is still practiced as daily culture, making it the most authentic window into Puerto Rico's African soul.",
+      "best_for_persona": ["culture_seeker", "history_buff", "couples", "solo", "art_lover"],
+      "walkability_from_old_san_juan": "Not walkable — 35-minute drive east along PR-187 or via ride-share (~$25–35 each way); often combined with a coastal lunch stop",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 180,
+      "accessibility_notes": "Casa Ayala is a residential/community space — mostly ground floor; contact ahead for specific accessibility needs; outdoor space available",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/article/loiza-cultural-heritage",
+        "https://www.discoverpuertorico.com/profile/loiza/8520"
+      ]
+    },
+    {
+      "name": "Festival de Santiago Apóstol de Loíza (Saint James Festival) — Annual July Event",
+      "neighborhood": "Loíza",
+      "type": "Afro–Puerto Rican carnival / patron saint festival (annual, late July)",
+      "hours": "Festival week: typically last week of July (July 25–30); street events daily from ~10:00 AM; evening processions and vejigante parades through sunset",
+      "price_tier": "FREE",
+      "admission_cost": "Free to attend; optional donations to community organizations; food and craft vendors on site",
+      "description": "Puerto Rico's oldest and most African-rooted patron saint festival, featuring vejigante masks made from coconut shells and papier-mâché, Bomba processions, traditional food, and three simultaneous saint statues paraded through Loíza's three historic barrios.",
+      "why_it_matters": "The three-statue procession — each carried by a different barrio — maps 400 years of African, Spanish, and Taíno syncretism onto a single week; the coconut-shell vejigante mask is Puerto Rico's most iconic cultural symbol and it was born here.",
+      "best_for_persona": ["culture_seeker", "photographer", "history_buff", "couples", "family"],
+      "walkability_from_old_san_juan": "35-minute drive east; during festival week, community shuttle services and organized tour groups available from San Juan hotels",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 240,
+      "accessibility_notes": "Street festival — uneven terrain, crowds; most procession routes are on paved streets; best viewed from sidelines; bring shade/hat for afternoon heat",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/article/loiza-festival-de-santiago-apostol",
+        "https://www.nps.gov/articles/loiza-cultural-landscape.htm"
+      ]
+    }
+  ]
+}

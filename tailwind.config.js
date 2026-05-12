@@ -113,10 +113,12 @@ module.exports = {
       fontFamily: {
         // DM Sans — warm, modern, geometric but not cold.
         // The kind of font that feels like it was made for hospitality.
-        sans: ['DM Sans', 'system-ui', '-apple-system', 'sans-serif'],
-        // DM Serif Display — for the brand name and hero moments.
-        // Elegant, warm serif that says "premium" without saying "colonial."
-        display: ['DM Serif Display', 'Georgia', 'serif'],
+        sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+        // Playfair Display — for the itinerary hero moments.
+        // Editorial warmth, golden-hour editorial serif.
+        display: ['"Playfair Display"', 'Georgia', 'serif'],
+        // DM Mono — for labels, tags, and mono accents.
+        mono: ['"DM Mono"', 'monospace'],
       },
 
       borderRadius: {

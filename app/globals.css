@@ -4,6 +4,8 @@
 
 /* === Google Fonts: DM Sans (body) + DM Serif Display (brand/headlines) === */
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Serif+Display&display=swap');
+/* === Google Fonts: Playfair Display (itinerary display) + DM Mono (mono accents) === */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,700&family=DM+Mono:wght@400;500&display=swap');
 
 :root {
   --background: #fdfbf7;  /* cafe-50: warm cream, not sterile white */

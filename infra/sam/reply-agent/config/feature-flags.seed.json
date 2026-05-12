@@ -7,7 +7,7 @@
         "mode": {
           "constraints": {
             "type": "string",
-            "enum": ["firebase", "aws-sfn", "shadow"]
+            "enum": ["firebase", "aws-sfn"]
           }
         },
         "rollout_pct": {

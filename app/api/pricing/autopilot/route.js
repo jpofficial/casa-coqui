@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/api-auth';
 import { getPricingLib, getDb } from '@/lib/pricing-db';
 
+// Defense-in-depth: Next.js must NEVER evaluate this route at build time —
+// it touches S3 via the pricing-db reader IAM user. Build-time eval was the
+// trigger for the 2026-05-11 incident where the pricing key was overwritten
+// and the build canary surfaced the regression. Force runtime evaluation.
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
   const authResult = await requireRole(request, ['admin']);
   if (authResult.error) return authResult.error;
