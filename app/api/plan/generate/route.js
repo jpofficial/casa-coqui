@@ -24,7 +24,14 @@ export async function POST(request) {
     const parsed = JSON.parse(text);
     const validated = ItinerarySchema.safeParse(parsed);
     if (!validated.success) {
-      console.error('AI output schema violation:', validated.error.format());
+      console.error(
+        'AI output schema violation:',
+        JSON.stringify(validated.error.issues, null, 2)
+      );
+      console.error(
+        'AI raw output (first 1500 chars):',
+        JSON.stringify(parsed).slice(0, 1500)
+      );
       throw new Error('schema_mismatch');
     }
     return new Response(text, { status: 200, headers: { 'content-type': 'application/json' } });

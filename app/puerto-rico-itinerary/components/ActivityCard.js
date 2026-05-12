@@ -14,13 +14,20 @@ const EMOJI_BY_TYPE = {
 
 const TIME_LABEL = {
   early_morning: '7:00 AM',
+  dawn: '6:00 AM',
   breakfast: '8:30 AM',
   morning: '10:00 AM',
+  brunch: '11:00 AM',
+  noon: '12:00 PM',
   lunch: '12:30 PM',
   afternoon: '2:00 PM',
+  sunset: '6:30 PM',
+  dusk: '7:00 PM',
   evening: '7:00 PM',
-  late_night: '10:00 PM',
+  dinner: '7:30 PM',
   night: '10:00 PM',
+  late_night: '10:00 PM',
+  midnight: '12:00 AM',
 };
 
 export default function ActivityCard({ item }) {
