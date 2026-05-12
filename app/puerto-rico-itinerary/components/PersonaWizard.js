@@ -63,15 +63,28 @@ const STEPS = [
   {
     freeText: true,
     field: 'special_requests',
-    question: 'Anything specific you want to do?',
-    helper: 'Optional — tell us in your own words. We&apos;ll weave it in.',
-    placeholder: 'e.g. "Take salsa lessons one night" or "Try the best mofongo in the city" or "See the bioluminescent bay"',
+    question: 'Tell us about you',
+    helper:
+      "The more we know, the better we tailor. Say it like you'd tell a friend — interests, vibe, what you avoid, what you're celebrating. Optional, you can skip.",
+    placeholder:
+      'e.g. "Love hiking and being in nature. Not into big crowds. Vegetarian. First time in PR — want a mix of must-sees and hidden spots."',
     examples: [
-      '🕺 Take salsa lessons',
-      '🥃 Visit a rum distillery',
-      '🌊 See the bioluminescent bay',
-      '🍲 Find the best mofongo',
-      '📸 Photograph Old San Juan at sunrise',
+      '🥾 Love nature & walking',
+      '🌅 First-time visitor',
+      '🌴 Want hidden gems',
+      '🎉 Not into nightlife',
+      '🥗 Vegetarian',
+      '🥃 Rum tasting',
+      '🕺 Want to dance salsa',
+      '📸 Mostly photography',
+      '👨‍👩‍👧 Traveling with kids',
+      '🎯 Celebrating anniversary',
+      '🎂 Celebrating birthday',
+      '♿ Need ADA-accessible options',
+      '💼 Solo / digital nomad',
+      '❌ Avoid tourist traps',
+      '🌊 Beach lover',
+      '🌃 Big nightlife fan',
     ],
   },
 ];
@@ -238,11 +251,15 @@ function FreeTextStep({ stepNumber, totalSteps, question, helper, placeholder, e
 
       <textarea
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value.slice(0, 500))}
         placeholder={placeholder}
         rows={4}
-        className="mb-4 w-full rounded-2xl border border-cafe-200 bg-white px-4 py-3 text-sm leading-relaxed text-coqui-900 placeholder:text-cafe-500 focus:border-coqui-500 focus:outline-none focus:ring-2 focus:ring-coqui-500/20 lg:px-5 lg:py-4 lg:text-base lg:mb-6"
+        maxLength={500}
+        className="mb-1 w-full rounded-2xl border border-cafe-200 bg-white px-4 py-3 text-sm leading-relaxed text-coqui-900 placeholder:text-cafe-500 focus:border-coqui-500 focus:outline-none focus:ring-2 focus:ring-coqui-500/20 lg:px-5 lg:py-4 lg:text-base"
       />
+      <p className="mb-4 text-right font-mono text-[10px] text-cafe-500 lg:mb-6">
+        {value.length}/500
+      </p>
 
       <p className="mb-3 text-center font-mono text-[11px] uppercase tracking-[0.08em] text-cafe-600">
         Or tap to add
