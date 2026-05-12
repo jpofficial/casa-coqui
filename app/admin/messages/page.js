@@ -222,6 +222,189 @@ function ThreadItem({ thread, onSelect }) {
   );
 }
 
+// Per-inbound-message draft action toolbar (Mark Sent / Refine / Regenerate / Escalate).
+// Only renders for airbnb inbound messages that have a draftReply and are not yet sent.
+// Handlers are lifted from AirbnbMessageCard — kept canonical there, invoked here.
+function DraftMessageToolbar({ msg, locale }) {
+  const [markSentOpen, setMarkSentOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [refineOpen, setRefineOpen] = useState(false);
+
+  // Only show for inbound messages with a draft reply in an actionable state
+  const showToolbar =
+    msg._source === 'airbnb_messages' &&
+    msg.direction === 'inbound' &&
+    msg.draftReply &&
+    msg.draftStatus !== 'sent';
+
+  if (!showToolbar) return null;
+
+  const isReady = msg.draftStatus === 'ready';
+  const isEscalated = msg.draftStatus === 'escalated';
+  const hasEditedReply = msg.editedReply && msg.editedReply.length > 0;
+
+  async function handleCopy() {
+    if (!msg.draftReply) return;
+    try {
+      await navigator.clipboard.writeText(msg.draftReply);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+  }
+
+  async function handleMarkSent(finalReply) {
+    setBusy(true);
+    try {
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+      if (!idToken) throw new Error('Not authenticated');
+      const res = await fetch(`/api/airbnb-messages/${msg.id}/mark-sent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ editedReply: finalReply }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+    } catch (err) {
+      console.error('Failed to mark as sent:', err);
+    } finally {
+      setBusy(false);
+      setMarkSentOpen(false);
+    }
+  }
+
+  async function handleRegenerate() {
+    setBusy(true);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/airbnb-messages/${msg.id}/regenerate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (!json.success) console.error('Regenerate failed:', json.error);
+    } catch (err) {
+      console.error('Failed to trigger regenerate:', err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleEscalate() {
+    setBusy(true);
+    try {
+      await updateDoc(doc(db, 'airbnb_messages', msg.id), {
+        draftStatus: 'escalated',
+        escalatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error('Failed to escalate:', err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      {/* Draft reply preview card */}
+      {msg.draftReply && (
+        <div className="mx-1 mt-1.5 mb-0.5 p-2.5 bg-green-50 rounded-xl border border-green-100">
+          <p className="text-[10px] font-semibold text-green-700 mb-1 uppercase tracking-wide">
+            Draft reply
+          </p>
+          <p className="text-xs text-gray-800 leading-snug whitespace-pre-wrap">
+            {msg.draftReply}
+          </p>
+          {/* Status badge */}
+          <div className="mt-1.5">
+            <DraftStatusBadge status={msg.draftStatus || 'pending'} locale={locale} />
+          </div>
+        </div>
+      )}
+
+      {/* Action buttons row */}
+      <div className="flex flex-wrap gap-1.5 mt-1.5 mx-1">
+        {msg.draftReply && (
+          <button
+            onClick={handleCopy}
+            disabled={busy}
+            className="py-1.5 px-2.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 active:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            {copied ? t(locale, 'admin_book_copied') : t(locale, 'admin_msg_copyReply')}
+          </button>
+        )}
+        {isReady && msg.draftReply && (
+          <button
+            onClick={() => setRefineOpen(true)}
+            disabled={busy}
+            className="flex items-center gap-1 py-1.5 px-2.5 rounded-lg bg-blue-50 text-xs font-medium text-blue-600 active:bg-blue-100 transition-colors disabled:opacity-40"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+              <path d="M15.98 1.804a1 1 0 00-1.96 0l-.24 1.192a1 1 0 01-.784.785l-1.192.238a1 1 0 000 1.962l1.192.238a1 1 0 01.785.785l.238 1.192a1 1 0 001.962 0l.238-1.192a1 1 0 01.785-.785l1.192-.238a1 1 0 000-1.962l-1.192-.238a1 1 0 01-.785-.785l-.238-1.192z" />
+            </svg>
+            Refine
+          </button>
+        )}
+        <button
+          onClick={handleRegenerate}
+          disabled={busy || msg.draftStatus === 'pending' || hasEditedReply}
+          title={hasEditedReply ? 'Regenerate disabled — draft has been manually edited.' : ''}
+          className="py-1.5 px-2.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 active:bg-gray-50 transition-colors disabled:opacity-40"
+        >
+          {t(locale, 'admin_msg_regenerate')}
+        </button>
+        {!isEscalated && (
+          <button
+            onClick={handleEscalate}
+            disabled={busy}
+            className="py-1.5 px-2.5 rounded-lg border border-red-200 text-xs font-medium text-red-600 active:bg-red-50 transition-colors disabled:opacity-40"
+          >
+            {t(locale, 'admin_msg_escalate')}
+          </button>
+        )}
+        {isReady && (
+          <button
+            onClick={() => setMarkSentOpen(true)}
+            disabled={busy}
+            className="py-1.5 px-2.5 rounded-lg bg-green-600 text-white text-xs font-medium active:bg-green-700 transition-colors disabled:opacity-50"
+          >
+            {t(locale, 'admin_msg_markSent')}
+          </button>
+        )}
+      </div>
+
+      {markSentOpen && (
+        <MarkSentModal
+          message={msg}
+          onConfirm={handleMarkSent}
+          onCancel={() => setMarkSentOpen(false)}
+          locale={locale}
+        />
+      )}
+
+      <RefineDrawer
+        isOpen={refineOpen}
+        onClose={() => setRefineOpen(false)}
+        draft={msg.draftReply || ''}
+        context={{
+          type: 'reply',
+          guestName: msg.guestName || msg.fromName || 'Guest',
+          bookingCode: msg.bookingCode,
+          inboundMessage: msg.body || '',
+        }}
+        onAccept={async (acceptedDraft) => {
+          await updateDoc(doc(db, 'airbnb_messages', msg.id), {
+            draftReply: acceptedDraft,
+            draftStatus: 'ready',
+          });
+        }}
+      />
+    </>
+  );
+}
+
 // Full chat view for a single thread
 function ChatView({ thread, allMessages, onBack, onLinkClick }) {
   const { locale } = useLocale();
@@ -314,10 +497,44 @@ function ChatView({ thread, allMessages, onBack, onLinkClick }) {
     }
   }
 
+  // Derive a display name that never leaks raw threadKeys.
+  // Unmatched threads use fromName/guestName if available, else "Unknown Guest".
+  const displayName = (() => {
+    if (thread.unmatched) {
+      // guestName was set to threadKey in buildThreads when no real name was available
+      const raw = thread.guestName || '';
+      if (raw && !raw.startsWith('guest:') && raw !== thread.threadKey) return raw;
+      return 'Unknown Guest';
+    }
+    if (thread.guestName && thread.guestName !== thread.bookingCode) return thread.guestName;
+    return `${t(locale, 'admin_msg_guestPrefix')} ${thread.bookingCode}`;
+  })();
+
+  const avatarLetter = displayName.replace('Unknown ', '').charAt(0).toUpperCase() || '?';
+
+  // Build a muted subhead line for matched threads
+  const bookingSubhead = (() => {
+    if (thread.unmatched || !thread.bookingCode) return null;
+    // Try to find booking dates from the thread messages
+    const withDates = allMessages.find(
+      (m) => (m.bookingCode === thread.bookingCode || m.threadKey === thread.threadKey) && (m.checkInDate || m.checkIn)
+    );
+    const checkIn = withDates?.checkInDate || withDates?.checkIn;
+    const checkOut = withDates?.checkOutDate || withDates?.checkOut;
+    if (checkIn && checkOut) {
+      const fmt = (d) => {
+        const date = d?.toDate ? d.toDate() : new Date(d);
+        return date.toLocaleDateString(locale === 'es' ? 'es' : 'en-US', { month: 'short', day: 'numeric' });
+      };
+      return `${thread.bookingCode} · ${fmt(checkIn)} – ${fmt(checkOut)}`;
+    }
+    return thread.bookingCode;
+  })();
+
   return (
     <div className="flex flex-col h-[calc(100vh-112px)]">
-      {/* Chat header */}
-      <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 flex-shrink-0">
+      {/* Sticky chat header */}
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 flex-shrink-0 shadow-sm">
         <button
           onClick={onBack}
           className="text-green-600 min-h-[44px] min-w-[44px] flex items-center justify-center -ml-2"
@@ -327,26 +544,30 @@ function ChatView({ thread, allMessages, onBack, onLinkClick }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm uppercase flex-shrink-0">
-          {(thread.guestName || thread.bookingCode || thread.threadKey || '?').charAt(0)}
+        {/* Avatar — matches ThreadItem style */}
+        <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm flex-shrink-0">
+          {avatarLetter}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-gray-900 truncate">
-              {thread.guestName !== thread.bookingCode
-                ? thread.guestName
-                : `${t(locale, 'admin_msg_guestPrefix')} ${thread.bookingCode}`}
-            </p>
-            {thread.unmatched && onLinkClick && (
-              <button
-                onClick={onLinkClick}
-                className="ml-2 text-[10px] px-2 py-1 bg-coqui-600 text-white rounded-lg font-semibold hover:bg-coqui-700 whitespace-nowrap flex-shrink-0"
-              >
-                {t(locale, 'admin_msg_link_button')}
-              </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
+            {thread.unmatched && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full whitespace-nowrap flex-shrink-0">
+                {t(locale, 'admin_msg_unmatched_badge')}
+              </span>
             )}
           </div>
-          <p className="text-xs text-gray-400 truncate">{t(locale, 'admin_msg_codePrefix')} {thread.bookingCode}</p>
+          {/* Subhead: booking code + dates for matched; link button for unmatched */}
+          {thread.unmatched && onLinkClick ? (
+            <button
+              onClick={onLinkClick}
+              className="mt-0.5 text-[11px] font-medium text-green-600 active:text-green-800 transition-colors"
+            >
+              {t(locale, 'admin_msg_link_button')}
+            </button>
+          ) : bookingSubhead ? (
+            <p className="text-[11px] text-gray-400 truncate mt-0.5">{bookingSubhead}</p>
+          ) : null}
         </div>
       </div>
 
@@ -358,9 +579,9 @@ function ChatView({ thread, allMessages, onBack, onLinkClick }) {
         {grouped.map((item) => {
           if (item.type === 'divider') {
             return (
-              <div key={item.key} className="flex items-center gap-2 my-3">
+              <div key={item.key} className="flex items-center gap-3 my-4">
                 <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-[11px] text-gray-400 font-medium">{item.label}</span>
+                <span className="text-[11px] text-gray-400 font-medium px-1">{item.label}</span>
                 <div className="flex-1 h-px bg-gray-200" />
               </div>
             );
@@ -369,8 +590,15 @@ function ChatView({ thread, allMessages, onBack, onLinkClick }) {
           const isHost = isHostMessage(msg);
           const isDraft = msg.direction === 'outbound_draft';
           const draftLabel = welcomeStateLabel(msg, locale);
+          // Show per-message draft toolbar for inbound airbnb messages with actionable drafts
+          const hasDraftToolbar =
+            !isHost &&
+            msg._source === 'airbnb_messages' &&
+            msg.draftReply &&
+            msg.draftStatus !== 'sent';
           return (
-            <div key={item.key} className={`flex ${isHost ? 'justify-end' : 'justify-start'} mt-1`}>
+            <div key={item.key} className={`flex flex-col ${isHost ? 'items-end' : 'items-start'} mt-1`}>
+              {/* Message bubble */}
               <div
                 className={`max-w-[78%] px-3.5 py-2.5 rounded-2xl text-sm leading-snug shadow-sm ${
                   isDraft
@@ -390,6 +618,12 @@ function ChatView({ thread, allMessages, onBack, onLinkClick }) {
                   </div>
                 )}
               </div>
+              {/* Draft action toolbar — only for inbound airbnb messages with an unsent draft */}
+              {hasDraftToolbar && (
+                <div className="w-full max-w-[90%] mt-1">
+                  <DraftMessageToolbar msg={msg} locale={locale} />
+                </div>
+              )}
             </div>
           );
         })}
