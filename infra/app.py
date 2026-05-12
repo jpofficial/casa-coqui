@@ -153,7 +153,7 @@ pricing = CasaCoquiPricingStack(
 )
 pricing.add_dependency(foundation)
 
-MiItinerarioStack(app, "MiItinerarioStack", env=env)
+itinerary = MiItinerarioStack(app, "MiItinerarioStack", env=env)
 
 cdk.Tags.of(app).add("Project", "casa-coqui")
 cdk.Tags.of(app).add("ManagedBy", "cdk")
@@ -162,5 +162,6 @@ cdk.Tags.of(pipeline).add("Lifecycle", "rebuildable")
 cdk.Tags.of(email).add("Lifecycle", "retain")
 cdk.Tags.of(hosting).add("Lifecycle", "rebuildable")
 cdk.Tags.of(pricing).add("Lifecycle", "rebuildable")
+cdk.Tags.of(itinerary).add("Lifecycle", "rebuildable")
 
 app.synth()

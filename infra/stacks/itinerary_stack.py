@@ -25,5 +25,30 @@ from constructs import Construct
 class MiItinerarioStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
-        # Tables, Lambdas, API GW will be added in subsequent tasks
-        pass
+
+        # Activities table — seeded ~85 items, AI reads at generation time
+        self.activities_table = ddb.Table(
+            self,
+            "ActivitiesTable",
+            table_name="mi-itinerario-activities",
+            partition_key=ddb.Attribute(name="activity_id", type=ddb.AttributeType.STRING),
+            billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
+            encryption=ddb.TableEncryption.AWS_MANAGED,
+            point_in_time_recovery=True,
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+
+        # GSI for filtering by neighborhood + type
+        self.activities_table.add_global_secondary_index(
+            index_name="neighborhood-type-index",
+            partition_key=ddb.Attribute(name="neighborhood", type=ddb.AttributeType.STRING),
+            sort_key=ddb.Attribute(name="type", type=ddb.AttributeType.STRING),
+            projection_type=ddb.ProjectionType.ALL,
+        )
+
+        cdk.CfnOutput(
+            self,
+            "ActivitiesTableName",
+            value=self.activities_table.table_name,
+            export_name="MiItinerarioActivitiesTable",
+        )
