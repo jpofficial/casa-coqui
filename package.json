@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/check-prompt-drift.js --quiet",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "TZ=America/Puerto_Rico node --test 'lib/__tests__/*.test.js'"
+    "test": "TZ=America/Puerto_Rico node --test 'lib/__tests__/*.test.js'",
+    "check:prompt-drift": "node scripts/check-prompt-drift.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
