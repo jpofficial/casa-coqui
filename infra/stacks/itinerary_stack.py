@@ -120,3 +120,25 @@ class MiItinerarioStack(Stack):
             value=generate_fn.function_name,
             export_name="MiItinerarioGenerateFnName",
         )
+
+        # ── HTTP API ──────────────────────────────────────────────────────────
+        http_api = apigw.HttpApi(
+            self,
+            "ItineraryHttpApi",
+            api_name="mi-itinerario-api",
+            cors_preflight=apigw.CorsPreflightOptions(
+                allow_origins=["*"],  # tighten to casa-coqui.cc domains before prod
+                allow_methods=[apigw.CorsHttpMethod.POST, apigw.CorsHttpMethod.GET, apigw.CorsHttpMethod.OPTIONS],
+                allow_headers=["content-type"],
+            ),
+        )
+
+        http_api.add_routes(
+            path="/generate",
+            methods=[apigw.HttpMethod.POST],
+            integration=apigw_int.HttpLambdaIntegration("GenerateInt", generate_fn),
+        )
+
+        self.http_api = http_api
+
+        cdk.CfnOutput(self, "HttpApiUrl", value=http_api.api_endpoint, export_name="MiItinerarioApiUrl")
