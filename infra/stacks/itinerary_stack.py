@@ -121,6 +121,45 @@ class MiItinerarioStack(Stack):
             export_name="MiItinerarioGenerateFnName",
         )
 
+        # itinerary-refine Lambda
+        refine_fn = _lambda.Function(
+            self,
+            "ItineraryRefineFn",
+            runtime=_lambda.Runtime.NODEJS_20_X,
+            handler="index.handler",
+            code=_lambda.Code.from_asset(
+                "lambdas/itinerary_refine",
+                bundling=cdk.BundlingOptions(
+                    image=_lambda.Runtime.NODEJS_20_X.bundling_image,
+                    command=["bash", "-c", "npm install --omit=dev --cache /tmp/.npm && cp -r . /asset-output"],
+                ),
+            ),
+            timeout=Duration.seconds(30),
+            memory_size=512,
+            environment={
+                "ACTIVITIES_TABLE": self.activities_table.table_name,
+                "ITINERARIES_TABLE": self.itineraries_table.table_name,
+            },
+        )
+        self.activities_table.grant_read_data(refine_fn)
+        self.itineraries_table.grant_read_write_data(refine_fn)
+
+        refine_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["bedrock:InvokeModel"],
+                resources=[
+                    # Cross-region inference profile (required for Haiku 4.5 on-demand)
+                    f"arn:aws:bedrock:us-east-1:{self.account}:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                    # Underlying foundation models across the 3 routed regions
+                    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
+                    "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
+                    "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
+                ],
+            )
+        )
+
+        self.refine_fn = refine_fn
+
         # ── HTTP API ──────────────────────────────────────────────────────────
         http_api = apigw.HttpApi(
             self,
@@ -137,6 +176,12 @@ class MiItinerarioStack(Stack):
             path="/generate",
             methods=[apigw.HttpMethod.POST],
             integration=apigw_int.HttpLambdaIntegration("GenerateInt", generate_fn),
+        )
+
+        http_api.add_routes(
+            path="/refine",
+            methods=[apigw.HttpMethod.POST],
+            integration=apigw_int.HttpLambdaIntegration("RefineInt", refine_fn),
         )
 
         self.http_api = http_api
