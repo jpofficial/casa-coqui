@@ -72,3 +72,51 @@ class MiItinerarioStack(Stack):
             value=self.itineraries_table.table_name,
             export_name="MiItinerarioItinerariesTable",
         )
+
+        # itinerary-generate Lambda
+        generate_fn = _lambda.Function(
+            self,
+            "ItineraryGenerateFn",
+            runtime=_lambda.Runtime.NODEJS_20_X,
+            handler="index.handler",
+            code=_lambda.Code.from_asset(
+                "lambdas/itinerary_generate",
+                bundling=cdk.BundlingOptions(
+                    image=_lambda.Runtime.NODEJS_20_X.bundling_image,
+                    command=["bash", "-c", "npm install --omit=dev --cache /tmp/.npm && cp -r . /asset-output"],
+                ),
+            ),
+            timeout=Duration.seconds(30),
+            memory_size=512,
+            environment={
+                "ACTIVITIES_TABLE": self.activities_table.table_name,
+                "ITINERARIES_TABLE": self.itineraries_table.table_name,
+            },
+        )
+
+        self.activities_table.grant_read_data(generate_fn)
+        self.itineraries_table.grant_write_data(generate_fn)
+
+        # Bedrock invocation permission for Claude Haiku
+        generate_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["bedrock:InvokeModel"],
+                resources=[
+                    # Cross-region inference profile (required for Haiku 4.5 on-demand)
+                    f"arn:aws:bedrock:us-east-1:{self.account}:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                    # Underlying foundation models across the 3 routed regions
+                    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
+                    "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
+                    "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
+                ],
+            )
+        )
+
+        self.generate_fn = generate_fn
+
+        cdk.CfnOutput(
+            self,
+            "ItineraryGenerateFnName",
+            value=generate_fn.function_name,
+            export_name="MiItinerarioGenerateFnName",
+        )
