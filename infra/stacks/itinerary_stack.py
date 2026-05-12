@@ -52,3 +52,23 @@ class MiItinerarioStack(Stack):
             value=self.activities_table.table_name,
             export_name="MiItinerarioActivitiesTable",
         )
+
+        # Itineraries table — anonymous plans w/ 90-day TTL, persistent if user_id set
+        self.itineraries_table = ddb.Table(
+            self,
+            "ItinerariesTable",
+            table_name="mi-itinerario-itineraries",
+            partition_key=ddb.Attribute(name="plan_id", type=ddb.AttributeType.STRING),
+            billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
+            encryption=ddb.TableEncryption.AWS_MANAGED,
+            point_in_time_recovery=True,
+            time_to_live_attribute="ttl_epoch",
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+
+        cdk.CfnOutput(
+            self,
+            "ItinerariesTableName",
+            value=self.itineraries_table.table_name,
+            export_name="MiItinerarioItinerariesTable",
+        )
