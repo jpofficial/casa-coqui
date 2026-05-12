@@ -29,10 +29,16 @@ const NEIGHBORHOODS = [
   },
 ];
 
-export default function WhereToStayPanel({ bookingUrl, includeCard = true }) {
+export default function WhereToStayPanel({ bookingUrl, bookingUrlTierra, bookingUrlCielo, includeCard = true }) {
   return (
     <section className="mt-12">
-      {includeCard && <CasaCoquiCard bookingUrl={bookingUrl} />}
+      {includeCard && (
+        <CasaCoquiCard
+          bookingUrl={bookingUrl}
+          bookingUrlTierra={bookingUrlTierra}
+          bookingUrlCielo={bookingUrlCielo}
+        />
+      )}
 
       <div className="mx-5 mb-8 md:mx-0">
         <h2 className="mb-1 text-center font-display text-2xl font-bold text-coqui-900 lg:text-3xl">

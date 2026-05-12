@@ -78,10 +78,17 @@ export default async function ItineraryPage({ params }) {
 
         {(() => {
           const { fit } = casaCoquiFits(plan);
-          const bookingUrl = process.env.CASA_COQUI_BOOKING_URL || '/bookings';
+          const bookingUrlTierra =
+            process.env.CASA_COQUI_BOOKING_URL_TIERRA ||
+            process.env.CASA_COQUI_BOOKING_URL ||
+            null;
+          const bookingUrlCielo = process.env.CASA_COQUI_BOOKING_URL_CIELO || null;
+          const bookingUrl = bookingUrlTierra || '/bookings';
           return (
             <WhereToStayPanel
               bookingUrl={bookingUrl}
+              bookingUrlTierra={bookingUrlTierra}
+              bookingUrlCielo={bookingUrlCielo}
               includeCard={fit}
             />
           );
