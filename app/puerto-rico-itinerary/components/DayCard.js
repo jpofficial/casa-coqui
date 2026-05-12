@@ -38,9 +38,14 @@ export default function DayCard({ day, date, plan_id }) {
       <h2 className="mb-1 font-display text-2xl font-bold leading-tight text-coqui-900">
         {day.theme || `Day ${day.day_num}`}
       </h2>
-      <p className="mb-5 font-display text-base italic text-cafe-700">
+      <p className="mb-3 font-display text-base italic text-cafe-700">
         {(day.items || []).length} stops
       </p>
+      {day.narrative && day.narrative.trim() && (
+        <p className="mb-5 max-w-[80%] border-l-2 border-coqui-200 pl-3 font-display text-[15px] italic leading-relaxed text-cafe-800">
+          {day.narrative}
+        </p>
+      )}
 
       {(day.items || []).map((item, idx) => (
         <ActivityCard key={`${day.day_num}-${idx}`} item={item} />

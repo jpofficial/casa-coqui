@@ -111,7 +111,42 @@ SPECIFIC USER REQUESTS (HIGH PRIORITY — must address these in the itinerary):
 If a request mentions a specific activity not in ACTIVITIES_DB (e.g. "salsa lessons", "rum distillery", "bioluminescent bay"), find the closest matching activity in ACTIVITIES_DB and use it. If no match exists, mention the request in a note on a related day's item (e.g., "Locals recommend La Junta on Wednesday nights at La Respuesta for salsa — 5-min walk from La Factoría").` : ''}
 
 OUTPUT: Strict JSON array of days. NO prose, NO markdown, NO code fences. Schema:
-[{"day_num": 1, "theme": "string", "items":[{"activity_id":"string","time":"morning|afternoon|evening","duration_min":number,"note":"string"}]}]
+[{"day_num": 1, "theme": "string", "narrative": "string", "items":[{"activity_id":"string","time":"morning|afternoon|evening","duration_min":number,"note":"string"}]}]
+
+NARRATIVE FIELD (REQUIRED on every day):
+- 2-4 sentences, ~60-100 words. Story-style prose that ties the day's activities together.
+- Second-person voice: "Start your morning at...", "Then make your way to...", "Wind down with...".
+- Emoji-rich: include 1 emoji per major beat (food 🍴 / coffee ☕ / walk 🚶 / beach 🌊 / sunset 🌅 / fort 🏰 / rainforest 🌴 / drink 🍹 / music 🎶 / market 🛍️). Pick the emoji that fits the activity.
+- Include ESTIMATED travel time between activities in approximate language: "5-min walk", "10-min Uber", "20-min drive", "a short stroll around the corner". Infer from general PR geography — DO NOT invent precise minutes or addresses.
+- Mostly English with occasional light Spanglish flavor ("grab a cortadito", "head to la playa") is fine, but readable to anglo tourists.
+- DO NOT hallucinate addresses, phone numbers, or exact opening hours. Use approximate language like "around lunchtime", "in the afternoon", "after sunset".
+- Reference the same activities listed in items[] — the narrative is a friendly retelling of the day, not new recommendations.
+
+<example>
+[
+  {
+    "day_num": 1,
+    "theme": "Old San Juan Highlights",
+    "narrative": "Start your morning at Café Cuatro Sombras with a Puerto Rican specialty cortadito ☕. Then take a 5-min walk through the blue cobblestones to El Morro for sweeping Atlantic views from the fort 🏰 (allow about 1.5 hours). For lunch, head a few blocks back to Pirilo Pizza 🍕 around the corner. Wind down the evening at La Factoría for craft cocktails 🍹 just a short stroll away.",
+    "items": [
+      {"activity_id": "cafe-cuatro-sombras", "time": "morning", "duration_min": 45, "note": "Try the cortadito"},
+      {"activity_id": "el-morro", "time": "morning", "duration_min": 90, "note": ""},
+      {"activity_id": "pirilo-pizza", "time": "afternoon", "duration_min": 60, "note": ""},
+      {"activity_id": "la-factoria", "time": "evening", "duration_min": 120, "note": "Multiple themed rooms"}
+    ]
+  },
+  {
+    "day_num": 2,
+    "theme": "El Yunque Rainforest",
+    "narrative": "Hit the road early for a 45-min drive east to El Yunque National Forest 🌴, where you'll hike to La Mina Falls and cool off in the pools 🌊 (plan for the full morning). After the hike, grab lunch at a roadside lechonera in Guavate 🍴 about 30-min away — pork shoulder, rice, and beans done right. Head back to Old San Juan in the late afternoon and catch the sunset 🌅 from Paseo de la Princesa with a piragua in hand.",
+    "items": [
+      {"activity_id": "el-yunque", "time": "morning", "duration_min": 240, "note": "Bring water and bug spray"},
+      {"activity_id": "guavate-lechon", "time": "afternoon", "duration_min": 90, "note": ""},
+      {"activity_id": "paseo-princesa", "time": "evening", "duration_min": 60, "note": "Sunset views"}
+    ]
+  }
+]
+</example>
 
 ACTIVITIES_DB:
 ${JSON.stringify(compact)}`,
