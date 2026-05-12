@@ -17,6 +17,8 @@ from aws_cdk import (
     aws_apigatewayv2_integrations as apigw_int,
     aws_iam as iam,
     aws_cloudwatch as cw,
+    aws_secretsmanager as secrets,
+    aws_scheduler as scheduler,
     Duration,
     RemovalPolicy,
 )
@@ -93,6 +95,65 @@ class MiItinerarioStack(Stack):
             "EventsCacheTableName",
             value=self.events_cache_table.table_name,
             export_name="MiItinerarioEventsCacheTable",
+        )
+
+        # ── Secrets Manager reference ─────────────────────────────────────────
+        # References existing secret (created manually via AWS CLI / console)
+        self.eventbrite_secret = secrets.Secret.from_secret_name_v2(
+            self,
+            "EventbriteToken",
+            "mi-itinerario/eventbrite-token",
+        )
+
+        # ── events-fetch Lambda — hourly Eventbrite poller ────────────────────
+        events_fetch_fn = _lambda.Function(
+            self,
+            "EventsFetchFn",
+            runtime=_lambda.Runtime.NODEJS_20_X,
+            handler="index.handler",
+            code=_lambda.Code.from_asset(
+                "lambdas/events_fetch",
+                bundling=cdk.BundlingOptions(
+                    image=_lambda.Runtime.NODEJS_20_X.bundling_image,
+                    command=["bash", "-c", "npm install --omit=dev --cache /tmp/.npm && cp -r . /asset-output"],
+                ),
+            ),
+            timeout=Duration.seconds(60),
+            memory_size=256,
+            environment={
+                "EVENTS_CACHE_TABLE": self.events_cache_table.table_name,
+                "EVENTBRITE_SECRET_NAME": "mi-itinerario/eventbrite-token",
+            },
+        )
+        self.events_cache_table.grant_write_data(events_fetch_fn)
+        self.eventbrite_secret.grant_read(events_fetch_fn)
+
+        self.events_fetch_fn = events_fetch_fn
+
+        cdk.CfnOutput(
+            self,
+            "EventsFetchFnName",
+            value=events_fetch_fn.function_name,
+            export_name="MiItinerarioEventsFetchFn",
+        )
+
+        # EventBridge Scheduler — fires every hour
+        scheduler_role = iam.Role(
+            self,
+            "EventsFetchSchedulerRole",
+            assumed_by=iam.ServicePrincipal("scheduler.amazonaws.com"),
+        )
+        events_fetch_fn.grant_invoke(scheduler_role)
+
+        scheduler.CfnSchedule(
+            self,
+            "EventsFetchSchedule",
+            schedule_expression="rate(1 hour)",
+            flexible_time_window=scheduler.CfnSchedule.FlexibleTimeWindowProperty(mode="OFF"),
+            target=scheduler.CfnSchedule.TargetProperty(
+                arn=events_fetch_fn.function_arn,
+                role_arn=scheduler_role.role_arn,
+            ),
         )
 
         # itinerary-generate Lambda

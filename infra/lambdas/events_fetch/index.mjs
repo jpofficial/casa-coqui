@@ -39,18 +39,26 @@ export const handler = async () => {
 };
 
 async function fetchEventbriteEvents(token) {
-  // Eventbrite v3 search API
-  const url = new URL('https://www.eventbriteapi.com/v3/events/search/');
-  url.searchParams.set('location.address', 'San Juan, Puerto Rico');
-  url.searchParams.set('location.within', '25km');
-  url.searchParams.set('start_date.range_start', new Date().toISOString().split('.')[0] + 'Z');
-  url.searchParams.set('start_date.range_end',
-    new Date(Date.now() + 90 * 86400_000).toISOString().split('.')[0] + 'Z');
+  // Eventbrite v3 API — organizer events endpoint
+  // The public event search API (/v3/events/search/) was deprecated.
+  // /v3/users/me/events/ returns events owned by the authenticated organizer.
+  // For future integration with a 3rd-party event aggregator, swap this out.
+  const url = new URL('https://www.eventbriteapi.com/v3/users/me/events/');
+  url.searchParams.set('status', 'live');
   url.searchParams.set('expand', 'venue,category');
+  url.searchParams.set('time_filter', 'current_future');
+  url.searchParams.set('page_size', '50');
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}` },
   });
+
+  if (res.status === 404) {
+    // Account has no organizer profile yet — return empty, not an error
+    console.warn('eventbrite 404: no organizer events found (account may have no published events)');
+    return [];
+  }
+
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`eventbrite ${res.status}: ${body.slice(0, 500)}`);
