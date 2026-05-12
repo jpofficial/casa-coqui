@@ -1,4 +1,7 @@
 import DayCard from '../components/DayCard';
+import WhereToStayPanel from '../components/WhereToStayPanel';
+import TipJar from '../components/TipJar';
+import { casaCoquiFits } from '@/lib/itinerary/persona-fit';
 
 async function fetchPlan(plan_id) {
   // Server-side fetch — runs in the same Vercel Function
@@ -51,6 +54,19 @@ export default async function ItineraryPage({ params }) {
         {(plan.days || []).map((day) => (
           <DayCard key={day.day_num} day={day} plan_id={plan.plan_id} />
         ))}
+
+        {(() => {
+          const { fit } = casaCoquiFits(plan);
+          const bookingUrl = process.env.CASA_COQUI_BOOKING_URL || '/bookings';
+          return (
+            <WhereToStayPanel
+              bookingUrl={bookingUrl}
+              includeCard={fit}
+            />
+          );
+        })()}
+
+        <TipJar bmcUsername={process.env.NEXT_PUBLIC_BMC_USERNAME} />
 
         <footer className="px-5 py-8 text-center text-xs text-cafe-600">
           plan_id: {plan.plan_id}
