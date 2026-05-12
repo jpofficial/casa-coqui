@@ -198,14 +198,16 @@ export default function PersonaWizard() {
       )}
 
       <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-cafe-50 via-cafe-50/95 to-transparent px-7 pb-7 pt-12">
-        <button
-          type="button"
-          onClick={handleContinue}
-          disabled={!canContinue()}
-          className="w-full rounded-2xl bg-coqui-500 px-8 py-4 font-semibold text-white shadow-[0_6px_14px_-3px_rgba(26,154,90,0.4)] disabled:bg-cafe-300 disabled:text-cafe-600 disabled:shadow-none"
-        >
-          {step < STEPS.length - 1 ? 'Continue →' : 'Build my itinerary →'}
-        </button>
+        <div className="mx-auto max-w-md md:max-w-xl lg:max-w-2xl">
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={!canContinue()}
+            className="w-full rounded-2xl bg-coqui-500 px-8 py-4 font-semibold text-white shadow-[0_6px_14px_-3px_rgba(26,154,90,0.4)] disabled:bg-cafe-300 disabled:text-cafe-600 disabled:shadow-none lg:py-5 lg:text-lg"
+          >
+            {step < STEPS.length - 1 ? 'Continue →' : 'Build my itinerary →'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -213,7 +215,7 @@ export default function PersonaWizard() {
 
 function FreeTextStep({ stepNumber, totalSteps, question, helper, placeholder, examples, value, onChange, onExampleClick }) {
   return (
-    <div className="px-7 pt-12 pb-40">
+    <div className="mx-auto max-w-md px-7 pt-12 pb-40 md:max-w-xl lg:max-w-2xl lg:pt-20 lg:pb-48">
       <div className="mb-12 flex items-center justify-between">
         <span className="font-mono text-xs uppercase tracking-[0.08em] text-caribe-700">
           Step {stepNumber} of {totalSteps}
@@ -229,17 +231,17 @@ function FreeTextStep({ stepNumber, totalSteps, question, helper, placeholder, e
         </span>
       </div>
 
-      <h2 className="mb-2 text-center font-display text-3xl font-bold leading-tight text-coqui-900">
+      <h2 className="mb-2 text-center font-display text-3xl font-bold leading-tight text-coqui-900 lg:text-5xl lg:mb-4">
         {question}
       </h2>
-      <p className="mb-6 text-center text-sm text-cafe-700">{helper}</p>
+      <p className="mb-6 text-center text-sm text-cafe-700 lg:text-base lg:mb-8">{helper}</p>
 
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={4}
-        className="mb-4 w-full rounded-2xl border border-cafe-200 bg-white px-4 py-3 text-sm leading-relaxed text-coqui-900 placeholder:text-cafe-500 focus:border-coqui-500 focus:outline-none focus:ring-2 focus:ring-coqui-500/20"
+        className="mb-4 w-full rounded-2xl border border-cafe-200 bg-white px-4 py-3 text-sm leading-relaxed text-coqui-900 placeholder:text-cafe-500 focus:border-coqui-500 focus:outline-none focus:ring-2 focus:ring-coqui-500/20 lg:px-5 lg:py-4 lg:text-base lg:mb-6"
       />
 
       <p className="mb-3 text-center font-mono text-[11px] uppercase tracking-[0.08em] text-cafe-600">
