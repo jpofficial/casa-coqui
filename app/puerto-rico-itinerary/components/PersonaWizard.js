@@ -60,6 +60,20 @@ const STEPS = [
       { value: 'slow', label: '🌅 Slow — savor it' },
     ],
   },
+  {
+    freeText: true,
+    field: 'special_requests',
+    question: 'Anything specific you want to do?',
+    helper: 'Optional — tell us in your own words. We&apos;ll weave it in.',
+    placeholder: 'e.g. "Take salsa lessons one night" or "Try the best mofongo in the city" or "See the bioluminescent bay"',
+    examples: [
+      '🕺 Take salsa lessons',
+      '🥃 Visit a rum distillery',
+      '🌊 See the bioluminescent bay',
+      '🍲 Find the best mofongo',
+      '📸 Photograph Old San Juan at sunrise',
+    ],
+  },
 ];
 
 export default function PersonaWizard() {
@@ -72,6 +86,7 @@ export default function PersonaWizard() {
     num_days: null,
     traveler_type: null,
     pace: null,
+    special_requests: '',
   });
 
   const current = STEPS[step];
@@ -92,7 +107,21 @@ export default function PersonaWizard() {
     });
   };
 
+  const handleFreeText = (value) => {
+    setAnswers((prev) => ({ ...prev, [current.field]: value }));
+  };
+
+  const handleExampleClick = (text) => {
+    setAnswers((prev) => {
+      const existing = prev[current.field] || '';
+      const cleaned = text.replace(/^[^\s]+ /, ''); // strip emoji prefix
+      const next = existing.trim() ? `${existing.trim()}. ${cleaned}` : cleaned;
+      return { ...prev, [current.field]: next };
+    });
+  };
+
   const canContinue = () => {
+    if (current.freeText) return true; // optional step
     const v = answers[current.field];
     if (current.multiSelect) return Array.isArray(v) && v.length > 0;
     return v !== null && v !== undefined;
@@ -112,6 +141,7 @@ export default function PersonaWizard() {
         body: JSON.stringify({
           ...answers,
           num_days: Number(answers.num_days),
+          special_requests: (answers.special_requests || '').trim() || undefined,
         }),
       });
       if (!res.ok) {
@@ -136,16 +166,30 @@ export default function PersonaWizard() {
 
   return (
     <div className="relative min-h-screen bg-cafe-50">
-      <WizardStep
-        stepNumber={step + 1}
-        totalSteps={STEPS.length}
-        question={current.question}
-        helper={current.helper}
-        options={current.options}
-        multiSelect={current.multiSelect}
-        selected={selectedForCurrent}
-        onToggle={handleToggle}
-      />
+      {current.freeText ? (
+        <FreeTextStep
+          stepNumber={step + 1}
+          totalSteps={STEPS.length}
+          question={current.question}
+          helper={current.helper}
+          placeholder={current.placeholder}
+          examples={current.examples}
+          value={answers[current.field] || ''}
+          onChange={handleFreeText}
+          onExampleClick={handleExampleClick}
+        />
+      ) : (
+        <WizardStep
+          stepNumber={step + 1}
+          totalSteps={STEPS.length}
+          question={current.question}
+          helper={current.helper}
+          options={current.options}
+          multiSelect={current.multiSelect}
+          selected={selectedForCurrent}
+          onToggle={handleToggle}
+        />
+      )}
 
       {error && (
         <p className="mx-auto max-w-md px-7 text-center text-sm text-red-700">
@@ -162,6 +206,56 @@ export default function PersonaWizard() {
         >
           {step < STEPS.length - 1 ? 'Continue →' : 'Build my itinerary →'}
         </button>
+      </div>
+    </div>
+  );
+}
+
+function FreeTextStep({ stepNumber, totalSteps, question, helper, placeholder, examples, value, onChange, onExampleClick }) {
+  return (
+    <div className="px-7 pt-12 pb-40">
+      <div className="mb-12 flex items-center justify-between">
+        <span className="font-mono text-xs uppercase tracking-[0.08em] text-caribe-700">
+          Step {stepNumber} of {totalSteps}
+        </span>
+        <div className="mx-3 h-1 flex-1 overflow-hidden rounded-full bg-cafe-200">
+          <div
+            className="h-full rounded-full bg-atardecer-300 transition-all duration-300"
+            style={{ width: `${(stepNumber / totalSteps) * 100}%` }}
+          />
+        </div>
+        <span className="font-mono text-xs uppercase tracking-[0.08em] text-caribe-700">
+          {Math.round((stepNumber / totalSteps) * 100)}%
+        </span>
+      </div>
+
+      <h2 className="mb-2 text-center font-display text-3xl font-bold leading-tight text-coqui-900">
+        {question}
+      </h2>
+      <p className="mb-6 text-center text-sm text-cafe-700">{helper}</p>
+
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={4}
+        className="mb-4 w-full rounded-2xl border border-cafe-200 bg-white px-4 py-3 text-sm leading-relaxed text-coqui-900 placeholder:text-cafe-500 focus:border-coqui-500 focus:outline-none focus:ring-2 focus:ring-coqui-500/20"
+      />
+
+      <p className="mb-3 text-center font-mono text-[11px] uppercase tracking-[0.08em] text-cafe-600">
+        Or tap to add
+      </p>
+      <div className="flex flex-wrap justify-center gap-2">
+        {examples.map((ex) => (
+          <button
+            key={ex}
+            type="button"
+            onClick={() => onExampleClick(ex)}
+            className="rounded-full border border-cafe-200 bg-cafe-100 px-3 py-1.5 text-xs text-coqui-900 hover:bg-cafe-200"
+          >
+            {ex}
+          </button>
+        ))}
       </div>
     </div>
   );

@@ -14,7 +14,7 @@ const bedrock = new BedrockRuntimeClient({ region: REGION });
 export const handler = async (event) => {
   try {
     const body = JSON.parse(event.body || '{}');
-    const { interests, num_days, traveler_type, pace } = body;
+    const { interests, num_days, traveler_type, pace, special_requests } = body;
 
     if (!Array.isArray(interests) || interests.length === 0)
       return resp(400, { error: 'interests required' });
@@ -23,7 +23,7 @@ export const handler = async (event) => {
 
     const plan_id = nanoid(10);
     const activities = await loadActivities(interests);
-    const prompt = buildPrompt({ interests, num_days, traveler_type, pace, activities });
+    const prompt = buildPrompt({ interests, num_days, traveler_type, pace, special_requests, activities });
 
     const { days, usage } = await generateWithBedrock(prompt);
     console.log(JSON.stringify({
@@ -69,7 +69,7 @@ async function loadActivities(interests) {
   );
 }
 
-function buildPrompt({ interests, num_days, traveler_type, pace, activities }) {
+function buildPrompt({ interests, num_days, traveler_type, pace, special_requests, activities }) {
   const compact = activities.map((a) => ({
     id: a.activity_id,
     name: a.name,
@@ -103,7 +103,12 @@ USER PROFILE:
 - interests: ${JSON.stringify(interests)}
 - num_days: ${num_days}
 - traveler_type: ${traveler_type}
-- pace: ${pace}
+- pace: ${pace}${special_requests ? `
+
+SPECIFIC USER REQUESTS (HIGH PRIORITY — must address these in the itinerary):
+"${special_requests}"
+
+If a request mentions a specific activity not in ACTIVITIES_DB (e.g. "salsa lessons", "rum distillery", "bioluminescent bay"), find the closest matching activity in ACTIVITIES_DB and use it. If no match exists, mention the request in a note on a related day's item (e.g., "Locals recommend La Junta on Wednesday nights at La Respuesta for salsa — 5-min walk from La Factoría").` : ''}
 
 OUTPUT: Strict JSON array of days. NO prose, NO markdown, NO code fences. Schema:
 [{"day_num": 1, "theme": "string", "items":[{"activity_id":"string","time":"morning|afternoon|evening","duration_min":number,"note":"string"}]}]
