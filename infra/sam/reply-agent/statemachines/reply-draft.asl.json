@@ -26,7 +26,7 @@
         {
           "ErrorEquals": ["States.ALL"],
           "ResultPath": "$.error",
-          "Next": "WorkflowFailed"
+          "Next": "SendToDLQ"
         }
       ],
       "Next": "RAGRetrieve"
@@ -87,7 +87,7 @@
         {
           "ErrorEquals": ["States.ALL"],
           "ResultPath": "$.error",
-          "Next": "WorkflowFailed"
+          "Next": "SendToDLQ"
         }
       ],
       "Next": "WriteBack"
@@ -99,7 +99,11 @@
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
         "FunctionName": "${WriteBackArn}",
-        "Payload.$": "$"
+        "Payload": {
+          "input.$": "$",
+          "executionArn.$": "$$.Execution.Id",
+          "executionStartTime.$": "$$.Execution.StartTime"
+        }
       },
       "ResultPath": "$.writeBack",
       "ResultSelector": {
@@ -119,10 +123,26 @@
         {
           "ErrorEquals": ["States.ALL"],
           "ResultPath": "$.error",
-          "Next": "WorkflowFailed"
+          "Next": "SendToDLQ"
         }
       ],
       "End": true
+    },
+
+    "SendToDLQ": {
+      "Type": "Task",
+      "Comment": "Send execution context to SQS DLQ for human-loop redrive (Phase 3)",
+      "Resource": "arn:aws:states:::sqs:sendMessage",
+      "Parameters": {
+        "QueueUrl": "${ReplyDraftDLQUrl}",
+        "MessageBody": {
+          "messageId.$": "$.message.id",
+          "threadKey.$": "$.message.threadKey",
+          "executionArn.$": "$$.Execution.Id",
+          "error.$": "$.error"
+        }
+      },
+      "Next": "WorkflowFailed"
     },
 
     "WorkflowFailed": {

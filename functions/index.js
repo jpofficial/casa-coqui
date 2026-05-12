@@ -22,7 +22,18 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { setGlobalOptions } = require('firebase-functions/v2');
+const { defineSecret, defineString } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
+
+// ── Phase 3 v3.1 — F2: v2 secrets/params, NOT functions.config() ─────────
+const BRIDGE_AWS_ACCESS_KEY_ID = defineSecret('BRIDGE_AWS_ACCESS_KEY_ID');
+const BRIDGE_AWS_SECRET_ACCESS_KEY = defineSecret('BRIDGE_AWS_SECRET_ACCESS_KEY');
+const REPLY_DRAFT_STATE_MACHINE_ARN = defineString('REPLY_DRAFT_STATE_MACHINE_ARN', {
+  default: 'arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft',
+});
+const APPCONFIG_APPLICATION = defineString('APPCONFIG_APPLICATION', { default: 'casa-coqui-reply-agent' });
+const APPCONFIG_ENVIRONMENT = defineString('APPCONFIG_ENVIRONMENT', { default: 'prod' });
+const APPCONFIG_FLAGS_PROFILE = defineString('APPCONFIG_FLAGS_PROFILE', { default: 'feature-flags' });
 
 const { parseReceiptHandler } = require('./parseReceipt');
 const { reorderCheckHandler } = require('./reorderCheck');
@@ -211,12 +222,18 @@ const { embedText } = require('./lib/embeddings');
 const { db } = require('./firebaseInit');
 const { FieldValue } = require('firebase-admin/firestore');
 
+// ── Phase 3 v3.1 bridge modules ─────────────────────────────────────────
+const { decideRoute } = require('./lib/decide-route');
+const { fetchReplyEngineFlag } = require('./lib/appconfig-client');
+const { startReplyDraftExecution } = require('./lib/aws-sfn-bridge');
+const { emitBridgeMetric } = require('./lib/bridge-metrics');
+
 exports.onAirbnbMessageCreated = onDocumentCreated(
   {
     document: 'airbnb_messages/{messageId}',
     memory: '512MiB',
     timeoutSeconds: 120,
-    secrets: ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY'],
+    secrets: ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', BRIDGE_AWS_ACCESS_KEY_ID, BRIDGE_AWS_SECRET_ACCESS_KEY],
   },
   async (event) => {
     const snap = event.data;
@@ -330,6 +347,52 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
       const contextJson = buildReplyInput({
         message: messageWithId, thread, booking, settings, voiceSamples, relevantConversations,
       });
+      const voicePrompt = SYSTEM_PROMPT; // alias for bridge dispatch
+
+      // ─── BRIDGE DISPATCH (Phase 3 v3.1) ───────────────────────────────────────
+      // Insertion point: AFTER messageWithId build, AFTER booking + thread fetch,
+      // AFTER contextJson + voicePrompt + voiceProfilePrompt + RAG retrieval —
+      // BUT BEFORE the generateReplyChain() call.
+      //
+      // Decision 19 v3.1: shared cost is Firestore reads + RAG embed (~$0.0001).
+      // The SFN saves the Anthropic LLM call (the real money — ~$0.03/draft).
+      //
+      // All of contextJson, voicePrompt, voiceProfilePrompt, relevantConversations,
+      // thread MUST already be built above. The Reasoner Lambda has no Firestore
+      // access — passing pre-built inputs is the SFN contract.
+      // ─────────────────────────────────────────────────────────────────────────
+      const flag = await fetchReplyEngineFlag();
+      const { engine, reason } = decideRoute({ messageId, flag });
+      logger.info('[bridge] route', { messageId, engine, reason, flagVersion: flag.version });
+
+      let routedByOverride = null;
+      if (engine === 'aws-sfn') {
+        try {
+          await startReplyDraftExecution({
+            message: messageWithId,
+            contextJson,
+            voicePrompt,
+            voiceProfilePrompt,
+            relevantConversations,
+            thread,
+            routedBy: reason,                       // 'rollout-routed'
+            appConfigVersion: flag.version,         // AppConfig VersionLabel
+          });
+          await emitBridgeMetric('BridgeRouteSuccesses');
+          return; // SFN owns WriteBack; legacy chain doesn't run
+        } catch (bridgeErr) {
+          logger.error('[bridge] StartExecution failed, falling back to legacy', bridgeErr);
+          await emitBridgeMetric('BridgeRouteFailures');
+          routedByOverride = 'legacy-fallback';
+        }
+      }
+
+      if (reason === 'shadow-stub') {
+        logger.warn('[bridge] shadow_mode_not_implemented_routing_to_legacy', { messageId });
+      }
+
+      // ── LEGACY JS CHAIN — falls through here for mode:firebase OR fallback ──
+      const _legacyRoutedBy = routedByOverride || reason;
 
       let result;
       try {
@@ -359,6 +422,7 @@ exports.onAirbnbMessageCreated = onDocumentCreated(
       // Log agent run
       if (result._agentRun) {
         result._agentRun.refId = messageId;
+        result._agentRun.routedBy = _legacyRoutedBy;
         await db.collection('agent_runs').add(result._agentRun);
       }
 

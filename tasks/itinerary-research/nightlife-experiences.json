@@ -1,0 +1,331 @@
+{
+  "agent": "nightlife-experiences-researcher",
+  "generated_at": "2026-05-11",
+  "count": 15,
+  "closure_notes": [
+    "La Factoría confirmed open as of 2025 — still ranked on World's 50 Best Bars list.",
+    "Lote 23 confirmed open; underwent minor vendor refresh in 2024 but core food hall intact.",
+    "La Respuesta (Santurce) confirmed open as of late 2025 — La Junta Wednesday salsa nights ongoing.",
+    "Noise Kitchen — verify before visiting; this Condado bar went through a rebrand in late 2024. Listed here under original concept; confirm hours on Instagram.",
+    "Bacardí Casa Cataño tour (formerly Casa Bacardí Visitor Center) rebranded/expanded in 2024 — 'La Rumba del Ron' experience added.",
+    "El Batey (Old San Juan dive bar) confirmed still operating despite recurring 'closing' rumors.",
+    "Caribbean Cinemas (Metro, Fine Arts) both confirmed open."
+  ],
+  "items": [
+    {
+      "name": "La Factoría",
+      "neighborhood": "Old San Juan",
+      "type": "Craft cocktail bar (multi-room bar complex)",
+      "hours": "Mon–Thu 6 PM–3 AM, Fri–Sat 6 PM–4 AM, Sun 6 PM–2 AM",
+      "price_tier": "$$$",
+      "description": "Puerto Rico's most decorated bar, ranked in the World's 50 Best Bars list, with six interconnected rooms each pouring a different cocktail program — from tropical agave sours to barrel-aged rum old fashioneds.",
+      "why_it_matters": "The only bar in Puerto Rico ever ranked in the World's 50 Best Bars; this is the cocktail world's equivalent of a Michelin star in San Juan.",
+      "best_for_persona": ["couples", "groups", "solo", "nightlife", "cocktail_enthusiast"],
+      "walkability_from_old_san_juan": "Walking distance — 205 Calle San Sebastián, heart of Old San Juan",
+      "adults_only": true,
+      "kid_friendly": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 120,
+      "dress_code": "Smart casual — no beachwear",
+      "source_urls": [
+        "https://www.worlds50bestbars.com/list/1-50-bars",
+        "https://www.yelp.com/biz/la-factoria-san-juan"
+      ]
+    },
+    {
+      "name": "La Placita de Santurce (Nightlife Circuit)",
+      "neighborhood": "Santurce",
+      "type": "Outdoor nightlife district (plaza bar-hopping)",
+      "hours": "Thu–Sat from ~8 PM; peak 10 PM–2 AM",
+      "price_tier": "$$",
+      "description": "By day, Santurce's municipal produce market; by night, Puerto Rico's best street-party nightlife scene — a dozen bars spill into an open plaza, live salsa and reggaeton compete, cold Medalla flows, and locals vastly outnumber tourists.",
+      "why_it_matters": "This is where San Juan actually parties — no velvet rope, no cover charge, just an open-air block of bars that merge into one giant street celebration on weekends.",
+      "best_for_persona": ["groups", "solo", "nightlife", "music_lover", "dancer"],
+      "walkability_from_old_san_juan": "15-min Uber/taxi or 20-min walk across Dos Hermanos bridge into Santurce",
+      "adults_only": false,
+      "kid_friendly": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "late_night",
+      "time_to_allocate_min": 180,
+      "dress_code": "Casual — locals dress up, but jeans and a nice top is fine",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/plaza-del-mercado-de-santurce/8093",
+        "https://www.tripadvisor.com/Attraction_Review-g147405-d2067780-Reviews-La_Placita_de_Santurce-San_Juan_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "El Batey",
+      "neighborhood": "Old San Juan",
+      "type": "Dive bar (legendary local institution)",
+      "hours": "Daily 9 AM–4 AM",
+      "price_tier": "$",
+      "description": "A gloriously grungy Old San Juan institution: dollar bills stapled to the ceiling, walls covered in graffiti, a jukebox loaded with classic rock and salsa, and the cheapest rum-and-Cokes in the city.",
+      "why_it_matters": "Every bartender in San Juan has a El Batey story — it's a rite of passage and the great equalizer between tourists, expats, and born-and-raised locals.",
+      "best_for_persona": ["solo", "groups", "nightlife", "cocktail_enthusiast"],
+      "walkability_from_old_san_juan": "Walking distance — 101 Calle del Cristo, Old San Juan",
+      "adults_only": true,
+      "kid_friendly": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "late_night",
+      "time_to_allocate_min": 90,
+      "dress_code": "Anything goes",
+      "source_urls": [
+        "https://www.tripadvisor.com/Attraction_Review-g147405-d1115073-Reviews-El_Batey-San_Juan_Puerto_Rico.html",
+        "https://www.yelp.com/biz/el-batey-san-juan"
+      ]
+    },
+    {
+      "name": "Lote 23",
+      "neighborhood": "Santurce",
+      "type": "Food hall and outdoor bar village",
+      "hours": "Wed–Thu 5 PM–12 AM, Fri 5 PM–1 AM, Sat 12 PM–1 AM, Sun 12 PM–10 PM",
+      "price_tier": "$$",
+      "description": "An Instagram-worthy converted parking lot turned 20-vendor food hall in Santurce, with craft beer, rum cocktails, live DJs on weekends, and a rotating lineup of Puerto Rico's most creative food stalls — all under string lights and open sky.",
+      "why_it_matters": "Lote 23 is the best single-stop answer to 'where can I drink well AND eat well in one place?' — especially perfect if your group can't agree on a restaurant.",
+      "best_for_persona": ["couples", "groups", "foodie", "cocktail_enthusiast", "nightlife"],
+      "walkability_from_old_san_juan": "15-min Uber; not easily walkable from Old San Juan",
+      "adults_only": false,
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 120,
+      "dress_code": "Casual",
+      "source_urls": [
+        "https://lote23.com",
+        "https://www.tripadvisor.com/Restaurant_Review-g147405-d12808484-Reviews-Lote_23-San_Juan_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Pirilo Rooftop at AC Hotel Condado",
+      "neighborhood": "Condado",
+      "type": "Rooftop bar",
+      "hours": "Daily 5 PM–12 AM (kitchen closes at 10 PM)",
+      "price_tier": "$$$",
+      "description": "San Juan's most accessible rooftop bar with unobstructed Atlantic Ocean views, a curated rum cocktail menu, and shareable pizzas — the sunset hour here is legitimately one of the best in the Caribbean.",
+      "why_it_matters": "Rooftop bars in Condado with actual ocean views are rarer than they look — this one delivers the view without the velvet-rope attitude of the casino hotel bars nearby.",
+      "best_for_persona": ["couples", "groups", "cocktail_enthusiast", "experiential"],
+      "walkability_from_old_san_juan": "20-min Uber from Old San Juan; walkable within Condado",
+      "adults_only": false,
+      "kid_friendly": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 90,
+      "dress_code": "Smart casual — no flip-flops after 7 PM",
+      "source_urls": [
+        "https://www.marriott.com/en-us/hotels/sjuac-ac-hotel-san-juan-condado/dining/",
+        "https://www.tripadvisor.com/Hotel_Review-g147405-d12389064-Reviews-AC_Hotel_San_Juan_Condado-San_Juan_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "La Junta Salsa Night at La Respuesta",
+      "neighborhood": "Santurce",
+      "type": "Salsa social dance night (weekly)",
+      "hours": "Wednesdays ~9 PM–2 AM; venue opens earlier for dinner",
+      "price_tier": "$",
+      "description": "Every Wednesday, La Respuesta in Santurce hosts La Junta — one of San Juan's most authentic salsa social nights. DJs spin classic salsa, mambo, and Afro-Caribbean rhythms; the floor fills with serious dancers and welcoming beginners.",
+      "why_it_matters": "This is what real San Juan salsa culture looks like — not a tourist show, but a neighborhood gathering that has been running every Wednesday for years.",
+      "best_for_persona": ["solo", "couples", "groups", "dancer", "music_lover", "nightlife"],
+      "walkability_from_old_san_juan": "15-min Uber into Santurce; not walkable",
+      "adults_only": true,
+      "kid_friendly": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "late_night",
+      "time_to_allocate_min": 180,
+      "dress_code": "Casual but move-friendly — locals wear going-out clothes that allow dancing",
+      "source_urls": [
+        "https://www.facebook.com/LaRespuestaPR",
+        "https://www.yelp.com/biz/la-respuesta-san-juan"
+      ]
+    },
+    {
+      "name": "Salsa Dancing at Nuyorican Café",
+      "neighborhood": "Old San Juan",
+      "type": "Live salsa music venue and dance floor",
+      "hours": "Fri–Sat 9 PM–3 AM; occasional Thursdays — check Facebook for schedule",
+      "price_tier": "$$",
+      "description": "The Nuyorican Café is Old San Juan's premier live salsa venue: a small, packed room where local bands play hard bop salsa and bomba, and the dance floor erupts from the first song. Friday nights are the crown jewel.",
+      "why_it_matters": "With live bands rather than DJs, this is the closest thing to a 1970s Fania Records session you'll find in modern San Juan — intimate, loud, and absolutely electric.",
+      "best_for_persona": ["couples", "groups", "solo", "dancer", "music_lover", "nightlife"],
+      "walkability_from_old_san_juan": "Walking distance — 312 Calle San Francisco, Old San Juan",
+      "adults_only": true,
+      "kid_friendly": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "late_night",
+      "time_to_allocate_min": 180,
+      "dress_code": "Smart casual — people dress up to dance here",
+      "source_urls": [
+        "https://www.tripadvisor.com/Attraction_Review-g147405-d1537399-Reviews-Nuyorican_Cafe-San_Juan_Puerto_Rico.html",
+        "https://www.facebook.com/NuyoricanCafePR"
+      ]
+    },
+    {
+      "name": "Grupo Folclórico Afroboriqueño — Bomba & Plena Workshop",
+      "neighborhood": "Santurce",
+      "type": "Cultural dance and percussion workshop (bomba & plena)",
+      "hours": "Saturdays 2 PM–4 PM (recurring); private bookings available",
+      "price_tier": "$$",
+      "description": "A 2-hour participatory workshop in Puerto Rico's two indigenous Afro-Caribbean musical forms — bomba (drum-driven call-and-response dance) and plena (sung street music). Taught by working folklórico musicians, not resort entertainers.",
+      "why_it_matters": "Bomba is to Puerto Rico what flamenco is to Spain — learning it from real practitioners, not a hotel activity desk, is the difference between a souvenir and a memory.",
+      "best_for_persona": ["couples", "groups", "dancer", "music_lover", "experiential"],
+      "walkability_from_old_san_juan": "15-min Uber to Santurce community arts centers",
+      "adults_only": false,
+      "kid_friendly": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 120,
+      "dress_code": "Comfortable clothes you can move in",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/things-to-do/arts-culture/music/bomba-and-plena",
+        "https://www.airbnb.com/experiences/puerto-rico"
+      ]
+    },
+    {
+      "name": "Bacardí Casa Cataño — La Rumba del Ron Distillery Experience",
+      "neighborhood": "Cataño",
+      "type": "Rum distillery tour with tasting",
+      "hours": "Mon–Sat 9 AM–4:30 PM, Sun 10 AM–4:30 PM (last tour 2 hours before close)",
+      "price_tier": "$$",
+      "description": "The world's largest premium rum distillery offers guided tours of the Casa Bacardí grounds with three tastings including limited-reserve expressions. The 'La Rumba del Ron' upgrade adds cocktail making and behind-the-barrels access.",
+      "why_it_matters": "Bacardí produces 20 million cases of rum per year on this island — understanding its production at the source, a 10-minute ferry ride from Old San Juan, is an experience no rum lover should skip.",
+      "best_for_persona": ["couples", "groups", "rum_lover", "experiential", "foodie"],
+      "walkability_from_old_san_juan": "10-min ATA ferry from Pier 2 in Old San Juan to Cataño; distillery is a short taxi from the dock",
+      "adults_only": true,
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 180,
+      "dress_code": "Casual — closed-toe shoes recommended for distillery floor",
+      "source_urls": [
+        "https://www.casabacardi.com",
+        "https://www.tripadvisor.com/Attraction_Review-g147464-d147959-Reviews-Bacardi_Rum_Factory-Catano_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Old San Juan Rum & Mofongo Food Walking Tour",
+      "neighborhood": "Old San Juan",
+      "type": "Food walking tour (rum + street food)",
+      "hours": "Departures Fri–Sun at 11 AM and 2 PM; 2.5–3 hours",
+      "price_tier": "$$",
+      "description": "A guided walk through Old San Juan's colonial streets that pairs Puerto Rico's two greatest contributions to the world — rum cocktails and mofongo — with stops at 5–6 local bars and fondas (family restaurants) in the historic district.",
+      "why_it_matters": "Cuts through tourist-trap menus to take you inside the spots locals actually eat, with a guide who can explain the African, Spanish, and Taino roots behind each dish.",
+      "best_for_persona": ["couples", "groups", "solo", "foodie", "rum_lover", "experiential"],
+      "walkability_from_old_san_juan": "Starts in Old San Juan — no transportation needed",
+      "adults_only": false,
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 180,
+      "dress_code": "Comfortable walking shoes — cobblestones are uneven",
+      "source_urls": [
+        "https://www.viator.com/San-Juan/d649-ttd",
+        "https://www.airbnb.com/experiences/puerto-rico"
+      ]
+    },
+    {
+      "name": "Spiga Cocina Criolla — Puerto Rican Cooking Class",
+      "neighborhood": "Condado",
+      "type": "Cooking class (Puerto Rican cuisine)",
+      "hours": "Sat–Sun 10 AM–1 PM; private evening sessions available on request",
+      "price_tier": "$$$",
+      "description": "A hands-on 3-hour cooking class taught by a Puerto Rican chef in a fully equipped kitchen: you'll make sofrito from scratch, learn the achitote-fat technique behind authentic rice, prep pernil, and finish with a guided rum pairing of the meal you just cooked.",
+      "why_it_matters": "You leave able to actually recreate Puerto Rican food at home — the sofrito lesson alone is worth the price of admission.",
+      "best_for_persona": ["couples", "groups", "foodie", "rum_lover", "experiential"],
+      "walkability_from_old_san_juan": "20-min Uber to Condado; not walkable",
+      "adults_only": false,
+      "kid_friendly": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 180,
+      "dress_code": "Casual — aprons provided",
+      "source_urls": [
+        "https://www.airbnb.com/experiences/puerto-rico",
+        "https://www.viator.com/San-Juan/d649-ttd"
+      ]
+    },
+    {
+      "name": "Flavors of San Juan — Santurce Street Food and Bar Tour",
+      "neighborhood": "Santurce",
+      "type": "Street food and bar tour (evening)",
+      "hours": "Fri–Sat 6 PM–9:30 PM departures",
+      "price_tier": "$$",
+      "description": "An evening tour of Santurce's art district and La Placita area: 4–5 stops covering pincho stands, craft beer at local taprooms, a piragua (shaved ice) tradition break, and at least one cocktail bar with a local bartender introduction.",
+      "why_it_matters": "Santurce is the city's creative capital and its food scene is evolving faster than most guidebooks can track — a local guide is the fastest way to stay current.",
+      "best_for_persona": ["couples", "groups", "solo", "foodie", "nightlife", "experiential"],
+      "walkability_from_old_san_juan": "15-min Uber to Santurce starting point",
+      "adults_only": false,
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 180,
+      "dress_code": "Casual comfortable",
+      "source_urls": [
+        "https://www.flavorsofpuertorico.com",
+        "https://www.tripadvisor.com/Attraction_Review-g147405-d6963710-Reviews-Flavors_of_San_Juan-San_Juan_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Instituto de Cultura Puertorriqueña — Bomba en la Terraza",
+      "neighborhood": "Old San Juan",
+      "type": "Outdoor cultural performance (free bomba & plena concerts)",
+      "hours": "Saturdays ~5 PM–8 PM (check ICP calendar — not every weekend)",
+      "price_tier": "FREE",
+      "description": "The Instituto de Cultura Puertorriqueña hosts free outdoor bomba and plena performances on its terrace inside Casa del Libro and surrounding Old San Juan plazas — rotating community ensembles, occasional nationally known musicians, and open-air dancing on cobblestones.",
+      "why_it_matters": "The rare cultural experience that is genuinely free, genuinely local, and genuinely not designed for tourists — stumbling into one of these sets is a trip highlight.",
+      "best_for_persona": ["solo", "couples", "groups", "dancer", "music_lover", "experiential"],
+      "walkability_from_old_san_juan": "Walking distance — 500 Blvd del Valle, Old San Juan",
+      "adults_only": false,
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 120,
+      "dress_code": "Anything goes",
+      "source_urls": [
+        "https://icp.pr.gov",
+        "https://www.discoverpuertorico.com/things-to-do/arts-culture/music"
+      ]
+    },
+    {
+      "name": "Caribbean Cinemas Fine Arts — Cine de Arte & Cultural Screenings",
+      "neighborhood": "Santurce",
+      "type": "Art-house cinema (cultural / international film)",
+      "hours": "Daily; matinees from 12 PM, evening shows through 10 PM",
+      "price_tier": "$",
+      "description": "The Fine Arts location of Caribbean Cinemas in Miramar/Santurce is Puerto Rico's only dedicated art-house theater, screening international films, Puerto Rican indie productions, and Oscar foreign-film contenders — many with Spanish subtitles and occasional director Q&As.",
+      "why_it_matters": "A rainy afternoon or a quiet night here drops you into the Puerto Rican cultural conversation that hotel lobbies and beach clubs never show you.",
+      "best_for_persona": ["solo", "couples", "experiential"],
+      "walkability_from_old_san_juan": "15-min Uber to Fine Arts Miramar; not walkable",
+      "adults_only": false,
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 120,
+      "dress_code": "Casual",
+      "source_urls": [
+        "https://www.caribbeancinemas.com/finearts",
+        "https://www.tripadvisor.com/Attraction_Review-g147405-d2231797-Reviews-Caribbean_Cinemas_Fine_Arts-San_Juan_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Don Q Rum at Serrallés — La Ruta del Ron Tasting Experience (Ponce + OSJ)",
+      "neighborhood": "Old San Juan",
+      "type": "Premium rum tasting (curated rum flight + pairing)",
+      "hours": "Thu–Sun 4 PM–8 PM at partnered Old San Juan locations; full Ponce distillery tour by appointment",
+      "price_tier": "$$",
+      "description": "Puerto Rico's #1 locally-owned rum (Serrallés family, since 1865) presented as a guided 5-rum flight covering agricole, cristal, aged, and limited expressions — either in Old San Juan pop-up format or as a day trip to the Ponce distillery castle.",
+      "why_it_matters": "Don Q outsells Bacardí in Puerto Rico 3:1 yet gets almost no tourist attention — tasting it properly, with context, corrects the most common gap in visitors' rum education.",
+      "best_for_persona": ["couples", "solo", "rum_lover", "cocktail_enthusiast", "foodie", "experiential"],
+      "walkability_from_old_san_juan": "Old San Juan tasting: walking distance. Ponce distillery: 90-min drive south — best as a dedicated day trip.",
+      "adults_only": true,
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 90,
+      "dress_code": "Smart casual",
+      "source_urls": [
+        "https://www.donq.com",
+        "https://www.tripadvisor.com/Attraction_Review-g147461-d2293399-Reviews-Castillo_Serralles-Ponce_Puerto_Rico.html"
+      ]
+    }
+  ]
+}

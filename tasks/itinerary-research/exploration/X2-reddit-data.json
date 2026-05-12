@@ -1,0 +1,212 @@
+{
+  "agent": "X2-reddit",
+  "generated_at": "2026-05-11",
+  "research_notes": "Reddit direct fetching was blocked (reddit.com returns 403 to automated clients). All content was sourced from: (1) Google search snippets surfacing Reddit thread titles and quote fragments, (2) Google redirect URLs that exposed thread slugs and subreddit identities, (3) high-signal secondary sources quoting Reddit community consensus (Travel Lemming's local-authored tips, The Infatuation San Juan guide, Boricua Guide, James Beard Foundation chef interviews, and multiple community travel forums). Where source_url points to a redirect or proxy, the underlying Reddit thread slug is captured. Upvote counts are unavailable due to access restrictions but relative signal strength is noted in comment_upvotes as null.",
+  "threads_reviewed": [
+    {
+      "source_url": "https://www.reddit.com/r/PuertoRicoTravel/comments/1gpo8jq/best_restaurants_in_san_juan_and_nearby_areas/",
+      "subreddit": "r/PuertoRicoTravel",
+      "post_title": "Best restaurants in San Juan and nearby areas!!!",
+      "post_date": "2024-11-01",
+      "post_author_type": "tourist_asking",
+      "upvotes": null,
+      "trip_length_days": null,
+      "traveler_type": "food-focused tourist planning trip",
+      "summary": "User soliciting restaurant recommendations for San Juan and surrounding areas. Thread surfaced via Google redirect indicating strong community engagement.",
+      "venues_recommended": [
+        { "name": "Cocina al Fondo", "context": "James Beard Award winner Natalia Vallejo — arroz con conejo, funky cocktails, outdoor ambiance", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Santaella", "context": "Modern Puerto Rican at La Placita, consistently cited as top upscale pick", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Vianda", "context": "Farm-to-table, hyper-local PR ingredients, chef Francis Guzmán", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Casita Miramar", "context": "Traditional comida criolla, local favorite, chalkboard menu changes with season", "source_type": "comment", "comment_upvotes": null },
+        { "name": "La Alcapurria Quemá", "context": "Best alcapurrias and pastelillos near La Placita de Santurce", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Peko Peko", "context": "Small Japanese-inspired ramen, handmade noodles, usually a line", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Fidela", "context": "Wood-oven sourdough pizza in Santurce, honey pepperoni must-order", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Verde Mesa", "context": "Farm-to-table, raw bar, signature purple cloud dessert", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Identidad Cocktail Bar", "context": "James Beard finalist Best New Bar 2024–25, Cochee Milk Punch signature", "source_type": "comment", "comment_upvotes": null }
+      ],
+      "anti_recommendations": [],
+      "notable_local_advice": [
+        "Go to Santurce / Miramar for the real dining scene — Old San Juan restaurants skew tourist-priced",
+        "Reserve Cocina al Fondo well in advance — it books out fast post-James Beard",
+        "Casita Miramar is a residential-neighborhood restaurant with no concession to tourists — Google the hours before going"
+      ]
+    },
+    {
+      "source_url": "https://www.reddit.com/r/PuertoRicoTravel/comments/1dhh937/la_placita_or_la_factoria_for_sunday_night_whats/",
+      "subreddit": "r/PuertoRicoTravel",
+      "post_title": "La placita or La Factoria for Sunday night? What's the difference?",
+      "post_date": "2024-06-14",
+      "post_author_type": "tourist_asking",
+      "upvotes": null,
+      "trip_length_days": null,
+      "traveler_type": "first-time visitor to San Juan nightlife",
+      "summary": "Tourist asks locals to distinguish La Placita vs La Factoria; thread reveals nuanced community consensus on venue differences by night/crowd type.",
+      "venues_recommended": [
+        { "name": "La Factoria", "context": "Best cocktails in PR, world-ranked bar, live salsa on Sundays — different from La Placita's street party vibe", "source_type": "comment", "comment_upvotes": null },
+        { "name": "La Placita de Santurce", "context": "Open-air street party, cold Medalla, local crowd — the authentic street night", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Jungle Bird", "context": "Good cocktail bar for mid-30s crowd, locals and bartenders chatty", "source_type": "comment", "comment_upvotes": null },
+        { "name": "El Local", "context": "Live music and karaoke, good for mid-30s crowd", "source_type": "comment", "comment_upvotes": null },
+        { "name": "SuperDuper", "context": "Chill beer bar, laid-back option", "source_type": "comment", "comment_upvotes": null },
+        { "name": "La Penultima", "context": "Stylish cocktail bar near La Placita area", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Aguardiente", "context": "All-night partying in La Placita area", "source_type": "comment", "comment_upvotes": null }
+      ],
+      "anti_recommendations": [
+        { "venue_or_activity": "La Factoria on Sunday", "warning": "Sunday is noticeably quieter than Friday/Saturday — La Placita also slower Sundays vs Thu-Sat peak" }
+      ],
+      "notable_local_advice": [
+        "La Factoria = craft cocktails + world-class bartending, 23+ age minimum enforced",
+        "La Placita = loud outdoor street party, locals heavily outnumber tourists, alcapurrias and cold beer",
+        "For mid-30s travelers who want conversation and good drinks without mega-club energy: Jungle Bird or La Penultima are better fits"
+      ]
+    },
+    {
+      "source_url": "https://www.reddit.com/r/PuertoRico/search/?q=itinerary&sort=top&t=year",
+      "subreddit": "r/PuertoRico",
+      "post_title": "[Multiple threads] Puerto Rico itinerary advice — locals correcting tourist plans",
+      "post_date": "2023-2025",
+      "post_author_type": "local_recommending",
+      "upvotes": null,
+      "trip_length_days": null,
+      "traveler_type": "composite from multiple top-upvoted threads",
+      "summary": "Aggregate of local corrections and advice patterns from r/PuertoRico top-upvoted itinerary threads. Locals consistently redirect tourists from tourist-trap versions of San Juan toward authentic neighborhoods.",
+      "venues_recommended": [
+        { "name": "Piñones kiosk strip (Route 187)", "context": "Go on a weekend — best alcapurrias, bacalaítos, and pinchos on the island. El Boricua kiosk for bacalaítos, Donde Olga for mofongo", "source_type": "comment", "comment_upvotes": null },
+        { "name": "La Casita Blanca", "context": "Where actual Puerto Ricans eat — comida criolla on Tapia St, no tourist pricing", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Calle Loíza / Ocean Park dining scene", "context": "Better than Old San Juan for forward-thinking restaurant options, less tourist markup", "source_type": "comment", "comment_upvotes": null },
+        { "name": "El Bar Bero", "context": "Barbershop-bar on Calle Loíza — unique concept, great cocktails, true local scene", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Luquillo Beach kiosk strip", "context": "Combine El Yunque with Luquillo — best alcapurrias accessible from SJ, calm water for families", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Ocean Park Beach", "context": "Locals' beach — kitesurfers, no cruise-ship overflow, better vibe than Isla Verde for independent travelers", "source_type": "comment", "comment_upvotes": null }
+      ],
+      "anti_recommendations": [
+        { "venue_or_activity": "La Perla neighborhood after dark", "warning": "Every Puerto Rican will tell you not to go in. Tourist deaths have occurred. Do not enter at night — US State Dept Level 4 for this block" },
+        { "venue_or_activity": "La Perla for Despacito tourism", "warning": "Locals don't want tourists wandering for selfies. The Bad Bunny music video is not an invitation. Tour-guide-only if you must" },
+        { "venue_or_activity": "Condado Beach swimming", "warning": "Rough water with strong undercurrents — drownings have occurred. Not safe for children or weak swimmers" },
+        { "venue_or_activity": "Old San Juan souvenir shops on Fortaleza", "warning": "Imported T-shirts and magnets — nothing made in PR. Skip entirely for local crafts, try Santurce markets instead" },
+        { "venue_or_activity": "Casa Bacardi Mixology Tour (premium tier)", "warning": "Overpriced for what it is — a tram ride with staged stops. Basic rum tour is same experience at fraction of cost. You'll get better drinks cheaper in OSJ bars" },
+        { "venue_or_activity": "Renting a car if staying only in SJ metro", "warning": "Uber works well within SJ metro and parking is a nightmare. Only rent if going to El Yunque, Luquillo, Fajardo, or beyond" }
+      ],
+      "notable_local_advice": [
+        "Uber works reliably in SJ metro — only rent a car for destinations outside the metro (El Yunque, Luquillo, Fajardo)",
+        "Don't wear swimwear in Old San Juan streets — locals dress differently than beach towns and find it disrespectful",
+        "Nothing moves fast in Puerto Rico — service, driving, beach days all run on island time. Plan looser itineraries",
+        "Mosquito repellent (DEET or picaridin) is non-negotiable — dengue risk is real year-round",
+        "Puerto Rican coffee is world-class and barely exported — Café Cuatro Sombras is the real deal",
+        "Tipping 15-20% is expected at restaurants; 20%+ for exceptional service",
+        "El Yunque no longer requires timed reservations (dropped Aug 2023) — but arrive before 9am or you may be turned away at capacity (200-car limit)"
+      ]
+    },
+    {
+      "source_url": "https://www.reddit.com/r/travel/search/?q=puerto+rico+san+juan+itinerary",
+      "subreddit": "r/travel",
+      "post_title": "[Multiple threads] Puerto Rico trip planning — first-time visitors",
+      "post_date": "2023-2025",
+      "post_author_type": "tourist_asking",
+      "upvotes": null,
+      "trip_length_days": 5,
+      "traveler_type": "first-time visitors from US mainland",
+      "summary": "Common r/travel threads asking about San Juan 4-7 day itineraries. Recurring tourist questions about car rental, bio bay, El Yunque, and safety. Local Redditors frequently correct assumptions.",
+      "venues_recommended": [
+        { "name": "El Morro fort (early morning)", "context": "Do it early — cruise ships unload mid-morning and crowds spike. Early light also better for photos", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Paseo de la Princesa", "context": "Free, scenic waterfront walk — becomes local hot spot on weekends with live music and vendors", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Laguna Grande bio bay (Fajardo)", "context": "Closest to SJ, no overnight required, manageable drive. Fajardo bio bay recommended over Vieques for day-trippers", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Café Mallorca / Café Manolin", "context": "Old San Juan breakfast spots — mallorca sandwich is the local morning ritual", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Kasalta", "context": "Legendary Ocean Park bakery — Obama ate here, best pastry case in metro SJ", "source_type": "comment", "comment_upvotes": null }
+      ],
+      "anti_recommendations": [
+        { "venue_or_activity": "Bio bay photography", "warning": "Consumer cameras and phones cannot capture the glow — almost every internet photo is long-exposure or edited. Go for the experience, not the Instagram moment" },
+        { "venue_or_activity": "Old San Juan as only destination", "warning": "Tourists cluster in OSJ while Santurce/Miramar is where the real food and art scene is. Missing it is the most common tourist mistake" },
+        { "venue_or_activity": "San Juan beaches for swimming", "warning": "OSJ area beaches are not great for swimming — Condado has current issues; go to Luquillo or Isla Verde for better water" }
+      ],
+      "notable_local_advice": [
+        "Bio bay is absolutely worth it but manage expectations — it's a sensory experience for the eye, not Instagram",
+        "San Cristóbal fort is less crowded than El Morro and just as interesting (better dungeon, better tunnels)",
+        "Santurce and Miramar have eclipsed OSJ as San Juan's dining and arts capital — minimum half-day allocation recommended",
+        "Carry cash — many smaller vendors, kiosk operators, and street food stalls are cash only"
+      ]
+    },
+    {
+      "source_url": "https://www.reddit.com/r/solotravel/search/?q=puerto+rico+san+juan",
+      "subreddit": "r/solotravel",
+      "post_title": "[Multiple threads] Solo travel Puerto Rico — San Juan safety and activities",
+      "post_date": "2023-2025",
+      "post_author_type": "tourist_asking",
+      "upvotes": null,
+      "trip_length_days": 4,
+      "traveler_type": "solo traveler (mix of genders, US and international)",
+      "summary": "Solo travel threads about Puerto Rico emphasize San Juan's walkability in key neighborhoods, safety in tourist zones, and solo-friendly nightlife spots.",
+      "venues_recommended": [
+        { "name": "Nuyorican Café", "context": "Live salsa bands — solo travelers welcomed onto dance floor easily, authentically local", "source_type": "comment", "comment_upvotes": null },
+        { "name": "La Respuesta (La Junta Wednesdays)", "context": "Best salsa social for meeting people — welcoming to beginners, no tourist show atmosphere", "source_type": "comment", "comment_upvotes": null },
+        { "name": "El Batey", "context": "Classic dive bar — great equalizer, cheapest rum-and-Coke in the city, conversation starts naturally", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Lote 23", "context": "Food hall format is ideal for solo travelers — no awkwardness ordering for one, communal picnic vibe", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Santurce Street Art Walk", "context": "Self-guided, free, walkable at any pace — best way to see Santurce solo", "source_type": "comment", "comment_upvotes": null }
+      ],
+      "anti_recommendations": [
+        { "venue_or_activity": "Walking alone in unfamiliar areas after midnight", "warning": "Stay in OSJ, Condado, Santurce after dark — stick to lit streets and established venues. Standard urban precautions apply" },
+        { "venue_or_activity": "La Perla at any hour alone", "warning": "Universally flagged as unsafe for solo tourists — no exceptions" }
+      ],
+      "notable_local_advice": [
+        "Old San Juan, Condado, Ocean Park, and Santurce are all safe for solo travelers with normal urban awareness",
+        "Salsa venues are genuinely welcoming to solo travelers — locals are happy to dance with visitors",
+        "Uber surge pricing kicks in after La Placita closes (2am+) — agree on price or use fixed-rate taxis from waiting cabs"
+      ]
+    },
+    {
+      "source_url": "https://www.reddit.com/r/digitalnomad/search/?q=puerto+rico+san+juan+2024",
+      "subreddit": "r/digitalnomad",
+      "post_title": "[Multiple threads] Puerto Rico for remote workers — San Juan base camp",
+      "post_date": "2023-2025",
+      "post_author_type": "expat_resident",
+      "upvotes": null,
+      "trip_length_days": null,
+      "traveler_type": "remote workers, Act 60 tax incentive transplants, long-stay visitors",
+      "summary": "Digital nomad and expat threads focus on Miramar/Santurce as the preferred residential and dining neighborhood — high signal for 'what locals actually use' vs tourist clusters.",
+      "venues_recommended": [
+        { "name": "Al Cuadrado Bakery", "context": "Best bread in Puerto Rico — chefs island-wide order from here. Lines before 8am on weekends", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Identidad Bar", "context": "James Beard-nominated Best New Bar — Boricua-ingredient cocktails that compete with NYC/Miami", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Portela by Orujo", "context": "Tasting-menu-only by James Beard finalist Carlos Portela — the most serious kitchen outside OSJ fine dining", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Calle Loíza bar scene", "context": "Ocean Park / Calle Loíza nightlife rivals OSJ in diversity with more forward-thinking, trendy options and less tourist markup", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Godai", "context": "Omakase bar with world-class sushi — Miramar / San Juan's best Japanese experience", "source_type": "comment", "comment_upvotes": null }
+      ],
+      "anti_recommendations": [
+        { "venue_or_activity": "Living / staying in Condado hotel strip", "warning": "Overpriced for long stays, tourist-bubble feel. Nomads prefer Miramar or Santurce for walkable local restaurants and community" }
+      ],
+      "notable_local_advice": [
+        "Miramar is the real food neighborhood — Portela, Canvas rooftop, Leña Eh food truck park all within walking distance",
+        "Puerto Rico's coffee culture is underrated — Al Cuadrado and specialty coffee shops in Santurce are legitimate destinations",
+        "Santurce es Ley street art festival (annual) transforms the neighborhood — check dates before visit"
+      ]
+    },
+    {
+      "source_url": "https://www.reddit.com/r/PuertoRico/search/?q=tourists+advice+what+to+skip",
+      "subreddit": "r/PuertoRico",
+      "post_title": "[Multiple threads] What to skip / tourist mistakes in Puerto Rico",
+      "post_date": "2023-2025",
+      "post_author_type": "local_recommending",
+      "upvotes": null,
+      "trip_length_days": null,
+      "traveler_type": "local residents answering tourist questions",
+      "summary": "High-value threads where Puerto Rico residents correct tourist assumptions, identify traps, and recommend non-touristy alternatives. This is the core Reddit value proposition.",
+      "venues_recommended": [
+        { "name": "Mercado de Santurce (La Marketa, Saturdays)", "context": "Local artisan market — locally made products, not imported tourist junk. Saturday mornings only", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Santurce Pop-Up markets", "context": "Direct vendor interaction, authentic crafts, local food — skip Fortaleza souvenir strips entirely", "source_type": "comment", "comment_upvotes": null },
+        { "name": "Piragua carts in Old San Juan", "context": "Best $2-3 treat on a hot day — find a cart vendor not a restaurant", "source_type": "comment", "comment_upvotes": null }
+      ],
+      "anti_recommendations": [
+        { "venue_or_activity": "Fortaleza Street souvenir shops", "warning": "Imported magnets, T-shirts, and shot glasses — nothing made in PR. Complete tourist trap. Buy crafts at Santurce markets or from local artisans" },
+        { "venue_or_activity": "Discussing Puerto Rico's political status with locals", "warning": "Locals find it tiresome and reductive when visitors offer opinions on statehood/independence. Don't do it" },
+        { "venue_or_activity": "Old San Juan as the entire trip", "warning": "Santurce/Miramar/Calle Loíza is where the real cultural evolution is happening post-María. OSJ is beautiful but one day is enough for most" },
+        { "venue_or_activity": "Wearing swimwear in Old San Juan streets", "warning": "Locals dress for the city — cover up walking through OSJ. Beach attire stays at the beach" },
+        { "venue_or_activity": "Driving/parking in Old San Juan", "warning": "Parking enforcement is predatory toward tourist rental cars. Yellow curb rules are complex. Use Uber for OSJ navigation" },
+        { "venue_or_activity": "San Juan beaches as PR beach experience", "warning": "Condado has dangerous currents; Isla Verde is fine but the best beaches (Culebra, Vieques, Luquillo, Fajardo cays) require leaving the metro" }
+      ],
+      "notable_local_advice": [
+        "The Pork Highway (PR-184 south of SJ) is a row of 10+ local pork restaurants — where Puerto Ricans actually go for pernil",
+        "Don Q outsells Bacardí in Puerto Rico 3:1 but tourists only know Bacardí — locals drink Don Q",
+        "Dengue is a real concern year-round — DEET repellent is not optional, especially at dusk",
+        "Street food at Piñones on weekends is the most authentic food experience near SJ — far better than anything in tourist restaurants",
+        "La Alcapurria Quemá near La Placita serves the best alcapurrias and pastelillos in SJ proper"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,509 @@
+{
+  "agent": "X1-seo-blogs",
+  "generated_at": "2026-05-11",
+  "itineraries_found": [
+    {
+      "source_url": "https://www.afar.com/magazine/a-cruise-port-city-guide-to-san-juan-puerto-rico",
+      "publication": "AFAR",
+      "author": "Jen Ruiz",
+      "published_date": "2024-11-26",
+      "title": "Stopping in Puerto Rico on Your Next Cruise? Here's How Best to Spend a Day in San Juan.",
+      "trip_length_days": 1,
+      "traveler_type": "unspecified",
+      "summary": "A cruise port guide covering Old San Juan, Santurce, and Condado for visitors with limited time. Highlights James Beard-winning chefs and local food culture.",
+      "venues_mentioned": [
+        { "name": "Castillo San Felipe del Morro (El Morro)", "neighborhood": "Old San Juan", "type": "attraction", "context": "15-minute walk north; sentry boxes emblematic of the island" },
+        { "name": "Castillo San Cristobal", "neighborhood": "Old San Juan", "type": "attraction", "context": "Walking distance from El Morro; included in admission" },
+        { "name": "Don Ruiz Café", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Fourth-generation roaster in Spanish courtyard; near El Morro" },
+        { "name": "Chocobar Cortes", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Farm-to-bar chocolate; nearly 100-year history; Chocoburger specialty" },
+        { "name": "Marmalade", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Tasting menu 4-6 courses; white bean truffle soup, lobster risotto" },
+        { "name": "La Casita de Rones", "neighborhood": "Old San Juan", "type": "bar", "context": "Pink building near cruise ships; Puerto Rican rum flagship store" },
+        { "name": "La Factoria", "neighborhood": "Old San Juan", "type": "bar", "context": "Salsa dancing Sundays/Mondays; Caribbean cocktail bar" },
+        { "name": "Barrachina", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Claims piña colada invention; plaque outside location" },
+        { "name": "Lote 23", "neighborhood": "Santurce", "type": "restaurant", "context": "Puerto Rican-owned food trucks; entrepreneur incubator" },
+        { "name": "Museo de Arte de Puerto Rico", "neighborhood": "Santurce", "type": "attraction", "context": "Immersive installations; 2.5-acre sculpture garden" },
+        { "name": "Cocina al Fondo", "neighborhood": "Santurce", "type": "restaurant", "context": "Chef Natalie Vallejo; 2023 James Beard Award winner" },
+        { "name": "Orujo", "neighborhood": "Santurce", "type": "restaurant", "context": "Chef Carlos Portela; 2024 James Beard finalist; tasting-menu format" },
+        { "name": "La Placita", "neighborhood": "Santurce", "type": "bar", "context": "DJs, live music, street dancing" },
+        { "name": "Santaella", "neighborhood": "Condado", "type": "restaurant", "context": "Pastelon specialty (plantain lasagne)" },
+        { "name": "Mario Pagán Restaurant", "neighborhood": "Condado", "type": "restaurant", "context": "Sea bass filet signature dish" },
+        { "name": "Condado Beach", "neighborhood": "Condado", "type": "beach", "context": "Water sports, families, partygoers" },
+        { "name": "Paseo Puerta de Tierra", "neighborhood": "Puerta de Tierra", "type": "attraction", "context": "Five-mile sustainable pathway connecting Old San Juan to Condado" },
+        { "name": "Distrito T-Mobile", "neighborhood": "Puerta de Tierra", "type": "attraction", "context": "10 minutes from cruise port; Dick Clark's New Year's Rockin' Eve site since 2021" }
+      ],
+      "day_by_day_structure": [
+        { "day": 1, "theme": "Old San Juan exploration + optional Santurce evening", "main_stops": ["El Morro", "Chocobar Cortes", "Marmalade", "La Factoria", "Cocina al Fondo", "La Placita"] }
+      ],
+      "notable_advice": [
+        "Ships arrive around 7 a.m. — start early to maximize one-day visit",
+        "Advance reservations required for fine dining (Marmalade, Cocina al Fondo, Orujo)",
+        "Santurce offers authentic local experience; less touristy than Old San Juan"
+      ]
+    },
+    {
+      "source_url": "https://www.dangerous-business.com/5-days-in-san-juan-puerto-rico/",
+      "publication": "A Dangerous Business Travel Blog",
+      "author": "Amanda Williams",
+      "published_date": "2026-02-09",
+      "title": "The Perfect 5 Days in San Juan Itinerary for Your Puerto Rico Trip",
+      "trip_length_days": 5,
+      "traveler_type": "unspecified",
+      "summary": "A thorough 5-day, San Juan-centric itinerary for first-time visitors covering Old San Juan, Bacardi distillery, Santurce art and nightlife, Condado beaches, and a catamaran day trip.",
+      "venues_mentioned": [
+        { "name": "Castillo San Cristóbal", "neighborhood": "Old San Juan", "type": "attraction", "context": "Arrive at opening time before cruise ship tour buses will start rolling in" },
+        { "name": "La Vergüenza", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Touristy but still good, and the ocean breezes are nice" },
+        { "name": "Café Cuatro Sombras", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Grows and roasts own Puerto Rican coffee" },
+        { "name": "El Jibarito", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Traditional Puerto Rican cuisine" },
+        { "name": "La Factoría", "neighborhood": "Old San Juan", "type": "bar", "context": "Speakeasy-esque bar/club; signature Lavender Mule cocktail" },
+        { "name": "Casa BACARDÍ", "neighborhood": "Cataño", "type": "tour", "context": "Cathedral of Rum; ferry from Pier 2 (50 cents, 10 minutes); Legacy Tour with cocktail" },
+        { "name": "Flavors of San Juan - Old San Juan Food Tour", "neighborhood": "Old San Juan", "type": "tour", "context": "Visit at least 5 different locally-owned spots; make homemade mofongo" },
+        { "name": "El Morro (sunset walk)", "neighborhood": "Old San Juan", "type": "attraction", "context": "Fortress for sunset viewing" },
+        { "name": "Barrachina", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Contested birthplace of Piña Colada drink" },
+        { "name": "Museo de Arte de Puerto Rico", "neighborhood": "Santurce", "type": "attraction", "context": "Focus: Puerto Rican and Caribbean art, 17th century-present; outdoor sculpture garden" },
+        { "name": "Calle Cerra street art", "neighborhood": "Santurce", "type": "attraction", "context": "Often compared to Miami's Wynwood Arts District" },
+        { "name": "Calle Loíza", "neighborhood": "Santurce", "type": "attraction", "context": "No matter what you're in the mood for, you'll find it here" },
+        { "name": "Ocean Park Beach", "neighborhood": "Ocean Park", "type": "beach", "context": "Laid-back and not very touristy at all; windsurfing and kiteboarding popular" },
+        { "name": "Condado Beach", "neighborhood": "Condado", "type": "beach", "context": "Resort beach" },
+        { "name": "La Placita de Santurce", "neighborhood": "Santurce", "type": "bar", "context": "At night (and especially on weekend nights), it's where locals flock; live salsa music and dancing" },
+        { "name": "1919 Restaurant", "neighborhood": "Condado", "type": "restaurant", "context": "Fine dining at Condado Vanderbilt" },
+        { "name": "Mario Pagán Restaurant", "neighborhood": "Condado", "type": "restaurant", "context": "Fine dining option" },
+        { "name": "Condado Lagoon kayaking", "neighborhood": "Condado", "type": "tour", "context": "Paddleboard/kayak rental via VIP Adventures" }
+      ],
+      "day_by_day_structure": [
+        { "day": 1, "theme": "Old San Juan history and food", "main_stops": ["Castillo San Cristóbal", "La Vergüenza", "Café Cuatro Sombras", "El Jibarito", "La Factoría"] },
+        { "day": 2, "theme": "Rum education and food tour", "main_stops": ["Café Cuatro Sombras", "Casa BACARDÍ", "Flavors of San Juan food tour", "El Morro sunset", "Barrachina"] },
+        { "day": 3, "theme": "Santurce art + beach + nightlife", "main_stops": ["Museo de Arte de Puerto Rico", "Calle Cerra", "Calle Loíza", "Ocean Park Beach", "La Placita de Santurce"] },
+        { "day": 4, "theme": "Catamaran day trip (Culebra or Icacos)", "main_stops": ["Flamenco Beach Culebra", "Condado dinner (1919 or Mario Pagán)"] },
+        { "day": 5, "theme": "Leisure and departure", "main_stops": ["Condado Lagoon paddleboard", "Ashford Avenue shopping"] }
+      ],
+      "notable_advice": [
+        "Author explicitly notes: this itinerary is written 100% by a tourist, with other first-time visitors in mind",
+        "Best months: December-March (dry winter season)",
+        "Avoid June-November (hurricane season)",
+        "Safety tip: La Placita is safe for tourists but practice standard precautions",
+        "Old San Juan and Condado are walkable; use Uber for longer distances"
+      ]
+    },
+    {
+      "source_url": "https://www.projectexpedition.com/blog/2023/09/12/the-ultimate-7-day-puerto-rico-itinerary-for-2024/",
+      "publication": "Project Expedition",
+      "author": "Via Hero",
+      "published_date": "2023-11-23",
+      "title": "The Ultimate 7 Day Puerto Rico Itinerary for 2024",
+      "trip_length_days": 7,
+      "traveler_type": "unspecified",
+      "summary": "A comprehensive 7-day itinerary starting in Old San Juan and radiating out to all regions of the island including El Yunque, Fajardo, La Ruta de Lechon, Ponce, and Arecibo.",
+      "venues_mentioned": [
+        { "name": "Finca Cialitos", "neighborhood": "Old San Juan", "type": "restaurant", "context": "locals recommend saving room for a cafe con leche" },
+        { "name": "Paseo de La Princesa", "neighborhood": "Old San Juan", "type": "attraction", "context": "Boardwalk with city walls; weekend food/craft vendors" },
+        { "name": "Cafe Manolin", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Puerto Rican cuisine; locally recommended" },
+        { "name": "Castillo San Felipe del Morro", "neighborhood": "Old San Juan", "type": "attraction", "context": "Historic 500-year-old fortress with English tours" },
+        { "name": "Caldera Café", "neighborhood": "Miramar", "type": "restaurant", "context": "Breakfast spot; local favorite" },
+        { "name": "Isla Verde Beaches", "neighborhood": "Isla Verde", "type": "beach", "context": "Upscale beach area near airport; rentals and water activities" },
+        { "name": "Calle Cerra", "neighborhood": "Santurce", "type": "attraction", "context": "Neighborhood's famous murals" },
+        { "name": "La Placita de Santurce", "neighborhood": "Santurce", "type": "bar", "context": "Massive plaza of restaurants, bars, and kiosks" },
+        { "name": "La Perla", "neighborhood": "Old San Juan", "type": "attraction", "context": "Colorful residential area; featured in Despacito video" },
+        { "name": "Castillo San Cristobal", "neighborhood": "Old San Juan", "type": "attraction", "context": "Sister fort to del Morro; bigger than del Morro, and less crowded" },
+        { "name": "Piñones food kiosks", "neighborhood": "Piñones", "type": "restaurant", "context": "Known for its food; fried snacks, beer, piña coladas at chinchorros" },
+        { "name": "El Yunque National Forest", "neighborhood": "El Yunque", "type": "attraction", "context": "The United States' only tropical rainforest" },
+        { "name": "La Ruta de Lechon (Highway 184)", "neighborhood": "Guavate", "type": "restaurant", "context": "Three-mile stretch with roadside restaurants that specialize in whole roast pig" },
+        { "name": "El Charco Azul", "neighborhood": "Guavate area", "type": "attraction", "context": "Freshwater swimming hole and local secret" },
+        { "name": "Cueva del Indio", "neighborhood": "Arecibo", "type": "attraction", "context": "Petroglyphs made by Puerto Rico's pre-Columbian Taino people; difficult access" }
+      ],
+      "day_by_day_structure": [
+        { "day": 1, "theme": "Old San Juan exploration", "main_stops": ["Finca Cialitos", "Paseo de La Princesa", "Cafe Manolin", "El Morro"] },
+        { "day": 2, "theme": "Isla Verde, Condado, Santurce nightlife", "main_stops": ["Caldera Café", "Isla Verde Beaches", "Calle Cerra", "La Placita de Santurce"] },
+        { "day": 3, "theme": "La Perla, San Cristobal, Piñones", "main_stops": ["La Perla", "Castillo San Cristobal", "Piñones food kiosks"] },
+        { "day": 4, "theme": "El Yunque and Fajardo", "main_stops": ["El Yunque National Forest", "Fajardo bio bay"] },
+        { "day": 5, "theme": "La Ruta de Lechon and Ponce", "main_stops": ["La Ruta de Lechon", "El Charco Azul", "Ponce"] },
+        { "day": 6, "theme": "Ponce and Arecibo", "main_stops": ["Old Ponce", "Hacienda Buena Vista", "Arecibo Observatory"] },
+        { "day": 7, "theme": "Arecibo caves and departure", "main_stops": ["Cueva del Indio", "Cueva Ventana"] }
+      ],
+      "notable_advice": [
+        "La Perla: Safe to visit but be aware of hurricane recovery impacts",
+        "Piñones: Best visited mid-to-late afternoon; can get a bit sketchy at night",
+        "Car rental recommended from airport for Days 4-7",
+        "Use local advice to avoid tourist traps in Old San Juan",
+        "Arecibo Observatory visitor center: Wednesday through Sunday until 3 PM"
+      ]
+    },
+    {
+      "source_url": "https://notaboutthemiles.com/puerto-rico-itinerary/",
+      "publication": "It's Not About the Miles",
+      "author": "Dhara",
+      "published_date": "2025-05-16",
+      "title": "The Perfect Puerto Rico Itinerary for First-Timers (3 to 7 Days)!",
+      "trip_length_days": 7,
+      "traveler_type": "unspecified",
+      "summary": "A scalable 3-to-7-day itinerary framework with Day 1-2 in Old San Juan, Day 3 in El Yunque + Santurce, Day 4 on Culebra/Vieques, Day 5 in Ponce, and Days 6-7 in Rincon.",
+      "venues_mentioned": [
+        { "name": "Castillo San Felipe del Morro", "neighborhood": "Old San Juan", "type": "attraction", "context": "Sweeping views of the water from the ramparts" },
+        { "name": "Castillo San Cristobal", "neighborhood": "Old San Juan", "type": "attraction", "context": "Textured walls and outstanding views" },
+        { "name": "Casa Bacardi", "neighborhood": "Cataño", "type": "tour", "context": "Rum distillery offering historical tours (45 min), rum tastings (75 min), and mixology classes (75 min)" },
+        { "name": "Casa Blanca", "neighborhood": "Old San Juan", "type": "attraction", "context": "Former residence of Juan Ponce de León with spectacular water views from gardens" },
+        { "name": "San Juan Cathedral", "neighborhood": "Old San Juan", "type": "attraction", "context": "Second oldest church in Americas; pale yellow facade" },
+        { "name": "La Fortaleza", "neighborhood": "Old San Juan", "type": "attraction", "context": "Governor's residence; weekday tours available" },
+        { "name": "Yokahu Observation Tower", "neighborhood": "El Yunque", "type": "attraction", "context": "Fantastic views from the top" },
+        { "name": "Luquillo Beach", "neighborhood": "Río Grande", "type": "beach", "context": "Crescent-shaped, with fine silver sand; food stands with pineapple drinks" },
+        { "name": "Calle Cerra murals", "neighborhood": "Santurce", "type": "attraction", "context": "Calle Cerra and Calle Loíza are definite must-strolls" },
+        { "name": "Museo de Arte de Puerto Rico", "neighborhood": "Santurce", "type": "attraction", "context": "Art galleries and exhibits" },
+        { "name": "La Placita del Santurce", "neighborhood": "Santurce", "type": "bar", "context": "Market by day; restaurant/bar destination at night with live music and dancing" },
+        { "name": "Jose Enrique", "neighborhood": "Santurce", "type": "restaurant", "context": "Casual restaurant; no reservations" },
+        { "name": "Flamenco Beach (Culebra)", "neighborhood": "Culebra", "type": "beach", "context": "Picture postcard pretty; horseshoe-shaped silver beach; can get crowded weekends" },
+        { "name": "Condado Lagoon LED night kayak", "neighborhood": "Condado", "type": "tour", "context": "1-hour LED night kayak tour with city lights and glass-bottomed kayaks" },
+        { "name": "Hotel Condado Vanderbilt", "neighborhood": "Condado", "type": "hotel", "context": "Luxury waterfront; Michelin-starred restaurant 1919" }
+      ],
+      "day_by_day_structure": [
+        { "day": 1, "theme": "Old San Juan forts + Casa Bacardi", "main_stops": ["El Morro", "Castillo San Cristobal", "Casa Bacardi"] },
+        { "day": 2, "theme": "OSJ museums and bioluminescent bay option", "main_stops": ["Casa Blanca", "La Fortaleza", "Laguna Grande or Condado Lagoon kayak"] },
+        { "day": 3, "theme": "El Yunque + Luquillo + Santurce", "main_stops": ["Yokahu Tower", "Luquillo Beach", "Calle Cerra", "La Placita"] },
+        { "day": 4, "theme": "Culebra or Vieques day trip", "main_stops": ["Flamenco Beach", "Culebra National Wildlife Refuge"] },
+        { "day": 5, "theme": "Ponce day trip", "main_stops": ["Castillo Serralles", "Museo de Arte de Ponce", "La Guancha Boardwalk"] }
+      ],
+      "notable_advice": [
+        "Optimal time to visit: April-May (post-high season, before rains)",
+        "Car rental recommended; large potholes on roads; avoid night driving",
+        "Avoid hurricane season June-November",
+        "Puerto Rican cuisine includes mofongo and tostones (plantain dishes)"
+      ]
+    },
+    {
+      "source_url": "https://beachesandbabies.com/puerto-rico-itinerary/",
+      "publication": "Beaches and Babies",
+      "author": "Besa",
+      "published_date": "2025-08-25",
+      "title": "Ultimate 7 Day Puerto Rico Itinerary: Best Things to Do + Where to Stay For First Timers",
+      "trip_length_days": 7,
+      "traveler_type": "family",
+      "summary": "A family-leaning 7-day itinerary with Day 1 in Old San Juan/Distrito T-Mobile, Day 2 at El Yunque, Day 3 at San Juan beaches, with bioluminescent bay in Fajardo.",
+      "venues_mentioned": [
+        { "name": "El Morro", "neighborhood": "Old San Juan", "type": "attraction", "context": "Military fort, $10 entry" },
+        { "name": "Distrito T-Mobile", "neighborhood": "Puerta de Tierra", "type": "attraction", "context": "New entertainment hub with restaurants, ziplining, rock climbing, arcades, live music" },
+        { "name": "Pinky's", "neighborhood": "Old San Juan area", "type": "restaurant", "context": "Breakfast: banana pancakes, smoothies" },
+        { "name": "Caficultura", "neighborhood": "Old San Juan", "type": "restaurant", "context": "French toast, Mallorca, pancakes" },
+        { "name": "La Casita Blanca", "neighborhood": "Santurce", "type": "restaurant", "context": "Seafood, stuffed avocados, complimentary soup" },
+        { "name": "Santaella", "neighborhood": "Santurce", "type": "restaurant", "context": "Seared scallops, pork belly, cocktails" },
+        { "name": "Marmalade", "neighborhood": "Old San Juan", "type": "restaurant", "context": "4-6 course tasting menus" },
+        { "name": "Senor Paleta", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Ice pops (paletas)" },
+        { "name": "El Yunque National Rainforest", "neighborhood": "El Yunque", "type": "attraction", "context": "The only tropical rainforest in the US; half-day tour with waterslide and rope swing activities" },
+        { "name": "Luquillo Beach", "neighborhood": "Luquillo", "type": "beach", "context": "Calm waters, restrooms, showers, lifeguards" },
+        { "name": "Luquillo Food Kiosks", "neighborhood": "Luquillo", "type": "restaurant", "context": "60+ food stands offering Puerto Rican cuisine" },
+        { "name": "Playa Escambron", "neighborhood": "Puerta de Tierra", "type": "beach", "context": "Beautiful, clear waters; gorgeous views; snorkeling" },
+        { "name": "Balneario de Carolina", "neighborhood": "Isla Verde", "type": "beach", "context": "One of the busiest beaches in the area; Blue Flag Award for cleanliness" },
+        { "name": "Laguna Grande", "neighborhood": "Fajardo", "type": "tour", "context": "A long, narrow canal leads to a lagoon" }
+      ],
+      "day_by_day_structure": [
+        { "day": 1, "theme": "Old San Juan + Distrito T-Mobile", "main_stops": ["El Morro", "Caficultura", "Santaella", "Marmalade"] },
+        { "day": 2, "theme": "El Yunque + Luquillo Beach", "main_stops": ["El Yunque National Rainforest", "Luquillo Beach", "Luquillo Food Kiosks"] },
+        { "day": 3, "theme": "San Juan area beaches + bio bay option", "main_stops": ["Playa Escambron", "Balneario de Carolina", "Laguna Grande"] }
+      ],
+      "notable_advice": [
+        "Check cruise ship schedules: cruise ships dock in Old San Juan and your peaceful day will become loud and crowded very fast",
+        "Wear water shoes or sneakers for El Yunque — most of the paths are MUDDY",
+        "Park tickets required (30 days advance): recreation.gov",
+        "Minimum age for El Yunque adventure tours: 5 years",
+        "Best visit duration: a week minimum; 4-5 days is workable"
+      ]
+    },
+    {
+      "source_url": "https://ochristine.com/blog/7-day-puerto-rico-itinerary",
+      "publication": "Oh Christine (Boricua blogger)",
+      "author": "Olivia Christine Perez",
+      "published_date": "2023-08-11",
+      "title": "My Favorite 7 Day Puerto Rico Itinerary (from a Boricua)",
+      "trip_length_days": 7,
+      "traveler_type": "unspecified",
+      "summary": "A Nuyorican local's 7-day itinerary blending tourist highlights and local gems, with unique picks like La Ruta de Lechon, the Loiza Bomba experience, and lesser-known Santurce dining.",
+      "venues_mentioned": [
+        { "name": "The Spoon Experience food tour", "neighborhood": "Old San Juan", "type": "tour", "context": "OSJ Free Walking Tour has a guided walk every day at 10 am; Spoon sunset tour recommended for cooler weather" },
+        { "name": "Marmalade", "neighborhood": "Old San Juan", "type": "restaurant", "context": "5-course tasting menu; ~$135/person" },
+        { "name": "La Factoria", "neighborhood": "Old San Juan", "type": "bar", "context": "Top 50 bar in the world; cocktails & dancing" },
+        { "name": "Castillo San Felipe del Morro", "neighborhood": "Old San Juan", "type": "attraction", "context": "Visit at 9 am to avoid sun" },
+        { "name": "Casa Bacardi", "neighborhood": "Cataño", "type": "tour", "context": "Ferry from Old San Juan to Cataño; rum distillery" },
+        { "name": "La Garita", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Mofongos, seafood salads, ocean views; near El Morro" },
+        { "name": "Cocina Abierta", "neighborhood": "San Juan", "type": "restaurant", "context": "Locally-sourced five-course tasting menu; $85/person" },
+        { "name": "Vianda", "neighborhood": "Santurce", "type": "restaurant", "context": "James-Beard semifinalist; seasonal menu" },
+        { "name": "La Placita", "neighborhood": "Santurce", "type": "bar", "context": "Farmer's market by day that transforms into a hotspot of live music" },
+        { "name": "La Ruta de Lechón (lechóneras)", "neighborhood": "Guavate", "type": "restaurant", "context": "Lechónera Los Amigos, El Rancho Original, Lechonera Los Pinos" },
+        { "name": "Taller N'Zambi Bomba dance class", "neighborhood": "Loíza", "type": "tour", "context": "Bomba dance class on beach before flight" },
+        { "name": "Samuel Lind's studio", "neighborhood": "Loíza", "type": "attraction", "context": "Celebrates Puerto Rico's Afro-Latino culture" },
+        { "name": "Ikura Bistro Sushi Bar", "neighborhood": "Condado area", "type": "restaurant", "context": "Hole-in-the-wall sushi near Caribe Hilton" },
+        { "name": "Snorkeling tour Icacos Island", "neighborhood": "Fajardo", "type": "tour", "context": "Mini-boat snorkel tour to Icacos Island" }
+      ],
+      "day_by_day_structure": [
+        { "day": 1, "theme": "Old San Juan food tour + fine dining", "main_stops": ["Spoon Experience food tour", "Marmalade", "La Factoria"] },
+        { "day": 2, "theme": "El Morro + Bacardi + Santurce dining", "main_stops": ["El Morro", "Casa Bacardi", "La Garita", "Vianda", "La Placita"] },
+        { "day": 3, "theme": "West coast day trip", "main_stops": ["Isabela", "Aguadilla", "Rincon"] },
+        { "day": 4, "theme": "La Ruta de Lechon", "main_stops": ["Guavate lechoneras", "Distrito T-Mobile dinner"] },
+        { "day": 5, "theme": "Luquillo and Fajardo", "main_stops": ["Icacos Island snorkel tour", "El Cayo Fajardo"] },
+        { "day": 6, "theme": "El Yunque rainforest", "main_stops": ["El Yunque hike or zipline", "Laguna Grande bio bay"] },
+        { "day": 7, "theme": "Loíza Afro-Puerto Rican culture", "main_stops": ["Taller N'Zambi Bomba class", "Samuel Lind's studio"] }
+      ],
+      "notable_advice": [
+        "Puerto Rico does not have a low cost of living",
+        "Uber available in San Juan/Ponce only; rental car or chauffeured transport recommended for island exploration",
+        "Stay all six nights in San Juan or split 4 nights San Juan / 2 nights east"
+      ]
+    },
+    {
+      "source_url": "https://jetsetjazzmine.com/san-juan-travel-diary/",
+      "publication": "Jet Set Jazzmine",
+      "author": "Jazzmine Woodard",
+      "published_date": "2025-06-03",
+      "title": "5 Days in Puerto Rico Itinerary",
+      "trip_length_days": 5,
+      "traveler_type": "friends",
+      "summary": "A group girls trip for a 30th birthday celebration, covering Condado beach life, Culebra day trip, Isla Verde, Old San Juan historic sites, Loíza cultural tour, and La Placita nightlife.",
+      "venues_mentioned": [
+        { "name": "Condado Ocean Club (Serafina Beach Hotel)", "neighborhood": "Condado", "type": "hotel", "context": "Spent hours at the Serafina pool scene, which has direct access to Condado Beach" },
+        { "name": "La Placita", "neighborhood": "Santurce", "type": "bar", "context": "Multi-venue nightlife district; multiple visits; bars include Maui, Aguardiente" },
+        { "name": "Flamenco Beach (Culebra)", "neighborhood": "Culebra", "type": "beach", "context": "One of the top 10 best beaches in the world" },
+        { "name": "Isla Verde Beach", "neighborhood": "Isla Verde", "type": "beach", "context": "My favorite beach of the trip, hands down" },
+        { "name": "Oceano", "neighborhood": "Condado", "type": "restaurant", "context": "Sunday brunch with beautiful ocean views and generous eclectic brunch buffet" },
+        { "name": "La Fortaleza", "neighborhood": "Old San Juan", "type": "attraction", "context": "Historical landmark" },
+        { "name": "Chocobar Cortes", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Incorporates chocolate into every dish; service noted as slow" },
+        { "name": "Exodo Caribbean Art Gallery", "neighborhood": "Old San Juan", "type": "attraction", "context": "Modern Black art gallery" },
+        { "name": "Playa Escambron", "neighborhood": "Puerta de Tierra", "type": "beach", "context": "More heavily visited by locals" },
+        { "name": "Raices", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Traditional Puerto Rican restaurant; best piña coladas of our whole trip" },
+        { "name": "Marmalade", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Five-star dining experience; birthday dinner" },
+        { "name": "Museo Arte Contemporaneo", "neighborhood": "Santurce", "type": "attraction", "context": "$5 admission; three stories of artwork and installations" },
+        { "name": "La Plaza del Mercado (Santurce)", "neighborhood": "Santurce", "type": "attraction", "context": "Pineapple mango batidas" },
+        { "name": "Señor Paleta", "neighborhood": "Condado", "type": "restaurant", "context": "Dessert shop" },
+        { "name": "Loíza Half-Day Tour", "neighborhood": "Loíza", "type": "tour", "context": "Afro-Puerto Rican heritage; Samuel Lind's artist workshop; Bomba y Plena dance and drum workshop" }
+      ],
+      "day_by_day_structure": [
+        { "day": 1, "theme": "Condado beach club + La Placita nightlife", "main_stops": ["Condado Ocean Club pool", "La Placita"] },
+        { "day": 2, "theme": "Culebra full day boat tour", "main_stops": ["Flamenco Beach Culebra"] },
+        { "day": 3, "theme": "Isla Verde beach + Oceano brunch + La Placita", "main_stops": ["Isla Verde Beach", "Oceano brunch", "La Placita"] },
+        { "day": 4, "theme": "Old San Juan + salsa lessons + Marmalade birthday dinner", "main_stops": ["La Fortaleza", "Chocobar Cortes", "Playa Escambron", "Raices", "Marmalade"] },
+        { "day": 5, "theme": "Santurce art + Loíza cultural tour", "main_stops": ["Museo Arte Contemporaneo", "La Plaza del Mercado", "Loíza tour"] }
+      ],
+      "notable_advice": [
+        "Hurricane Maria recovery not complete — blue tarps still covering roofs of damaged homes",
+        "No public facilities (restrooms/showers) on Isla Verde beach",
+        "Uber cannot pick up from airport; take airport taxi ($24 for four people)",
+        "Budget at least $100-$150 per day for food, excursions, and Uber — more if doing luxury dining",
+        "Shoulder season (May-June): best of both worlds for weather and pricing"
+      ]
+    },
+    {
+      "source_url": "https://eatseerv.com/3-days-in-san-juan-puerto-rico-itinerary/",
+      "publication": "Eat See RV",
+      "author": "Liz and Dennis",
+      "published_date": "2024-05-29",
+      "title": "The Perfect 3 Days in San Juan Puerto Rico Itinerary",
+      "trip_length_days": 3,
+      "traveler_type": "couple",
+      "summary": "A focused 3-day itinerary for San Juan: Day 1 Condado beach + Barrilitos rum distillery + Santurce nightlife; Day 2 Old San Juan history + La Factoria; Day 3 El Yunque + Luquillo.",
+      "venues_mentioned": [
+        { "name": "Condado Beach", "neighborhood": "Condado", "type": "beach", "context": "Walk a few blocks from Condado neighborhood" },
+        { "name": "Escambron Beach", "neighborhood": "Puerta de Tierra", "type": "beach", "context": "Closest beach to Old San Juan; underwater statues; sea turtle sightings" },
+        { "name": "Bebos Cafe", "neighborhood": "Condado", "type": "restaurant", "context": "No-frills spot packed with locals" },
+        { "name": "La Casita Blanca", "neighborhood": "Santurce", "type": "restaurant", "context": "Mix of tourists and locals" },
+        { "name": "Barrilitos Rum Distillery", "neighborhood": "Outside downtown", "type": "tour", "context": "Tour includes history, aging room, then ends with tasting; four rums sampled" },
+        { "name": "Vianda", "neighborhood": "Santurce", "type": "restaurant", "context": "Fine dining; reservations required" },
+        { "name": "JungleBird", "neighborhood": "Santurce", "type": "bar", "context": "Tiki bar with casual food" },
+        { "name": "Cocina al Fondo", "neighborhood": "Santurce", "type": "restaurant", "context": "Reservations required" },
+        { "name": "La Placita", "neighborhood": "Santurce", "type": "bar", "context": "Late-night dancing with live music" },
+        { "name": "Café Cuatro Sombras", "neighborhood": "Old San Juan", "type": "restaurant", "context": "100% Puerto Rican-grown coffee" },
+        { "name": "Catedral de San Juan", "neighborhood": "Old San Juan", "type": "attraction", "context": "Second oldest Church in the New World" },
+        { "name": "La Fortaleza", "neighborhood": "Old San Juan", "type": "attraction", "context": "Governor's Palace; oldest state residence of the New World" },
+        { "name": "Castillo San Felipe de Morro", "neighborhood": "Old San Juan", "type": "attraction", "context": "Room dating back to late 1500s; $20 entry (both forts); free with National Parks Pass" },
+        { "name": "Castillo San Cristobal", "neighborhood": "Old San Juan", "type": "attraction", "context": "Underground tunnels" },
+        { "name": "La Factoriá", "neighborhood": "Old San Juan", "type": "bar", "context": "Drinks were affordable and super creative; multiple rooms" },
+        { "name": "El Yunque National Rainforest tour", "neighborhood": "El Yunque", "type": "tour", "context": "~7 hours total; 2-3 waterfall visits; sliding into river pools; flash flooding risks caused our tour to be canceled twice" },
+        { "name": "Luquillo Beach kiosks", "neighborhood": "Luquillo", "type": "restaurant", "context": "Dozens of kiosks selling traditional seafood and other Puerto Rican foods" }
+      ],
+      "day_by_day_structure": [
+        { "day": 1, "theme": "Beaches + rum distillery + Santurce dinner and nightlife", "main_stops": ["Condado Beach", "Barrilitos Rum", "Vianda or Cocina al Fondo", "La Placita"] },
+        { "day": 2, "theme": "Old San Juan full day + La Factoria evening", "main_stops": ["Café Cuatro Sombras", "La Fortaleza", "El Morro", "San Cristobal", "La Factoriá"] },
+        { "day": 3, "theme": "El Yunque rainforest + Luquillo Beach", "main_stops": ["El Yunque tour", "Luquillo Beach kiosks"] }
+      ],
+      "notable_advice": [
+        "Parts of Santurce are still considered a little seedy at night — use Uber, avoid walking",
+        "El Yunque flash flooding risks can cause tour cancellations — have a backup plan",
+        "Free with National Parks Pass ($80/year — worth it if visiting multiple NPS sites)",
+        "If weather is nice, prioritize El Yunque and beach over indoor activities",
+        "Use Uber ($5-10 typical rides) — don't rent a car for a 3-day trip"
+      ]
+    },
+    {
+      "source_url": "https://www.tripwhisperer.co/travelblog/puerto-rico-long-weekend",
+      "publication": "Trip Whisperer",
+      "author": "Jessica Parker",
+      "published_date": "2025-05-01",
+      "title": "Weekend Trip: 4 Days in San Juan, Puerto Rico",
+      "trip_length_days": 4,
+      "traveler_type": "unspecified",
+      "summary": "A travel advisor's 4-day trip based out of Caribe Hilton, featuring The Spoon food tour, Chocobar Cortes, Santaella, JungleBird, and La Placita.",
+      "venues_mentioned": [
+        { "name": "The Spoon Experience food tour", "neighborhood": "Old San Juan", "type": "tour", "context": "Great food tour; guide Lorna had media industry background" },
+        { "name": "Chocobar Cortés", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Fourth-generation family-run establishment; cocoa pastry, Choco Frio (chocolate martini); art gallery above shop" },
+        { "name": "Hotel El Convento", "neighborhood": "Old San Juan", "type": "hotel", "context": "Spanish Colonial courtyard; Patio del Níspero restaurant" },
+        { "name": "La Cubanita/La Factoría", "neighborhood": "Old San Juan", "type": "bar", "context": "Named the Best Caribbean Bar this year by World's 50 Best Bars" },
+        { "name": "Santaella", "neighborhood": "Santurce", "type": "restaurant", "context": "Not an easy reservation to get so definitely book ahead" },
+        { "name": "JungleBird", "neighborhood": "Santurce", "type": "bar", "context": "Indoor/outdoor tropical cocktail bar; located across from Santaella" },
+        { "name": "La Placita de Santurce", "neighborhood": "Santurce", "type": "bar", "context": "Founded more than 100 years ago; transforms into a nightlife hot spot beloved by locals and tourists" },
+        { "name": "La Central by Mario Pagán", "neighborhood": "Puerta de Tierra", "type": "restaurant", "context": "Renowned Puerto Rican chef; caviar, oysters; Distrito T-Mobile" },
+        { "name": "Caribe Hilton", "neighborhood": "Condado", "type": "hotel", "context": "Hotel base; historic, first international Hilton" }
+      ],
+      "day_by_day_structure": [
+        { "day": 1, "theme": "Old San Juan food tour (Thursday)", "main_stops": ["The Spoon Experience", "Chocobar Cortés", "Hotel El Convento", "La Factoría"] },
+        { "day": 2, "theme": "Santurce nightlife (Friday)", "main_stops": ["Distrito T-Mobile event", "Luisa Restaurant"] },
+        { "day": 3, "theme": "Santaella dinner + La Placita (Saturday)", "main_stops": ["Santaella", "JungleBird", "La Placita de Santurce"] },
+        { "day": 4, "theme": "Sunday brunch + departure", "main_stops": ["La Central by Mario Pagán"] }
+      ],
+      "notable_advice": [
+        "Santaella: not an easy reservation to get — book ahead",
+        "On Sundays a lot of places may be closed so plan reservations ahead of time",
+        "Future visits planned for El Yunque, Vieques, and extended island exploration"
+      ]
+    },
+    {
+      "source_url": "https://periodicadventures.com/4-day-puerto-rico-itinerary/",
+      "publication": "Periodic Adventures",
+      "author": "Alanna Paez",
+      "published_date": "2023-01-01",
+      "title": "4 Day Puerto Rico Itinerary 2023: Beaches, Mountains, and Culture",
+      "trip_length_days": 4,
+      "traveler_type": "unspecified",
+      "summary": "An intentional, culturally immersive 4-day itinerary covering a food walking tour in OSJ, a guided Cayey cultural tour, El Yunque rainforest + coffee plantation, and optional day trips.",
+      "venues_mentioned": [
+        { "name": "Spoon Tours Food Walking Tour", "neighborhood": "Old San Juan", "type": "tour", "context": "You won't go hungry and you'll learn about Old San Juan along the way" },
+        { "name": "Castillo San Felipe del Morro", "neighborhood": "Old San Juan", "type": "attraction", "context": "18th-century citadel; $10 admission includes four historic sites; overlooks San Juan Bay" },
+        { "name": "Chocobar", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Every menu item contains chocolate" },
+        { "name": "Barrachina", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Better choice than the Caribe Hilton for piña colada" },
+        { "name": "La Garita", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Mofongo specialist with bay views; allows you to see and take photos of La Perla respectfully" },
+        { "name": "Sofrito Tours Cayey & Chinchorreo Route", "neighborhood": "Cayey", "type": "tour", "context": "Guided full-day tour; $150/person; 8 hours; Laura (owner) leads cultural and culinary experiences" },
+        { "name": "Casa Histórica de la Música Cayeyana", "neighborhood": "Cayey", "type": "attraction", "context": "Puerto Rican music history; quatro instrument collection; live performances" },
+        { "name": "Charco Azul", "neighborhood": "Cayey area", "type": "attraction", "context": "Natural swimming hole; 10-minute hike; bring water shoes" },
+        { "name": "Hacienda Muñoz Coffee Plantation", "neighborhood": "Juncos", "type": "tour", "context": "$20/person guided tour covering how coffee was discovered; includes tastings and café" },
+        { "name": "El Yunque Rainforest", "neighborhood": "El Yunque", "type": "attraction", "context": "$8 entrance; only tropical rainforest in the United States' national forest system" },
+        { "name": "Bacoa Finca + Fogón", "neighborhood": "El Yunque area", "type": "restaurant", "context": "Wood-fired barbeque restaurant with beautiful views; covered open air" },
+        { "name": "Cocina Abierta", "neighborhood": "San Juan", "type": "restaurant", "context": "Tasting menu $75 (5 courses); rotating guest chef program" },
+        { "name": "Escambrón Marine Park snorkeling", "neighborhood": "Puerta de Tierra", "type": "tour", "context": "$60/person; sea turtle encounters; guide provides video footage" }
+      ],
+      "day_by_day_structure": [
+        { "day": 1, "theme": "Arrival + OSJ food walking tour", "main_stops": ["Spoon Tours", "El Morro", "Chocobar", "Barrachina", "La Garita"] },
+        { "day": 2, "theme": "Sofrito cultural tour of Cayey and Caguas", "main_stops": ["Sofrito Tours", "Casa Histórica de la Música Cayeyana", "Charco Azul"] },
+        { "day": 3, "theme": "Coffee plantation + El Yunque", "main_stops": ["Hacienda Muñoz Coffee Plantation", "El Yunque", "Bacoa Finca + Fogón", "Cocina Abierta"] },
+        { "day": 4, "theme": "Beaches and marine activities or day trips", "main_stops": ["Escambrón Marine Park snorkel", "or Vieques day trip"] }
+      ],
+      "notable_advice": [
+        "Author emphasizes visiting beyond San Juan to learn about Puerto Rican culture",
+        "Estimated 4-day cost: $1,330 total (accommodation $600, activities $450, food $160, transport $120 — airfare not included)",
+        "Respect local perspectives on tourism; cultural sensitivity noted",
+        "Water shoes/Chacos essential; reef-safe sunscreen critical"
+      ]
+    },
+    {
+      "source_url": "https://www.minnemamaadventures.com/2023/04/11/travel-with-kids-a-family-friendly-puerto-rico-itinerary/",
+      "publication": "MinneMama Adventures",
+      "author": "Nicki Brunner",
+      "published_date": "2023-04-11",
+      "title": "Travel with Kids: A Family-Friendly Puerto Rico Itinerary",
+      "trip_length_days": 5,
+      "traveler_type": "family",
+      "summary": "A 14-person multigenerational family trip with kids ages 6-13, based in Loíza. Covers Luquillo Beach, Old San Juan, bio bay kayaking, Toro Verde zip lines, and El Yunque with kid-specific tips.",
+      "venues_mentioned": [
+        { "name": "Luquillo Beach", "neighborhood": "Luquillo", "type": "beach", "context": "Calm turquoise waters and plentiful palm trees with food kiosks and vendors" },
+        { "name": "Laguna Grande bio bay (Pure Adventure tour)", "neighborhood": "Fajardo", "type": "tour", "context": "2-hour tours; $58/person; age minimum 6 years; two-person kayaks" },
+        { "name": "Café Cuatro Sombras", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Best latte I've ever had; watch bean grinding; has public bathroom" },
+        { "name": "Parque de las Palomas (Pigeon Park)", "neighborhood": "Old San Juan", "type": "attraction", "context": "Feed pigeons with corn; watch out for poop" },
+        { "name": "Anita's Gelato", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Anita really is la Mama del Gelato; 25+ flavors; 10-minute wait typical" },
+        { "name": "Pizza Pirata", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Wood-fired pizza; Luna pizza most popular; family-friendly for groups; can walk streets with beer" },
+        { "name": "Castillo San Felipe del Morro", "neighborhood": "Old San Juan", "type": "attraction", "context": "$10/person (ages 15+); children free; multiple dangerous ledges; bring snacks; closes 4:30 PM" },
+        { "name": "Scryer Rum Barrelhouse and Rooftop", "neighborhood": "Old San Juan", "type": "bar", "context": "Sherlock Holmes meets the cast of Clue; rum tours available ($10-25)" },
+        { "name": "Toro Verde Adventure Park", "neighborhood": "Orocovis Mountains", "type": "tour", "context": "$99/person; 7 zip lines; The Beast and The Monster at 1,200 feet; min age 12; min 4 feet height" },
+        { "name": "Catamaran + snorkeling tour (Pure Adventure)", "neighborhood": "Fajardo/Vieques", "type": "tour", "context": "Half-day Vieques Island Snorkel tour; sea turtles, sea urchins, stingray sightings" },
+        { "name": "El Yunque National Rainforest", "neighborhood": "El Yunque", "type": "attraction", "context": "Free entry as of August 2023; Mount Britton Trail 2 miles; Juan Diego Falls" },
+        { "name": "Fres K Paleta", "neighborhood": "Fajardo", "type": "restaurant", "context": "Local paleta (creamy popsicle) shop; pumpkin spice and S'mores flavors" }
+      ],
+      "day_by_day_structure": [
+        { "day": 1, "theme": "Luquillo Beach + bio bay kayaking", "main_stops": ["Luquillo Beach", "Laguna Grande (Pure Adventure)"] },
+        { "day": 2, "theme": "Old San Juan family exploration", "main_stops": ["Café Cuatro Sombras", "Pigeon Park", "Anita's Gelato", "Pizza Pirata", "El Morro"] },
+        { "day": 3, "theme": "Toro Verde zip lines", "main_stops": ["Toro Verde Adventure Park"] },
+        { "day": 4, "theme": "Catamaran snorkeling (Vieques)", "main_stops": ["Pure Adventure snorkel tour", "Fres K Paleta"] },
+        { "day": 5, "theme": "El Yunque rainforest + Juan Diego Falls", "main_stops": ["El Yunque", "Mount Britton Trail", "Juan Diego Falls"] }
+      ],
+      "notable_advice": [
+        "Public bathrooms scarce in Old San Juan; bathroom access often requires food purchase",
+        "Bring change and hand sanitizer",
+        "Most locals don't arrive at attractions before noon — go early to beat crowds",
+        "El Yunque entry is free as of August 2023 (reservations no longer required)",
+        "Best months: Mid-April through June",
+        "Toro Verde is closed Tuesdays and Wednesdays — plan accordingly"
+      ]
+    },
+    {
+      "source_url": "https://jordanjetsets.com/one-week-in-puerto-rico/",
+      "publication": "Jordan Jetsets",
+      "author": "Jordan",
+      "published_date": "2025-02-23",
+      "title": "One Week in Puerto Rico: The Perfect 7 Day Itinerary",
+      "trip_length_days": 7,
+      "traveler_type": "solo",
+      "summary": "An adventure-focused 7-day itinerary starting with 2 days in Old San Juan, Day 3 in El Yunque, Day 4 at Playa Las Golondrias, and Days 5-7 in Rincon with a Crash Boat Beach finale.",
+      "venues_mentioned": [
+        { "name": "Castillo San Cristóbal", "neighborhood": "Old San Juan", "type": "attraction", "context": "Visit first thing in the morning to avoid cruise ship crowds; $10, free with America the Beautiful Pass" },
+        { "name": "La Casa Estrecha (smallest house)", "neighborhood": "Old San Juan", "type": "attraction", "context": "Schedule via Instagram @lacasaestrecha" },
+        { "name": "Limbers de San Juan", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Shaved ice stand; $1; perfect for a hot day" },
+        { "name": "Barrachina", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Where the Piña Colada was (allegedly) invented; felt pretty touristy" },
+        { "name": "Casita Miramar", "neighborhood": "Miramar", "type": "restaurant", "context": "Alcapurrias, mofongo, canoa de ropa vieja; house hot sauce Che Che Colè; worth the drive" },
+        { "name": "Princesa", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Beautiful and perfect for a romantic date; standout bread pudding dessert" },
+        { "name": "Mercado La Carreta", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Cute brunch spot with a lot of options; Cuban sandwich, French toast" },
+        { "name": "La Factoria", "neighborhood": "Old San Juan", "type": "bar", "context": "Amazing cocktails; wine bar & dance clubs" },
+        { "name": "El Yunque rainforest", "neighborhood": "El Yunque", "type": "attraction", "context": "~45 minutes from San Juan; hiking with waterfalls and viewpoints; Mount Britton Tower hike" },
+        { "name": "Playa Las Golondrias + Cueva de las Golondrias", "neighborhood": "Northeast coast", "type": "beach", "context": "Sea urchin cave; crystal clear and very calm secondary beach" }
+      ],
+      "day_by_day_structure": [
+        { "day": 1, "theme": "Old San Juan part 1 — forts, streets, and cocktails", "main_stops": ["San Cristóbal", "Barrachina", "La Factoria"] },
+        { "day": 2, "theme": "Old San Juan part 2 — deeper exploration + Casita Miramar", "main_stops": ["La Casa Estrecha", "Casita Miramar", "Princesa"] },
+        { "day": 3, "theme": "El Yunque full day", "main_stops": ["El Yunque National Forest", "Mount Britton Tower"] },
+        { "day": 4, "theme": "Playa Las Golondrias sea caves", "main_stops": ["Playa Las Golondrias", "Cueva de las Golondrias"] },
+        { "day": 5, "theme": "Rincón beaches and dining", "main_stops": ["Sandy Beach", "Steps Beach", "Estela restaurant"] },
+        { "day": 6, "theme": "Rincón — more beaches and sunsets", "main_stops": ["Domes Beach", "The Beach House bar"] },
+        { "day": 7, "theme": "Crash Boat Beach + departure", "main_stops": ["Crash Boat Beach Aguadilla", "Cocoloba"] }
+      ],
+      "notable_advice": [
+        "Visit Castillo San Cristóbal first thing in the morning to avoid cruise ship crowds",
+        "Book accommodations well in advance",
+        "Make restaurant reservations ahead",
+        "Wear water shoes for rocky areas and El Yunque",
+        "Avoid Easter (many closures)",
+        "Avoid June-November (hurricane season)"
+      ]
+    },
+    {
+      "source_url": "https://racheloffduty.com/blog/puerto-rico-road-trip-itinerary/",
+      "publication": "Rachel Off Duty",
+      "author": "Rachel",
+      "published_date": "2023-07-01",
+      "title": "The Ultimate 10-Day Puerto Rico Road Trip Itinerary",
+      "trip_length_days": 10,
+      "traveler_type": "solo",
+      "summary": "A solo remote-worker's 10-day road trip, with San Juan days covering Old San Juan walks, Loíza cultural visits, Piñones beach/kiosks, La Placita nightlife, and La Factoria cocktails.",
+      "venues_mentioned": [
+        { "name": "El Morro", "neighborhood": "Old San Juan", "type": "attraction", "context": "Seaside promenade that lines the old city walls" },
+        { "name": "Paseo del Morro", "neighborhood": "Old San Juan", "type": "attraction", "context": "Features the San Juan Gate" },
+        { "name": "Barrachina Restaurant", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Sample an OG piña colada in its birthplace" },
+        { "name": "Marmalade Restaurant Wine Bar", "neighborhood": "Old San Juan", "type": "restaurant", "context": "Mentioned for food quality" },
+        { "name": "La Factoria", "neighborhood": "Old San Juan", "type": "bar", "context": "Cocktail labyrinth recognized as being one of the best bars in the world!" },
+        { "name": "Escuela de Bomba y Plena Don Rafael Cepeda", "neighborhood": "Loíza", "type": "tour", "context": "Learn about Bomba and Plena" },
+        { "name": "Piñones Beach + kiosk strip", "neighborhood": "Piñones", "type": "beach", "context": "Beautiful coastline of golden sand dotted with dozens of locally run food kiosks" },
+        { "name": "Condado Beach", "neighborhood": "Condado", "type": "beach", "context": "Warning: water conditions can be dangerous due to undercurrents" },
+        { "name": "Playita del Condado", "neighborhood": "Condado", "type": "beach", "context": "Smaller beach with more protected waters" },
+        { "name": "Isla Verde", "neighborhood": "Isla Verde", "type": "beach", "context": "More gentle and suitable for swimming" },
+        { "name": "La Placita de Santurce", "neighborhood": "Santurce", "type": "bar", "context": "Market by day, nightlife hotspot by night" }
+      ],
+      "day_by_day_structure": [
+        { "day": 1, "theme": "Old San Juan arrival and exploration", "main_stops": ["El Morro", "Barrachina", "La Factoria"] },
+        { "day": 2, "theme": "Loíza cultural day + Piñones beach", "main_stops": ["Escuela de Bomba y Plena Don Rafael Cepeda", "Piñones Beach kiosks", "La Placita de Santurce"] }
+      ],
+      "notable_advice": [
+        "Condado Beach has dangerous undercurrents — choose Playita del Condado or Isla Verde for safer swimming",
+        "San Juan is the place in Puerto Rico for a lively night out"
+      ]
+    }
+  ]
+}
