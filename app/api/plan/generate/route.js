@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid';
 import { FALLBACK_PLAN } from '@/lib/itinerary/fallback-template';
+import { ItinerarySchema } from '@/lib/itinerary/schema';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -20,6 +21,12 @@ export async function POST(request) {
     });
     if (!upstream.ok) throw new Error(`upstream ${upstream.status}`);
     const text = await upstream.text();
+    const parsed = JSON.parse(text);
+    const validated = ItinerarySchema.safeParse(parsed);
+    if (!validated.success) {
+      console.error('AI output schema violation:', validated.error.format());
+      throw new Error('schema_mismatch');
+    }
     return new Response(text, { status: 200, headers: { 'content-type': 'application/json' } });
   } catch (err) {
     console.error('generate fallback triggered:', err.message);
