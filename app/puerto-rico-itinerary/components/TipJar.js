@@ -26,6 +26,7 @@ export default function TipJar({ bmcUsername }) {
             href={`${baseUrl}?amount=${t.amount}`}
             target="_blank"
             rel="noopener noreferrer"
+            data-event-name={`tip_${t.label.toLowerCase().replace(/\s+/g, '_').replace(/[áéíóúñ]/g, c => ({á:'a',é:'e',í:'i',ó:'o',ú:'u',ñ:'n'}[c]))}`}
             className="inline-flex items-center gap-1.5 rounded-full border border-cafe-300 bg-white px-4 py-2.5 text-sm font-medium text-coqui-900 transition-colors hover:bg-atardecer-100 hover:border-atardecer-300"
           >
             <span>{t.emoji}</span>

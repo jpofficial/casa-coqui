@@ -25,13 +25,14 @@ export default function CasaCoquiCard({ bookingUrl }) {
 
         <Link
           href={bookingUrl}
+          data-event-name="cc_card_check_availability"
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-atardecer-400 px-8 py-4 font-semibold text-coqui-900 shadow-[0_6px_14px_-3px_rgba(245,183,49,0.5)] transition-transform hover:scale-[1.02] lg:px-10 lg:py-5 lg:text-lg"
         >
           Check availability →
         </Link>
 
         <p className="mt-5 text-xs">
-          <Link href={bookingUrl} className="text-atardecer-700 underline decoration-atardecer-300 underline-offset-4 hover:text-coqui-900">
+          <Link href={bookingUrl} data-event-name="cc_card_see_photos" className="text-atardecer-700 underline decoration-atardecer-300 underline-offset-4 hover:text-coqui-900">
             See photos, amenities, and reviews
           </Link>
         </p>
