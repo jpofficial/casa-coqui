@@ -40,7 +40,7 @@ export default async function ItineraryPage({ params }) {
       </header>
 
       {(plan.days || []).map((day) => (
-        <DayCard key={day.day_num} day={day} />
+        <DayCard key={day.day_num} day={day} plan_id={plan.plan_id} />
       ))}
 
       <footer className="px-5 py-8 text-center text-xs text-cafe-600">
