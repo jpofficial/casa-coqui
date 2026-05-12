@@ -20,8 +20,8 @@ from stacks.foundation_stack import CasaCoquiFoundationStack
 from stacks.pipeline_stack import CasaCoquiPipelineStack
 from stacks.email_stack import CasaCoquiEmailStack
 from stacks.hosting_stack import CasaCoquiHostingStack
-from stacks.ec2_pipeline_stack import CasaCoquiEc2PipelineStack
 from stacks.pricing_stack import CasaCoquiPricingStack
+from stacks.itinerary_stack import MiItinerarioStack
 
 
 app = cdk.App()
@@ -113,26 +113,10 @@ hosting = CasaCoquiHostingStack(
     ),
 )
 
-# EC2 Pipeline stack — CodePipeline + CodeBuild for EC2 deployment.
-# Pulls from ec2-deploy branch, builds in CodeBuild, deploys via CodeDeploy.
-ec2_pipeline = CasaCoquiEc2PipelineStack(
-    app,
-    "CasaCoquiEc2PipelineStack",
-    env=env,
-    artifact_bucket_name=ARTIFACT_BUCKET_NAME,
-    pipeline_secret_arn=PIPELINE_SECRET_ARN,
-    kms_key_arn=KMS_KEY_ARN,
-    github_owner=github_owner,
-    github_repo=github_repo,
-    github_branch="ec2-deploy",
-    description=(
-        "Casa Coqui EC2 CI/CD pipeline - CodePipeline + CodeBuild. "
-        "Lifecycle: rebuildable."
-    ),
-)
-
-# EC2 pipeline depends on hosting (CodeDeploy app must exist first).
-ec2_pipeline.add_dependency(hosting)
+# EC2 Pipeline stack — REMOVED 2026-05-09 to stop CodeBuild/CodePipeline
+# free-tier overage. The `ec2-deploy` branch is no longer the production
+# source; main is. See docs/changes/2026-05-09-remove-ec2-pipeline-stack.md
+# for the rationale and rollback procedure.
 
 # ------------------------------------------------------------------
 # Pricing stack — autopilot CodeBuild + S3 + EventBridge Scheduler.
@@ -169,13 +153,14 @@ pricing = CasaCoquiPricingStack(
 )
 pricing.add_dependency(foundation)
 
+MiItinerarioStack(app, "MiItinerarioStack", env=env)
+
 cdk.Tags.of(app).add("Project", "casa-coqui")
 cdk.Tags.of(app).add("ManagedBy", "cdk")
 cdk.Tags.of(foundation).add("Lifecycle", "retain")
 cdk.Tags.of(pipeline).add("Lifecycle", "rebuildable")
 cdk.Tags.of(email).add("Lifecycle", "retain")
 cdk.Tags.of(hosting).add("Lifecycle", "rebuildable")
-cdk.Tags.of(ec2_pipeline).add("Lifecycle", "rebuildable")
 cdk.Tags.of(pricing).add("Lifecycle", "rebuildable")
 
 app.synth()
