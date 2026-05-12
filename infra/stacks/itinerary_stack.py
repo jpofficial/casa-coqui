@@ -74,6 +74,27 @@ class MiItinerarioStack(Stack):
             export_name="MiItinerarioItinerariesTable",
         )
 
+        # Events cache — Eventbrite results, auto-expire 1 day after event end
+        self.events_cache_table = ddb.Table(
+            self,
+            "EventsCacheTable",
+            table_name="mi-itinerario-events-cache",
+            partition_key=ddb.Attribute(name="date_iso", type=ddb.AttributeType.STRING),
+            sort_key=ddb.Attribute(name="event_id", type=ddb.AttributeType.STRING),
+            billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
+            encryption=ddb.TableEncryption.AWS_MANAGED,
+            point_in_time_recovery=False,  # events are ephemeral, no need
+            time_to_live_attribute="ttl_epoch",
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+
+        cdk.CfnOutput(
+            self,
+            "EventsCacheTableName",
+            value=self.events_cache_table.table_name,
+            export_name="MiItinerarioEventsCacheTable",
+        )
+
         # itinerary-generate Lambda
         generate_fn = _lambda.Function(
             self,
