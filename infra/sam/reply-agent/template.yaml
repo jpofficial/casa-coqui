@@ -235,15 +235,13 @@ Resources:
       Handler: index.handler
       Description: Final step — writes draftReply to Firestore via Firebase Admin
       Timeout: 60                       # Firestore write can be slow on cold start
-      # ── W7 TRAP STATE (Phase 3) ─────────────────────────────────────────
-      # The original Phase 1 scaffold included an inline Policy granting
-      # secretsmanager:GetSecretValue on the firebase-service-account secret.
-      # Phase 3 INTENTIONALLY removes it before the first deploy so the
-      # Lambda fails at runtime with AccessDenied — drilling cross-cloud
-      # IAM debugging (W7 surface). Step 12 restores the grant.
-      # See: docs/superpowers/specs/2026-05-08-phase-3-sfn-bridge-design.md
-      #      "The W7 Break-It Trap (pedagogical)" section.
-      # Policies: <intentionally absent until Step 12>
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource:
+                - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${FirebaseSecretName}-*
 
   # -------------------------------------------------------------------------
   # Phase 3 — DLQ + SNS + DLQ Notifier
