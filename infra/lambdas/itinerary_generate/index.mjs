@@ -338,7 +338,7 @@ async function generateWithBedrock(messages) {
 function resp(status, body) {
   return {
     statusCode: status,
-    headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' },
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   };
 }
