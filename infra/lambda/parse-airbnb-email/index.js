@@ -21,7 +21,6 @@ const {
 } = require('@aws-sdk/client-secrets-manager');
 const { simpleParser } = require('mailparser');
 const admin = require('firebase-admin');
-const { buildThreadKey } = require('./thread-key');
 
 // ---------------------------------------------------------------------------
 // AWS clients (module-level — reused across warm invocations)
@@ -76,6 +75,13 @@ async function getFirestore() {
 // ---------------------------------------------------------------------------
 
 const crypto = require('crypto');
+
+/**
+ * Parser version stamped on every airbnb_messages / airbnb_messages_quarantine
+ * doc this Lambda writes. Bump when changing extraction or thread-keying logic
+ * so legacy docs are queryable and rollback is observable.
+ */
+const PARSER_VERSION = '2026-05-09';
 
 function sha256(input) {
   return crypto.createHash('sha256').update(input).digest('hex');
@@ -394,6 +400,214 @@ function extractGuestNameFromSubject(subject) {
 }
 
 // ---------------------------------------------------------------------------
+// Guest-name extraction from email body (Fix 1, 2026-05-09)
+// ---------------------------------------------------------------------------
+
+/** Cap on HTML bytes scanned. Sized to cover the real Airbnb message email
+ *  layout (the <h2>guest</h2>+Booker block sits around byte 16k in the
+ *  observed Jaydon fixture) while still defending against ReDoS / spurious
+ *  matches in arbitrarily long forwarded threads. */
+const HTML_GUEST_NAME_SCAN_BYTES = 32768;
+
+/** Names we should never accept as a guest name even if they appear in
+ *  alt="..." + <h2>..</h2> + Booker — these are Airbnb chrome / branding /
+ *  the property name itself. Case-insensitive match after trim. */
+const GUEST_NAME_BLOCKLIST = new Set([
+  'airbnb',
+  'casa coqui',
+  'casa coqui #1 next to everything',
+  'app store',
+  'google play',
+  'tiktok',
+  'instagram',
+  'twitter',
+  'facebook',
+  'reservation',
+  'listing',
+]);
+
+/** Minimal HTML-entity decoder — covers the entities Airbnb actually emits
+ *  in alt/h2 text (named Latin-1 + numeric). Avoids a heavyweight dep. */
+const NAMED_ENTITIES = {
+  amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ',
+  aacute: 'á', eacute: 'é', iacute: 'í', oacute: 'ó', uacute: 'ú',
+  Aacute: 'Á', Eacute: 'É', Iacute: 'Í', Oacute: 'Ó', Uacute: 'Ú',
+  ntilde: 'ñ', Ntilde: 'Ñ', uuml: 'ü', Uuml: 'Ü', ouml: 'ö', Ouml: 'Ö',
+  auml: 'ä', Auml: 'Ä',
+};
+
+function decodeHtmlEntities(s) {
+  if (!s) return s;
+  return String(s)
+    // numeric: &#039; &#x27;
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    // named
+    .replace(/&([a-zA-Z]+);/g, (m, name) =>
+      Object.prototype.hasOwnProperty.call(NAMED_ENTITIES, name) ? NAMED_ENTITIES[name] : m
+    );
+}
+
+function normalizeForCompare(s) {
+  if (s == null) return '';
+  return decodeHtmlEntities(String(s).trim()).normalize('NFC');
+}
+
+function isBlockedName(name) {
+  if (!name) return true;
+  return GUEST_NAME_BLOCKLIST.has(String(name).trim().toLowerCase());
+}
+
+/**
+ * Title-case a single human name token while preserving Unicode letters,
+ * apostrophes, hyphens, and accents. Lowercases all chars then capitalises
+ * the first letter of each word.
+ */
+function titleCaseName(name) {
+  return String(name)
+    .toLowerCase()
+    // Capitalise the first letter after a word boundary (start, space, hyphen, apostrophe).
+    .replace(/(^|[\s'’\-])(\p{L})/gu, (_, sep, ch) => sep + ch.toUpperCase());
+}
+
+/**
+ * Extract the guest name from an Airbnb-style email body.
+ *
+ * Priority:
+ *   1) HTML — first <h2>NAME</h2> followed within ~500 chars by the literal
+ *      "Booker" keyword, where NAME also appears as alt="NAME" in the same
+ *      pre-sliced HTML window. Both the alt and the <h2> values are
+ *      HTML-entity-decoded and NFC-normalized before comparison.
+ *   2) Plaintext — Unicode-aware match for an indented uppercase line
+ *      followed by a "Booker" line. Title-cased on the way out.
+ *
+ * Returns { name: null, source: null } on no match — the CALLER substitutes
+ * the i18n-friendly "Unknown sender" sentinel. The `source` field tells the
+ * caller which strategy hit ('html' | 'plaintext') so the caller does NOT
+ * need to re-run the HTML scan just to log a `guestNameSource` field.
+ *
+ * @param {string|null} html
+ * @param {string|null} text
+ * @returns {{ name: string|null, source: 'html'|'plaintext'|null }}
+ */
+function extractGuestNameFromBody(html, text) {
+  // ---- Strategy 1: HTML --------------------------------------------------
+  if (html && typeof html === 'string') {
+    const slice = html.slice(0, HTML_GUEST_NAME_SCAN_BYTES);
+
+    // Collect alt="..." values (decoded + normalized) for confirmation.
+    const altSet = new Set();
+    const altRe = /alt="([^"]{1,200})"/g;
+    let am;
+    while ((am = altRe.exec(slice)) !== null) {
+      const val = normalizeForCompare(am[1]);
+      if (val) altSet.add(val);
+    }
+
+    // Walk every <h2>..</h2>; pick the first whose adjacent text contains
+    // "Booker" within 500 chars AND whose value also appears as an alt.
+    const h2Re = /<h2\b[^>]*>([^<]{1,200})<\/h2>/g;
+    let hm;
+    while ((hm = h2Re.exec(slice)) !== null) {
+      const candidate = normalizeForCompare(hm[1]);
+      if (!candidate) continue;
+      if (isBlockedName(candidate)) continue;
+      if (!altSet.has(candidate)) continue; // alt/h2 mismatch — skip
+
+      // Booker keyword must appear within 500 chars after </h2>.
+      const tailStart = hm.index + hm[0].length;
+      const tail = slice.slice(tailStart, tailStart + 500);
+      if (!/\bBooker\b/.test(tail)) continue;
+
+      return { name: candidate, source: 'html' };
+    }
+  }
+
+  // ---- Strategy 2: plaintext --------------------------------------------
+  if (text && typeof text === 'string') {
+    // Indented uppercase name line, then a Booker line.
+    // \p{Lu} = Unicode uppercase letter; \p{L} = any letter.
+    const m = text.match(/^[ \t]+(\p{Lu}[\p{L}\s'’\-]{0,60})\s*$\s*^[ \t]+Booker\b/mu);
+    if (m) {
+      const raw = m[1].trim();
+      if (!isBlockedName(raw)) {
+        return { name: titleCaseName(raw).normalize('NFC'), source: 'plaintext' };
+      }
+    }
+  }
+
+  return { name: null, source: null };
+}
+
+/**
+ * Resolve the guest name across the four-tier strategy
+ * (subject → HTML body → plaintext body → sentinel) and emit structured
+ * warn-logs ONLY for fallback paths actually attempted and failed.
+ *
+ * Emission rules:
+ *   - subject hit                                  → no warns
+ *   - body via HTML                                → 'subject' warn only
+ *   - body via plaintext, HTML attempted+missed    → 'subject' + 'html'
+ *   - body via plaintext, HTML never attempted     → 'subject' only
+ *   - all fail (each warn fires only if its strategy was attempted):
+ *        always 'subject' + 'sentinel'; 'html' iff html present;
+ *        'plaintext' iff text present.
+ *
+ * Pre-Improvement-4 the code emitted BOTH 'html' AND 'plaintext' warns
+ * unconditionally on body-failure, even when one of those paths was never
+ * tried. That produced noisy logs on text-only emails.
+ *
+ * @param {object} args
+ * @param {string} args.subject
+ * @param {string|null} args.html
+ * @param {string|null} args.text
+ * @param {string|null} args.sesMessageId
+ * @param {string|null} args.objectKey
+ * @param {string|null} args.fromDisplayName
+ * @returns {{ guestName: string, source: 'subject'|'html'|'plaintext'|'sentinel' }}
+ */
+function resolveGuestNameWithLogging({ subject, html, text, sesMessageId, objectKey, fromDisplayName }) {
+  const warn = (stage) => {
+    console.warn(JSON.stringify({
+      event: 'guest_name_fallback',
+      stage,
+      sesMessageId,
+      objectKey,
+      fromDisplayName,
+    }));
+  };
+
+  const subjectName = extractGuestNameFromSubject(subject);
+  if (subjectName) {
+    return { guestName: subjectName, source: 'subject' };
+  }
+
+  // Subject failed — log it.
+  warn('subject');
+
+  // A path is "attempted" iff its input is a non-empty string. Match the
+  // same gate extractGuestNameFromBody uses internally so the warn-log
+  // tracks reality.
+  const htmlAttempted = typeof html === 'string' && html.length > 0;
+  const textAttempted = typeof text === 'string' && text.length > 0;
+
+  const bodyResult = extractGuestNameFromBody(html, text);
+  if (bodyResult.name) {
+    // If we resolved via plaintext, HTML was attempted-and-missed; log it.
+    if (bodyResult.source === 'plaintext' && htmlAttempted) {
+      warn('html');
+    }
+    return { guestName: bodyResult.name, source: bodyResult.source };
+  }
+
+  // Total body failure — emit a warn for each path that was actually tried.
+  if (htmlAttempted) warn('html');
+  if (textAttempted) warn('plaintext');
+  warn('sentinel');
+  return { guestName: 'Unknown sender', source: 'sentinel' };
+}
+
+// ---------------------------------------------------------------------------
 // Enrichment field extraction
 // ---------------------------------------------------------------------------
 
@@ -527,6 +741,248 @@ async function matchByActiveWindow(firestore, fieldName, value, receivedAt) {
 // ---------------------------------------------------------------------------
 // RFC 5322 thread-header helpers (Option A Item 4)
 // ---------------------------------------------------------------------------
+
+/**
+ * Extract the local-part of an Airbnb per-thread Reply-To token.
+ * Airbnb sets Reply-To to <random>@reply.airbnb.com — the local-part is a
+ * stable, opaque thread identifier that's perfectly suited as a thread key.
+ *
+ * Returns null for non-Airbnb Reply-To addresses (or missing/empty values).
+ * Always lowercases the token before returning (defensive against future case
+ * drift on Airbnb's side).
+ *
+ * @param {object} parsed - mailparser output (or a subset for tests)
+ * @returns {string|null}
+ */
+function extractAirbnbReplyToToken(parsed) {
+  const value = parsed && parsed.replyTo && parsed.replyTo.value;
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const address = value[0] && value[0].address;
+  if (!address || typeof address !== 'string') return null;
+  const lower = address.trim().toLowerCase();
+  const m = lower.match(/^([^@\s]+)@reply\.airbnb\.com$/);
+  if (!m) return null;
+  return m[1];
+}
+
+/**
+ * Hash the Airbnb Reply-To token into a stable threadKey of the form
+ * "airbnb:<32-hex>" (first 32 chars of sha256). Returns null for non-Airbnb
+ * Reply-To addresses.
+ *
+ * NOTE: v1 of the threading fix used this as the canonical threadKey, but
+ * production data showed Airbnb rotates Reply-To per email — so it does NOT
+ * merge multi-message conversations. v2 (deriveAirbnbThreadKey) supersedes
+ * this for threadKey use. We keep this helper exported so the
+ * `replyToToken` debug field can still be populated (and so existing tests
+ * continue to lock in its narrow contract).
+ *
+ * @param {object} parsed
+ * @returns {string|null}
+ */
+function airbnbThreadKeyFromReplyTo(parsed) {
+  const token = extractAirbnbReplyToToken(parsed);
+  if (!token) return null;
+  const hash = crypto.createHash('sha256').update(token).digest('hex').slice(0, 32);
+  return 'airbnb:' + hash;
+}
+
+// ---------------------------------------------------------------------------
+// v2 composite-key threading (2026-05-11)
+//
+// Airbnb rotates Reply-To per email, so v1's airbnbThreadKeyFromReplyTo
+// produced different keys for each message in the same conversation. v2
+// derives a threadKey from a priority chain:
+//
+//   1. bookingId          → "booking:<id>"             (matched booking)
+//   2. guestName + stay   → "guest:<sha16>" of
+//                           (name | stay-window | year)
+//   3. guestName only     → "guest:<sha16>" of
+//                           (name | yearMonth-from-receivedAt)
+//   4. otherwise          → "unknown"
+//
+// This collapses multi-message threads when they share either a bookingId
+// or a (guestName, stayWindow) signature.
+// ---------------------------------------------------------------------------
+
+const MONTH_TOKENS = {
+  jan: 1, january: 1,
+  feb: 2, february: 2,
+  mar: 3, march: 3,
+  apr: 4, april: 4,
+  may: 5,
+  jun: 6, june: 6,
+  jul: 7, july: 7,
+  aug: 8, august: 8,
+  sep: 9, sept: 9, september: 9,
+  oct: 10, october: 10,
+  nov: 11, november: 11,
+  dec: 12, december: 12,
+};
+
+// Canonicalize month tokens to 3-letter form so cosmetic variations
+// ("Sept" vs "Sep" vs "September") collapse to the same threadKey.
+const MONTH_CANONICAL = {
+  jan: 'jan', january: 'jan',
+  feb: 'feb', february: 'feb',
+  mar: 'mar', march: 'mar',
+  apr: 'apr', april: 'apr',
+  may: 'may',
+  jun: 'jun', june: 'jun',
+  jul: 'jul', july: 'jul',
+  aug: 'aug', august: 'aug',
+  sep: 'sep', sept: 'sep', september: 'sep',
+  oct: 'oct', october: 'oct',
+  nov: 'nov', november: 'nov',
+  dec: 'dec', december: 'dec',
+};
+
+/** Match a stay-window like "May 5 – 13" or "Apr 30 – May 9", with optional
+ *  trailing ", 2026". Accepts both en-dash (U+2013) and ascii hyphen.
+ *  Captures: 1=month1, 2=day1, 3=optional month2, 4=day2.
+ *  The optional "for " preposition can sit ahead of the month — handled by
+ *  the caller's anchor.
+ *  Day bounds: 01-31 only — rejects "May 0 – 99" garbage. */
+const DAY_RE = '(0?[1-9]|[12][0-9]|3[01])';
+const STAY_WINDOW_RE = new RegExp(
+  '\\b(' + Object.keys(MONTH_TOKENS).join('|') + ')' + // month1
+  '\\s+' + DAY_RE +                                     // day1 (01-31)
+  '\\s*[\\u2013\\-]\\s*' +                              // dash (en or ascii)
+  '(?:(' + Object.keys(MONTH_TOKENS).join('|') + ')\\s+)?' + // optional month2
+  DAY_RE + '\\b',                                       // day2 (01-31)
+  'i'
+);
+
+/**
+ * Extract a stay-window token from an Airbnb subject line, e.g.
+ *   "RE: Reservation for Casa Coqui #1 Next to everything, May 5 – 13"
+ *     → "may-5-13"
+ *   "Inquiry for Cozy 4BR..., for Apr 30 – May 9"
+ *     → "apr-30-may-9"
+ *
+ * Lowercase, dash-separated, no spaces. Tolerates en-dash and ascii hyphen.
+ * Returns null when no date range is present.
+ *
+ * @param {string|null|undefined} subject
+ * @returns {string|null}
+ */
+function extractStayWindowFromSubject(subject) {
+  if (!subject || typeof subject !== 'string') return null;
+  const m = subject.match(STAY_WINDOW_RE);
+  if (!m) return null;
+
+  // Canonicalize months to 3-letter form so "Sept" / "September" / "Sep"
+  // all produce the same stay-window token.
+  const month1 = MONTH_CANONICAL[m[1].toLowerCase()];
+  const day1 = m[2];
+  const month2 = m[3] ? MONTH_CANONICAL[m[3].toLowerCase()] : null;
+  const day2 = m[4];
+
+  const parts = month2
+    ? [month1, day1, month2, day2]
+    : [month1, day1, day2];
+
+  return parts.join('-');
+}
+
+/** Match an explicit 4-digit year in the subject (e.g. ", 2026"). */
+const SUBJECT_YEAR_RE = /,\s*(\d{4})\b/;
+
+/**
+ * Extract the stay year from a subject.
+ *   - If subject contains an explicit 4-digit year, use it.
+ *   - Otherwise infer from receivedAt year.
+ *   - Edge case (December receivedAt + January stay-month) → assume next year.
+ *   - Edge case (January receivedAt + December stay-month) → assume previous year.
+ *
+ * @param {string|null|undefined} subject
+ * @param {Date|string|number} receivedAt
+ * @returns {string} 4-digit year
+ */
+function extractStayYearFromSubject(subject, receivedAt) {
+  if (subject && typeof subject === 'string') {
+    const ym = subject.match(SUBJECT_YEAR_RE);
+    if (ym) return ym[1];
+  }
+
+  const dt = receivedAt instanceof Date
+    ? receivedAt
+    : (receivedAt ? new Date(receivedAt) : new Date());
+  const receivedYear = dt.getUTCFullYear();
+  const receivedMonth = dt.getUTCMonth() + 1; // 1..12
+
+  if (subject && typeof subject === 'string') {
+    const mm = subject.match(STAY_WINDOW_RE);
+    if (mm) {
+      const stayMonth = MONTH_TOKENS[mm[1].toLowerCase()];
+      // December received + January stay → next year
+      if (receivedMonth === 12 && stayMonth === 1) {
+        return String(receivedYear + 1);
+      }
+      // January received + December stay → previous year
+      if (receivedMonth === 1 && stayMonth === 12) {
+        return String(receivedYear - 1);
+      }
+    }
+  }
+
+  return String(receivedYear);
+}
+
+/**
+ * Derive a v2 composite threadKey for an Airbnb message.
+ *
+ * Priority (the `threadKeyPath` tag identifies which priority tier won;
+ * emitted alongside the threadKey for observability):
+ *   1. matched booking            → "booking:<id>"            path='booking'
+ *   2. guestName + stay window    → "guest:<sha16>" of
+ *                                   (name|window|year)        path='guest-stay'
+ *   3. guestName w/o stay window  → "guest:<sha16>" of
+ *                                   (name|yearMonth)          path='guest-month'
+ *   4. fully anonymous            → "unknown"                 path='unknown'
+ *
+ * @param {{
+ *   bookingId?: string|null,
+ *   guestName?: string|null,
+ *   subject?: string|null,
+ *   receivedAt?: Date|string|number|null,
+ * }} input
+ * @returns {{ threadKey: string, threadKeyPath: 'booking'|'guest-stay'|'guest-month'|'unknown' }}
+ */
+function deriveAirbnbThreadKey({ bookingId, guestName, subject, receivedAt } = {}) {
+  if (bookingId && String(bookingId).trim()) {
+    return {
+      threadKey: `booking:${String(bookingId).trim()}`,
+      threadKeyPath: 'booking',
+    };
+  }
+
+  if (
+    guestName &&
+    typeof guestName === 'string' &&
+    guestName.trim() &&
+    guestName !== 'Unknown sender'
+  ) {
+    const lowerName = guestName.toLowerCase().trim();
+    const stayWindow = extractStayWindowFromSubject(subject);
+    if (stayWindow) {
+      const year = extractStayYearFromSubject(subject, receivedAt);
+      const composite = [lowerName, stayWindow, year].join('|');
+      const hash = crypto.createHash('sha256').update(composite).digest('hex').slice(0, 16);
+      return { threadKey: `guest:${hash}`, threadKeyPath: 'guest-stay' };
+    }
+    // No stay window — fall back to year-month from receivedAt.
+    const dt = receivedAt instanceof Date
+      ? receivedAt
+      : (receivedAt ? new Date(receivedAt) : new Date());
+    const yearMonth = dt.toISOString().slice(0, 7); // "YYYY-MM"
+    const composite = [lowerName, yearMonth].join('|');
+    const hash = crypto.createHash('sha256').update(composite).digest('hex').slice(0, 16);
+    return { threadKey: `guest:${hash}`, threadKeyPath: 'guest-month' };
+  }
+
+  return { threadKey: 'unknown', threadKeyPath: 'unknown' };
+}
 
 /**
  * Pull In-Reply-To and References from a mailparser parsed object.
@@ -825,6 +1281,11 @@ exports.handler = async (event) => {
       // The RFC-2822 Message-ID header (different from SES messageId)
       const rfcMessageId = parsed.messageId || null;
       const { inReplyTo, references } = extractHeaderRefs(parsed);
+      // Per-thread Reply-To token from Airbnb (e.g. <token>@reply.airbnb.com).
+      // v2: kept as a debug field on the Firestore doc only — no longer
+      // load-bearing for threading because Airbnb rotates Reply-To per email.
+      // See deriveAirbnbThreadKey for the canonical v2 threadKey derivation.
+      const replyToToken = extractAirbnbReplyToToken(parsed);
 
       console.log('Email parsed', {
         subject,
@@ -890,6 +1351,7 @@ exports.handler = async (event) => {
           rawEmailS3Key: objectKey,
           messageId: rfcMessageId,
           sesMessageId,
+          parserVersion: PARSER_VERSION,
           quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
           reason: 'non_airbnb_sender',
         });
@@ -911,14 +1373,36 @@ exports.handler = async (event) => {
 
       // ------------------------------------------------------------------
       // 5. Extract confirmation code + guest name
+      //
+      //    Guest name resolution (Fix 1, 2026-05-09):
+      //      1) subject regex   (e.g. "New message from Jane Doe")
+      //      2) HTML body       (alt="Jane" + <h2>Jane</h2> + Booker anchor)
+      //      3) plaintext body  (indented uppercase line + Booker line)
+      //      4) sentinel        ('Unknown sender' — never `fromName`, which
+      //                          is always literally "Airbnb" for Airbnb mail)
+      //
+      //    `fromName` is preserved on the doc as `fromDisplayName` for
+      //    forensics but no longer leaks into guestName.
       // ------------------------------------------------------------------
       const confirmationCode =
         extractConfirmationCode(subject) || extractConfirmationCode(bodyText);
 
-      const guestName =
-        extractGuestNameFromSubject(subject) || fromName || null;
+      const fromDisplayName = fromName;
+      const { guestName, source: guestNameSource } = resolveGuestNameWithLogging({
+        subject,
+        html: parsed.html,
+        text: parsed.text,
+        sesMessageId,
+        objectKey,
+        fromDisplayName,
+      });
 
-      console.log('Extracted fields', { confirmationCode, guestName });
+      console.log('Extracted fields', {
+        confirmationCode,
+        guestName,
+        guestNameSource,
+        fromDisplayName,
+      });
 
       // ------------------------------------------------------------------
       // 6. Route reservation confirmations → enrich or quarantine
@@ -947,6 +1431,7 @@ exports.handler = async (event) => {
             sesMessageId,
             airbnbConfirmationCode: confirmationCode || null,
             enrichmentFields: fields,
+            parserVersion: PARSER_VERSION,
             quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
           console.log('reservation confirmation unmatched — quarantined', {
@@ -1049,6 +1534,7 @@ exports.handler = async (event) => {
             rawEmailS3Key: objectKey,
             messageId: rfcMessageId,
             sesMessageId,
+            parserVersion: PARSER_VERSION,
             updatedAt: nowTs,
           };
 
@@ -1108,6 +1594,7 @@ exports.handler = async (event) => {
           messageId: rfcMessageId,
           sesMessageId,
           airbnbConfirmationCode: confirmationCode,
+          parserVersion: PARSER_VERSION,
           quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
           reason: `messageType:${messageType}`,
         });
@@ -1134,6 +1621,20 @@ exports.handler = async (event) => {
           guestName,
         });
 
+        // v2 composite threadKey — bookingId is null on the unmatched path, so
+        // the derivation falls through to the guestName+stayWindow path
+        // (or 'unknown' when no name was extracted).
+        const senderNameForKey = guestNameSource === 'sentinel' ? null : guestName;
+        const {
+          threadKey: unmatchedThreadKey,
+          threadKeyPath: unmatchedThreadKeyPath,
+        } = deriveAirbnbThreadKey({
+          bookingId: null,
+          guestName: senderNameForKey,
+          subject,
+          receivedAt,
+        });
+
         // Write to airbnb_messages with null bookingId so it appears in admin UI
         await firestore.collection('airbnb_messages').add({
           bookingId: null,
@@ -1150,6 +1651,7 @@ exports.handler = async (event) => {
           airbnbConfirmationCode: confirmationCode || null,
           subject,
           fromName,
+          fromDisplayName,
           fromAddress,
           read: false,
           draftReply: null,
@@ -1158,22 +1660,23 @@ exports.handler = async (event) => {
           sentAt: null,
           editedReply: null,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          threadKey: buildThreadKey({
-            bookingCode: null,
-            senderEmail: fromAddress,
-            senderName: guestName || fromName,
-            receivedAt,
-          }),
+          threadKey: unmatchedThreadKey,
+          replyToToken,
+          parserVersion: PARSER_VERSION,
           source: 'inbound',
         });
 
-        console.log('Written unmatched guest_message to airbnb_messages');
+        console.log('Written unmatched guest_message to airbnb_messages', {
+          threadKey: unmatchedThreadKey,
+          threadKeyPath: unmatchedThreadKeyPath,
+        });
 
         // Also archive to quarantine for record-keeping
         await firestore.collection('airbnb_messages_quarantine').add({
           messageType: 'guest_message',
           subject,
           fromName,
+          fromDisplayName,
           fromAddress,
           body: bodyText.slice(0, 4000),
           receivedAt: admin.firestore.Timestamp.fromDate(receivedAt),
@@ -1185,6 +1688,9 @@ exports.handler = async (event) => {
           sesMessageId,
           airbnbConfirmationCode: confirmationCode,
           guestName,
+          threadKey: unmatchedThreadKey,
+          replyToToken,
+          parserVersion: PARSER_VERSION,
           quarantinedAt: admin.firestore.FieldValue.serverTimestamp(),
           reason: 'no_matching_booking',
         });
@@ -1197,6 +1703,14 @@ exports.handler = async (event) => {
       // ------------------------------------------------------------------
       // 9. Write to airbnb_messages
       // ------------------------------------------------------------------
+      const { threadKey: matchedThreadKey, threadKeyPath: matchedThreadKeyPath } =
+        deriveAirbnbThreadKey({
+          bookingId: booking.id,
+          guestName: guestName || booking.data.guestName || null,
+          subject,
+          receivedAt,
+        });
+
       const docData = {
         bookingId: booking.id,
         guestName: guestName || booking.data.guestName || null,
@@ -1213,6 +1727,7 @@ exports.handler = async (event) => {
           confirmationCode || booking.data.airbnbConfirmationCode || null,
         subject,
         fromAddress,
+        fromDisplayName,
         // Reply workflow fields — all null on ingest
         draftReply: null,
         draftStatus: 'pending',
@@ -1220,12 +1735,9 @@ exports.handler = async (event) => {
         sentAt: null,
         editedReply: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        threadKey: buildThreadKey({
-          bookingCode: booking.data.code,
-          senderEmail: fromAddress,
-          senderName: guestName || booking.data.guestName || null,
-          receivedAt,
-        }),
+        threadKey: matchedThreadKey,
+        replyToToken,
+        parserVersion: PARSER_VERSION,
         source: 'inbound',
       };
 
@@ -1236,6 +1748,8 @@ exports.handler = async (event) => {
         bookingId: booking.id,
         confirmationCode,
         guestName: docData.guestName,
+        threadKey: matchedThreadKey,
+        threadKeyPath: matchedThreadKeyPath,
       });
 
       processedCount++;
@@ -1275,6 +1789,8 @@ module.exports.extractEnrichmentFields = extractEnrichmentFields;
 module.exports.classifyEmail = classifyEmail;
 module.exports.isAirbnbSender = isAirbnbSender;
 module.exports.extractGuestNameFromSubject = extractGuestNameFromSubject;
+module.exports.extractGuestNameFromBody = extractGuestNameFromBody;
+module.exports.resolveGuestNameWithLogging = resolveGuestNameWithLogging;
 module.exports.parseResolutionFields = parseResolutionFields;
 module.exports.normalizeName = normalizeName;
 module.exports.isInActiveWindow = isInActiveWindow;
@@ -1286,3 +1802,8 @@ module.exports.matchByActiveWindow = matchByActiveWindow;
 module.exports.findMatchingBooking = findMatchingBooking;
 module.exports.extractHeaderRefs = extractHeaderRefs;
 module.exports.findParentMessageDocId = findParentMessageDocId;
+module.exports.extractAirbnbReplyToToken = extractAirbnbReplyToToken;
+module.exports.airbnbThreadKeyFromReplyTo = airbnbThreadKeyFromReplyTo;
+module.exports.extractStayWindowFromSubject = extractStayWindowFromSubject;
+module.exports.extractStayYearFromSubject = extractStayYearFromSubject;
+module.exports.deriveAirbnbThreadKey = deriveAirbnbThreadKey;

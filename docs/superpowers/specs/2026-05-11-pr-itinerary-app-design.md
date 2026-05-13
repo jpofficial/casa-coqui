@@ -10,7 +10,7 @@
 
 ## 1. Executive Summary
 
-Mi Itinerario is an AI-powered Puerto Rico vacation itinerary generator hosted at `casa-coqui.cc/plan`. Users describe their trip in a short persona wizard; Bedrock Claude assembles a day-by-day itinerary from a curated database of vetted San Juan-area activities, injecting time-sensitive events from Eventbrite. The product doubles as a top-of-funnel for Casa Coqui Airbnb bookings via a persona-matched lodging recommendation and an honest "Where to Stay" comparison panel.
+Mi Itinerario is an AI-powered Puerto Rico vacation itinerary generator hosted at `casa-coqui.cc/puerto-rico-itinerary` (URL chosen for direct keyword match on the "puerto rico itinerary" search head term, ~22K monthly searches). Users describe their trip in a short persona wizard; Bedrock Claude assembles a day-by-day itinerary from a curated database of vetted San Juan-area activities, injecting time-sensitive events from Eventbrite. The product doubles as a top-of-funnel for Casa Coqui Airbnb bookings via a persona-matched lodging recommendation and an honest "Where to Stay" comparison panel.
 
 Secondary monetization: a Spanglish-branded tip jar ("invítame un cafecito") at end of itinerary, integrated via Buy Me a Coffee.
 
@@ -21,8 +21,8 @@ The application is also a deliberate AWS DOP-C02 exam lab — every weak exam we
 ## 2. Goals & Non-Goals
 
 ### Goals (MVP)
-- Ship a public PR itinerary planner at `casa-coqui.cc/plan` in ≤8 weeks
-- Ship a Casa Coqui blog at `casa-coqui.cc/blog` with 3 anchor posts (umbrella accuracy correction, anti-recommendations, Santurce evening circuit) to drive organic SEO traffic into `/plan` from day 1
+- Ship a public PR itinerary planner at `casa-coqui.cc/puerto-rico-itinerary` in ≤8 weeks
+- Ship a Casa Coqui blog at `casa-coqui.cc/blog` with 3 anchor posts (umbrella accuracy correction, anti-recommendations, Santurce evening circuit) to drive organic SEO traffic into `/puerto-rico-itinerary` from day 1
 - Drive measurable lodging bookings to Casa Coqui (target: 5+ inbound inquiries/month within 90 days of launch)
 - Seed ≥85 vetted San Juan-area activities (67 from initial 4-agent research + ~18 augmentations from X1/X2/X3 exploration agents — Cocina al Fondo, Identidad Bar, Calle Fortaleza, Las Pailas, La Perla viewpoint, Playa Escambrón, etc.)
 - Integrate Eventbrite events into AI prompts so itineraries reflect real, current happenings
@@ -67,10 +67,10 @@ Returning to family, bilingual, knows basics, wants hidden gems and food-forward
 ┌─────────────────────────────────────────────────────────────────┐
 │  FRONTEND — Vercel (existing Casa Coqui Next.js 14 app)         │
 │                                                                 │
-│   /plan                  ← Mi Itinerario landing + wizard       │
-│   /plan/[plan_id]        ← Public itinerary view (sharable)    │
-│   /plan/save             ← Email magic-link save flow           │
-│   /plan/account          ← Cognito-authed user dashboard (V1.1) │
+│   /puerto-rico-itinerary               ← landing + wizard       │
+│   /puerto-rico-itinerary/[plan_id]      ← public itinerary view │
+│   /puerto-rico-itinerary/save           ← email magic-link save │
+│   /puerto-rico-itinerary/account        ← V1.1 user dashboard   │
 │                                                                 │
 │   API routes (Vercel Functions):                                │
 │   POST /api/plan/generate     → invokes Lambda                  │
@@ -124,7 +124,7 @@ Returning to family, bilingual, knows basics, wants hidden gems and food-forward
 
 ### 4.2 Why hybrid (not all-AWS, not all-Vercel)
 
-- **Vercel frontend:** Already where Casa Coqui lives. `/plan` is just another route in the existing Next.js app. Zero new infra to host UI. Edge caching for static pages works out of the box.
+- **Vercel frontend:** Already where Casa Coqui lives. `/puerto-rico-itinerary` is just another route in the existing Next.js app. Zero new infra to host UI. Edge caching for static pages works out of the box.
 - **AWS backend:** New services are additive — don't destabilize the Casa Coqui codebase. Every AWS service used is a deliberate exam-prep lab.
 - **Firebase FCM stays:** Already wired for Casa Coqui guest notifications. Cognito will only handle Mi Itinerario (random tourists), a different user population — keeping them separate is correct, not technical debt.
 
@@ -408,7 +408,7 @@ this free for the next traveler.
 
 ## 9.5 Blog System (SEO Funnel)
 
-Added 2026-05-11 after exploration agents surfaced accuracy gaps + content opportunities competitors don't have. Blog at `casa-coqui.cc/blog` drives organic search traffic into `/plan`.
+Added 2026-05-11 after exploration agents surfaced accuracy gaps + content opportunities competitors don't have. Blog at `casa-coqui.cc/blog` drives organic search traffic into `/puerto-rico-itinerary`.
 
 ### 9.5.1 Route structure
 ```
@@ -423,7 +423,7 @@ casa-coqui.cc/blog/tag/[tag]      ← tag archives (V1.1)
 - **Performance:** Static HTML → 100/100 Lighthouse possible → ranks fast
 - **OG images:** Lambda function (`og-image-generator`) dynamically renders 1200x630 social cards per post slug. AWS exam practice: Lambda (W8) + Bedrock optional for image gen prompts (W11)
 - **Distribution:** CloudFront fronting the static blog assets (W10 exam practice). Cache static HTML + OG images aggressively (1 day TTL with cache invalidation on publish)
-- **Analytics:** CloudWatch RUM tracks real-user blog engagement: scroll depth, time on page, click-through to `/plan` CTAs (W11 exam practice)
+- **Analytics:** CloudWatch RUM tracks real-user blog engagement: scroll depth, time on page, click-through to `/puerto-rico-itinerary` CTAs (W11 exam practice)
 
 ### 9.5.3 MVP launch content (3 anchor posts)
 
@@ -453,9 +453,9 @@ Each post embeds a Mi Itinerario CTA at the end ("Want this in your trip? Build 
 
 ### 9.5.5 Funnel integration
 - Every blog post has 2 CTAs:
-  1. **Inline:** "→ Add Cocina al Fondo to your San Juan itinerary" (deep link to `/plan?seed=foodie`)
-  2. **Footer:** "Build your free Puerto Rico itinerary" (general `/plan` CTA)
-- Each post embeds the Casa Coqui "Where to Stay" component (same component used in `/plan` flow) — direct lodging conversion
+  1. **Inline:** "→ Add Cocina al Fondo to your San Juan itinerary" (deep link to `/puerto-rico-itinerary?seed=foodie`)
+  2. **Footer:** "Build your free Puerto Rico itinerary" (general `/puerto-rico-itinerary` CTA)
+- Each post embeds the Casa Coqui "Where to Stay" component (same component used in `/puerto-rico-itinerary` flow) — direct lodging conversion
 - Buy Me a Coffee tip jar at end of post (reuses Mi Itinerario tip component)
 
 ### 9.5.6 SEO foundation
@@ -472,11 +472,11 @@ Each post embeds a Mi Itinerario CTA at the end ("Want this in your trip? Build 
 | Phase | Duration | Deliverable | AWS exam services touched |
 |-------|----------|-------------|----------------------------|
 | **0. Content Seeding** | 1-2 days | 4 parallel research agents → 67 activities JSON → manually reviewed → seed to DynamoDB | — |
-| **1. Foundation** | 1 week | DDB tables provisioned, Next.js `/plan` route, persona wizard UI, plan-id URL routing, basic empty-state | DynamoDB (W10) |
+| **1. Foundation** | 1 week | DDB tables provisioned, Next.js `/puerto-rico-itinerary` route, persona wizard UI, plan-id URL routing, basic empty-state | DynamoDB (W10) |
 | **2. AI Generation** | 1-2 weeks | Bedrock prompt design, Lambda for generate + refine, end-to-end flow w/ live AI, snapshot tests | Lambda (W8), API Gateway (W8), Bedrock (W11), Secrets Manager (W11) |
 | **3. Events Layer (MVP)** | 1 week | Eventbrite API integration, hourly fetch Lambda, events_cache table w/ TTL, prompt injection | EventBridge (W8), DynamoDB TTL (W10) |
 | **4. Casa Coqui Funnel** | 1 week | Persona-match card, Where-to-Stay panel, link to existing booking flow, analytics events | CloudWatch (W11) |
-| **5. Polish + Deploy** | 1 week | Tip jar (BMaC integration), SEO meta + OG tags, accessibility audit, mobile QA, Vercel prod deploy, Route 53 DNS for casa-coqui.cc/plan, monitoring dashboard | Route 53 (W10), CloudWatch dashboards (W11) |
+| **5. Polish + Deploy** | 1 week | Tip jar (BMaC integration), SEO meta + OG tags, accessibility audit, mobile QA, Vercel prod deploy, Route 53 DNS for casa-coqui.cc/puerto-rico-itinerary, monitoring dashboard | Route 53 (W10), CloudWatch dashboards (W11) |
 | **6. Blog System + 3 anchor posts** | 1 week | MDX blog at `/blog`, OG image Lambda, CloudFront caching, 3 anchor posts written + published, schema.org markup, sitemap submitted to Google Search Console | Lambda (W8), CloudFront (W10), CloudWatch RUM (W11) |
 | **Total MVP** | **~7-8 weeks** | Public launch | **9+ AWS services in production** |
 
