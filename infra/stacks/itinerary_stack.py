@@ -157,11 +157,20 @@ class MiItinerarioStack(Stack):
         )
 
         # itinerary-generate Lambda
-        # reserved_concurrent_executions=10 is the cost-ceiling control.
-        # At ~$0.01 per invocation and 30s timeout, 10 concurrent caps
-        # absolute burn at ~10 × 120 inv/min × $0.01 = $72/min ceiling
-        # (vs. $3.6k/hr unbounded). Legitimate traffic is well under 10
-        # concurrent — paid-social funnel peaks at ~2-3 concurrent users.
+        #
+        # Cost-ceiling control: NORMALLY this would set
+        # reserved_concurrent_executions=10 to cap absolute burn at
+        # ~10 concurrent invocations. However, this AWS account has a
+        # service quota of 10 total concurrent executions (default sandbox
+        # tier). Lambda requires UnreservedConcurrentExecutions >= 10, so
+        # reserving ANY value is rejected (CFN error: "decreases account's
+        # UnreservedConcurrentExecution below its minimum value of [10]").
+        #
+        # Effective ceiling today: the account quota of 10 already caps
+        # concurrent Bedrock invocations across ALL Lambdas in this account.
+        # That's a stricter ceiling than per-function reservation would be.
+        # When the account quota is raised (request via Service Quotas →
+        # Lambda → Concurrent executions), re-add reserved_concurrent_executions=10.
         generate_fn = _lambda.Function(
             self,
             "ItineraryGenerateFn",
@@ -176,7 +185,6 @@ class MiItinerarioStack(Stack):
             ),
             timeout=Duration.seconds(30),
             memory_size=512,
-            reserved_concurrent_executions=10,
             environment={
                 "ACTIVITIES_TABLE": self.activities_table.table_name,
                 "ITINERARIES_TABLE": self.itineraries_table.table_name,
@@ -211,8 +219,9 @@ class MiItinerarioStack(Stack):
         )
 
         # itinerary-refine Lambda
-        # Same cost-ceiling rationale as generate; refine is per-day rebuild
-        # so usage is slightly higher per legitimate session, hence 15.
+        # Same cost-ceiling rationale as generate; reserved_concurrent_executions
+        # is omitted for the same account-quota reason documented on generate_fn.
+        # Re-add reserved_concurrent_executions=15 once Lambda quota is raised.
         refine_fn = _lambda.Function(
             self,
             "ItineraryRefineFn",
@@ -227,7 +236,6 @@ class MiItinerarioStack(Stack):
             ),
             timeout=Duration.seconds(30),
             memory_size=512,
-            reserved_concurrent_executions=15,
             environment={
                 "ACTIVITIES_TABLE": self.activities_table.table_name,
                 "ITINERARIES_TABLE": self.itineraries_table.table_name,
