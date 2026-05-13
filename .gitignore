@@ -31,6 +31,10 @@ functions/firebase-debug.log
 
 # local env files
 .env*.local
+# Firebase Functions v2 params/secrets — materialized from SSM at deploy
+# time. NEVER commit. Contains SecureString plaintext.
+functions/.env
+functions/.env.*
 
 # vercel
 .vercel

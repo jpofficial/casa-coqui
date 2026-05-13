@@ -75,8 +75,12 @@ phases:
         else
           echo "[functions-deploy] SSM /casa-coqui/functions/params missing; functions deploy may fail."
         fi
-      - echo "Deploying Firebase functions (best-effort — does not gate rules)"
-      - firebase deploy --only functions --project "$FIREBASE_PROJECT_ID" --non-interactive || echo "[functions-deploy] FAILED — rules + indexes already shipped. See logs above."
+      # Functions deploy is intentionally last so rules+indexes ship even
+      # if it fails. But surface the failure with a non-zero exit so the
+      # CodeBuild build is marked FAILED and SNS notifies you — otherwise
+      # a silent `|| echo` exits 0 and the UI lies about success.
+      - echo "Deploying Firebase functions (failure here surfaces but does not rollback rules)"
+      - firebase deploy --only functions --project "$FIREBASE_PROJECT_ID" --non-interactive || { echo "[functions-deploy] FAILED — rules + indexes already shipped. See logs above."; exit 1; }
 
   post_build:
     commands:
