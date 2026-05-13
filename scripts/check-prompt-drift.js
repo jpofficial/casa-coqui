@@ -79,26 +79,44 @@ const SOURCES = [
 ];
 
 const results = [];
-let hadReadError = false;
+const missing = [];
 
 for (const src of SOURCES) {
   try {
     const text = src.read();
     results.push({ label: src.label, length: text.length, hash: sha256(text) });
   } catch (err) {
+    // ENOENT for an optional source (e.g. AppConfig seed JSON missing from a
+    // Vercel deploy that did not include the full repo) is a soft warning,
+    // not a build failure. Drift detection between the remaining readable
+    // sources still runs. Any other error (parse failure, permission, etc.)
+    // is still treated as a hard failure.
+    if (err && err.code === 'ENOENT') {
+      console.warn(`WARN: source not present, skipping — ${src.label}`);
+      missing.push(src.label);
+      continue;
+    }
     console.error(`ERROR reading ${src.label}: ${err.message}`);
-    hadReadError = true;
+    process.exit(2);
   }
 }
 
-if (hadReadError) {
+if (results.length < 2) {
+  console.error(
+    `ERROR: fewer than 2 readable sources (${results.length}); cannot perform drift check.`
+  );
   process.exit(2);
 }
 
 const uniqueHashes = new Set(results.map((r) => r.hash));
 
 if (uniqueHashes.size === 1) {
-  log(`✓ SYSTEM_PROMPT in sync across all 3 sources`);
+  const checked = results.length;
+  const total = SOURCES.length;
+  log(`✓ SYSTEM_PROMPT in sync across ${checked}/${total} readable source${checked === 1 ? '' : 's'}`);
+  if (missing.length) {
+    log(`  (skipped: ${missing.length} missing source${missing.length === 1 ? '' : 's'})`);
+  }
   log(`  hash:   ${results[0].hash.slice(0, 16)}…`);
   log(`  length: ${results[0].length} chars`);
   process.exit(0);
