@@ -1,9 +1,16 @@
 import { nanoid } from 'nanoid';
 import { FALLBACK_PLAN } from '@/lib/itinerary/fallback-template';
 import { ItinerarySchema } from '@/lib/itinerary/schema';
+import { rateLimit, clientIp } from '@/lib/itinerary/rate-limit';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
+
+// Per-IP cap. 5 generations/hr is comfortably above legitimate use
+// (most users build one itinerary) but caps cost-amplification at
+// ~$0.05 per IP per hour at current Bedrock pricing.
+const GEN_LIMIT = 5;
+const GEN_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 // Defense-in-depth sanitizer for free-text input.
 // Layer 1 of 2 (Lambda has an independent backstop).
@@ -48,6 +55,24 @@ function sanitizeFreeText(raw) {
 }
 
 export async function POST(request) {
+  // Rate limit BEFORE parsing body — body parsing is cheap but we want the
+  // 429 path to spend the absolute minimum on an attacker.
+  const ip = clientIp(request);
+  const limit = rateLimit(ip, GEN_LIMIT, GEN_WINDOW_MS);
+  if (!limit.allowed) {
+    return Response.json(
+      { error: 'rate_limited' },
+      {
+        status: 429,
+        headers: {
+          'retry-after': String(limit.retryAfterSec),
+          'x-ratelimit-limit': String(GEN_LIMIT),
+          'x-ratelimit-remaining': '0',
+        },
+      }
+    );
+  }
+
   const body = await request.json();
   if (!Array.isArray(body.interests) || body.interests.length === 0)
     return Response.json({ error: 'interests_required' }, { status: 400 });

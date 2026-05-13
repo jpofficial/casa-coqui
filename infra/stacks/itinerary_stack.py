@@ -157,6 +157,11 @@ class MiItinerarioStack(Stack):
         )
 
         # itinerary-generate Lambda
+        # reserved_concurrent_executions=10 is the cost-ceiling control.
+        # At ~$0.01 per invocation and 30s timeout, 10 concurrent caps
+        # absolute burn at ~10 × 120 inv/min × $0.01 = $72/min ceiling
+        # (vs. $3.6k/hr unbounded). Legitimate traffic is well under 10
+        # concurrent — paid-social funnel peaks at ~2-3 concurrent users.
         generate_fn = _lambda.Function(
             self,
             "ItineraryGenerateFn",
@@ -171,6 +176,7 @@ class MiItinerarioStack(Stack):
             ),
             timeout=Duration.seconds(30),
             memory_size=512,
+            reserved_concurrent_executions=10,
             environment={
                 "ACTIVITIES_TABLE": self.activities_table.table_name,
                 "ITINERARIES_TABLE": self.itineraries_table.table_name,
@@ -205,6 +211,8 @@ class MiItinerarioStack(Stack):
         )
 
         # itinerary-refine Lambda
+        # Same cost-ceiling rationale as generate; refine is per-day rebuild
+        # so usage is slightly higher per legitimate session, hence 15.
         refine_fn = _lambda.Function(
             self,
             "ItineraryRefineFn",
@@ -219,6 +227,7 @@ class MiItinerarioStack(Stack):
             ),
             timeout=Duration.seconds(30),
             memory_size=512,
+            reserved_concurrent_executions=15,
             environment={
                 "ACTIVITIES_TABLE": self.activities_table.table_name,
                 "ITINERARIES_TABLE": self.itineraries_table.table_name,
@@ -263,14 +272,38 @@ class MiItinerarioStack(Stack):
         )
 
         # ── HTTP API ──────────────────────────────────────────────────────────
+        # CORS locked to known origins. The browser never hits API Gateway
+        # directly (Next.js proxies via /api/plan/*) but a stolen Bedrock IAM
+        # key would let an attacker call API Gateway from any origin —
+        # restricting CORS doesn't fix that, but it prevents in-browser
+        # abuse from third-party sites embedding our API.
+        # Note: Vercel preview URLs are dynamic; we keep ".vercel.app"
+        # as a permitted suffix via the regexp pattern. Re-evaluate when
+        # Vercel deployment protection is lifted on previews.
         http_api = apigw.HttpApi(
             self,
             "ItineraryHttpApi",
             api_name="mi-itinerario-api",
             cors_preflight=apigw.CorsPreflightOptions(
-                allow_origins=["*"],  # tighten to casa-coqui.cc domains before prod
-                allow_methods=[apigw.CorsHttpMethod.POST, apigw.CorsHttpMethod.GET, apigw.CorsHttpMethod.OPTIONS],
+                allow_origins=[
+                    "https://www.casa-coqui.cc",
+                    "https://casa-coqui.cc",
+                    "https://casa-coqui.vercel.app",
+                    "https://casa-coqui-jpofficials-projects.vercel.app",
+                    # Preview deployments under jpofficials-projects
+                    "https://casa-coqui-git-feat-mi-itinerario-jpofficials-projects.vercel.app",
+                    "https://casa-coqui-git-feat-animations-and-links-jpofficials-projects.vercel.app",
+                    "https://casa-coqui-git-feat-day-narrative-jpofficials-projects.vercel.app",
+                    "https://casa-coqui-git-feat-activity-expansion-jpofficials-projects.vercel.app",
+                    "https://casa-coqui-git-feat-self-disclosure-step-jpofficials-projects.vercel.app",
+                ],
+                allow_methods=[
+                    apigw.CorsHttpMethod.POST,
+                    apigw.CorsHttpMethod.GET,
+                    apigw.CorsHttpMethod.OPTIONS,
+                ],
                 allow_headers=["content-type"],
+                max_age=Duration.hours(1),
             ),
         )
 
@@ -286,6 +319,39 @@ class MiItinerarioStack(Stack):
             integration=apigw_int.HttpLambdaIntegration("RefineInt", refine_fn),
         )
 
+        # Stage-level throttling — API Gateway global rate / burst limits.
+        # Applies to ALL traffic, including direct hits that bypass our
+        # Next.js Vercel-side per-IP limiter. Numbers chosen to comfortably
+        # absorb organic traffic peaks (a couple hundred users in a
+        # campaign window) without amplifying a cost attack.
+        cfn_stage = http_api.default_stage.node.default_child
+        cfn_stage.default_route_settings = {
+            "ThrottlingBurstLimit": 10,   # max concurrent burst across whole API
+            "ThrottlingRateLimit": 5,     # steady-state requests/sec across whole API
+        }
+
         self.http_api = http_api
 
         cdk.CfnOutput(self, "HttpApiUrl", value=http_api.api_endpoint, export_name="MiItinerarioApiUrl")
+
+        # ── Cost / abuse alarms ───────────────────────────────────────────────
+        # Existing alarms cover errors + duration. Add an INVOCATION-RATE
+        # alarm so a successful-but-expensive attack ("happy path drained
+        # the budget") still pages on call.
+        cw.Alarm(
+            self,
+            "GenerateFnInvocationRateAlarm",
+            metric=generate_fn.metric_invocations(period=Duration.minutes(5)),
+            threshold=200,  # 200 invocations / 5 min = 40/min sustained
+            evaluation_periods=1,
+            alarm_description="Itinerary generate >200 invocations in 5 min — possible abuse",
+        )
+
+        cw.Alarm(
+            self,
+            "GenerateFnConcurrencyAlarm",
+            metric=generate_fn.metric("ConcurrentExecutions", statistic="Maximum", period=Duration.minutes(1)),
+            threshold=8,  # 80% of reserved concurrency
+            evaluation_periods=2,
+            alarm_description="Itinerary generate concurrency at 80% of cap — investigate",
+        )
