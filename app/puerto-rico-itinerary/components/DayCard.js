@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ActivityCard from './ActivityCard';
+import MotionReveal from './MotionReveal';
 
 export default function DayCard({ day, date, plan_id }) {
   const router = useRouter();
@@ -29,21 +30,25 @@ export default function DayCard({ day, date, plan_id }) {
 
   return (
     <section className="px-5 py-6">
-      <div className="mb-1 flex items-baseline justify-between">
-        <span className="font-mono text-xs uppercase tracking-[0.08em] text-caribe-600">
-          Day {String(day.day_num).padStart(2, '0')}
-        </span>
-        {date && <span className="font-mono text-xs text-cafe-600">{date}</span>}
-      </div>
-      <h2 className="mb-1 font-display text-2xl font-bold leading-tight text-coqui-900">
-        {day.theme || `Day ${day.day_num}`}
-      </h2>
-      <p className="mb-5 font-display text-base italic text-cafe-700">
-        {(day.items || []).length} stops
-      </p>
+      <MotionReveal index={-1}>
+        <div className="mb-1 flex items-baseline justify-between">
+          <span className="font-mono text-xs uppercase tracking-[0.08em] text-caribe-600">
+            Day {String(day.day_num).padStart(2, '0')}
+          </span>
+          {date && <span className="font-mono text-xs text-cafe-600">{date}</span>}
+        </div>
+        <h2 className="mb-1 font-display text-2xl font-bold leading-tight text-coqui-900">
+          {day.theme || `Day ${day.day_num}`}
+        </h2>
+        <p className="mb-5 font-display text-base italic text-cafe-700">
+          {(day.items || []).length} stops
+        </p>
+      </MotionReveal>
 
-      {(day.items || []).map((item, idx) => (
-        <ActivityCard key={`${day.day_num}-${idx}`} item={item} />
+      {(day.items || []).map((item, i) => (
+        <MotionReveal key={item.activity_id || `${day.day_num}-${i}`} index={i}>
+          <ActivityCard item={item} />
+        </MotionReveal>
       ))}
 
       {!open ? (
