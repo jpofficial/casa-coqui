@@ -57,13 +57,28 @@ function buildThreadKey({ bookingCode, senderEmail, senderName, receivedAt } = {
   return 'unknown';
 }
 
-/** Assumes input came from buildThreadKey — does NOT validate raw user input. */
+/**
+ * Assumes input came from buildThreadKey or the Lambda's Reply-To path —
+ * does NOT validate raw user input.
+ *
+ * Matched (returns false):
+ *   - raw bookingCode (legacy v1)
+ *   - 'booking:<id>'            v2 matched booking
+ *   - 'airbnb:<hash>'           per-thread Reply-To token from Airbnb (v1)
+ * Unmatched (returns true):
+ *   - 'email:<addr>'            legacy v1 fallback
+ *   - 'name:<safe>|y:<year>'    legacy v1 fallback
+ *   - 'guest:<sha16>'           v2 composite (guestName + stayWindow/yearMonth)
+ *   - 'unknown'                 fully anonymous
+ *   - null / empty
+ */
 function isUnmatchedKey(threadKey) {
   if (!threadKey) return true;
   return (
     threadKey === 'unknown' ||
     threadKey.startsWith('email:') ||
-    threadKey.startsWith('name:')
+    threadKey.startsWith('name:') ||
+    threadKey.startsWith('guest:') // v2 unmatched composite key
   );
 }
 

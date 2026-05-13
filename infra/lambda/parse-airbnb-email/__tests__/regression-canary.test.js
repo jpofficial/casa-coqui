@@ -1,0 +1,116 @@
+'use strict';
+
+/**
+ * Regression canary — locks in current parser behavior against the real
+ * Airbnb email shape. If this test breaks, it likely means Airbnb changed
+ * their HTML structure and the parser needs updating.
+ *
+ * Fixture: __tests__/fixtures/airbnb-guest-message.eml
+ *   - Sourced from a real Airbnb "new message from booker" email.
+ *   - PII sanitized: guest name "Jaydon" → "Tester"; Reply-To token,
+ *     SES Message-ID, email Message-ID, DKIM signatures and other opaque
+ *     blobs all REDACTED or replaced with synthetic tokens.
+ *   - Body (text + HTML) preserves the alt="Tester" + <h2>Tester</h2> +
+ *     Booker anchor pattern that the canary relies on.
+ *
+ * Pipeline: full mailparser → extractGuestNameFromBody / Reply-To token →
+ * airbnbThreadKeyFromReplyTo. No mocks.
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { simpleParser } = require('mailparser');
+const {
+  extractGuestNameFromBody,
+  extractAirbnbReplyToToken,
+  airbnbThreadKeyFromReplyTo,
+  deriveAirbnbThreadKey,
+} = require('../index');
+
+const FIXTURE_PATH = path.join(
+  __dirname,
+  'fixtures',
+  'airbnb-guest-message.eml'
+);
+
+const SYNTHETIC_TOKEN = 'synthetic-token-001-aaaa-bbbb-cccc-dddd-eeee-ff';
+
+describe('regression canary — sanitized real Airbnb email', () => {
+  let parsed;
+
+  beforeAll(async () => {
+    const raw = fs.readFileSync(FIXTURE_PATH);
+    parsed = await simpleParser(raw);
+  });
+
+  test('mailparser reads the fixture without error', () => {
+    expect(parsed).toBeTruthy();
+    expect(parsed.subject).toMatch(/Reservation for Casa Coqui/i);
+    expect(parsed.from && parsed.from.text).toMatch(/express@airbnb\.com/);
+  });
+
+  test('extractGuestNameFromBody returns "Tester" via the HTML strategy', () => {
+    const result = extractGuestNameFromBody(parsed.html, parsed.text);
+    // result may be a bare string (current API) or an object {name, source}
+    // (post-Improvement-2). Accept either shape so this test stays stable
+    // across the refactor and acts as a true regression canary.
+    const name = typeof result === 'string' ? result : result && result.name;
+    expect(name).toBe('Tester');
+  });
+
+  test('extractAirbnbReplyToToken returns the synthetic token verbatim', () => {
+    expect(extractAirbnbReplyToToken(parsed)).toBe(SYNTHETIC_TOKEN);
+  });
+
+  test('airbnbThreadKeyFromReplyTo is "airbnb:<32-hex>" — 39 chars total', () => {
+    const threadKey = airbnbThreadKeyFromReplyTo(parsed);
+    expect(threadKey).toMatch(/^airbnb:[a-f0-9]{32}$/);
+    expect(threadKey.length).toBe(39);
+  });
+
+  test('full pipeline (subject → html → plaintext) yields Tester + airbnb threadKey', () => {
+    // Subject does NOT contain a name — Airbnb emits "Reservation for Casa
+    // Coqui #1 Next to everything, May 5 – 13" with no guest name. So the
+    // body extractor MUST be the path that succeeds.
+    expect(parsed.subject).not.toMatch(/Tester/);
+
+    const bodyResult = extractGuestNameFromBody(parsed.html, parsed.text);
+    const bodyName = typeof bodyResult === 'string' ? bodyResult : bodyResult && bodyResult.name;
+    expect(bodyName).toBe('Tester');
+
+    // v1 Reply-To threadKey is still exposed via this exported helper — keep
+    // the shape assertion as a forensics-only canary.
+    const replyToKey = airbnbThreadKeyFromReplyTo(parsed);
+    expect(replyToKey).toMatch(/^airbnb:[a-f0-9]{32}$/);
+  });
+
+  test('v2 deriveAirbnbThreadKey produces "guest:<sha16>" for the Jaydon fixture', () => {
+    // Fixture subject: "RE: Reservation for Casa Coqui #1 Next to everything,
+    // May 5 – 13" + sanitized guest name "Tester". bookingId is null (no
+    // booking exists in test context). The v2 threadKey must therefore be the
+    // guest-composite form, NOT the v1 airbnb:<hash> form.
+    const bodyResult = extractGuestNameFromBody(parsed.html, parsed.text);
+    const guestName = typeof bodyResult === 'string' ? bodyResult : bodyResult && bodyResult.name;
+
+    const r = deriveAirbnbThreadKey({
+      bookingId: null,
+      guestName,
+      subject: parsed.subject,
+      receivedAt: parsed.date,
+    });
+
+    expect(r.threadKey).toMatch(/^guest:[a-f0-9]{16}$/);
+    expect(r.threadKey).not.toMatch(/^airbnb:/);
+    expect(r.threadKeyPath).toBe('guest-stay');
+
+    // Determinism: calling twice with the same inputs returns identical key.
+    const r2 = deriveAirbnbThreadKey({
+      bookingId: null,
+      guestName,
+      subject: parsed.subject,
+      receivedAt: parsed.date,
+    });
+    expect(r.threadKey).toBe(r2.threadKey);
+    expect(r.threadKeyPath).toBe(r2.threadKeyPath);
+  });
+});
