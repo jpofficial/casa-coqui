@@ -1,0 +1,392 @@
+{
+  "agent": "subagent-H-family-kid",
+  "generated_at": "2026-05-12",
+  "count": 14,
+  "items": [
+    {
+      "name": "Casa Bacardí Visitor Experience",
+      "neighborhood": "Cataño",
+      "type": "Distillery tour + family-friendly factory experience",
+      "hours": "Tue-Sun 9:00am-4:30pm; closed Mondays. Last tour around 3:45pm.",
+      "price_tier": "$$",
+      "admission_cost": "$25 historical tour adult; $15 ages 13-17; kids 12 and under free. Rum tasting and mixology classes are 18+ paid add-ons.",
+      "description": "The largest premium rum distillery in the world offers a guided 'Legacy/Historical' walking tour through the bottling area, rum-aging warehouse, and an open-air pavilion overlooking San Juan Bay. The base tour is family-friendly — kids ride trolleys, see the bottling line, and get a non-alcoholic mocktail demo while adults sample rum at the end. Tastings and mixology classes are adults-only and require separate booking.",
+      "why_it_matters": "It's one of the rare adult-coded experiences near San Juan that still works with kids — the trolley ride, the open-air bay views, and the short ferry from Old San Juan turn it into a half-day adventure rather than a boring factory tour.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly",
+        "culture_seeker",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "Cataño Ferry from Pier 2 (~10 min, $0.75 each way) then 10 min taxi/Uber to the distillery; about 30-40 min door-to-door without a car.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 240,
+      "accessibility_notes": "Trolley + paved paths, fully stroller-friendly and wheelchair-accessible. Clean restrooms, on-site café with snacks and water, shaded pavilion. No food trucks at gate so eat before or after. Ferry has no stroller restrictions but skips a wheelchair ramp during rough water.",
+      "source_urls": [
+        "https://www.casabacardi.com/en/visit-us",
+        "https://www.discoverpuertorico.com/profile/casa-bacardi/7257",
+        "https://www.tripadvisor.com/Attraction_Review-g147322-d147479-Reviews-Casa_Bacardi-Catano_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Dr. Juan A. Rivero Zoo (Mayagüez Zoo)",
+      "neighborhood": "Mayagüez (west coast)",
+      "type": "Zoo + botanical gardens",
+      "hours": "Wed-Sun 8:30am-4:00pm; closed Mon-Tue. Last entry 3:00pm. Check before going — closures have been frequent post-Maria.",
+      "price_tier": "$",
+      "admission_cost": "$13 adult; $7 children 3-11; free under 3. Parking $3.",
+      "description": "Puerto Rico's only full-scale zoo, set on 45 acres with about 300 animals including lions, tigers, giraffes, hippos, primates, and a tropical aviary. Recently restored after Hurricane María closures; expect a slightly faded but well-loved facility rather than a slick US zoo.",
+      "why_it_matters": "If your kids love animals, this is the only real zoo on the island — and it's a worthwhile reason to road-trip to the west coast and combine with Boquerón or Rincón beaches.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly",
+        "nature"
+      ],
+      "walkability_from_old_san_juan": "2.5 hr drive west via PR-22 / PR-2. Not realistic as a day trip without an early start — best combined with an overnight in Rincón or Mayagüez.",
+      "kid_friendly": true,
+      "guided_tour_available": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 480,
+      "accessibility_notes": "Paved looping paths, stroller-friendly throughout. Limited shade in some exhibit zones — bring hats and water bottles. On-site snack bar and picnic tables; restrooms at multiple points. Check operating status on Discover Puerto Rico the week of your visit, as the zoo has had unscheduled closures.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/dr-juan-rivero-zoo/7261",
+        "https://www.drjuanariverozoo.com/",
+        "https://www.tripadvisor.com/Attraction_Review-g147325-d272612-Reviews-Dr_Juan_A_Rivero_Zoo-Mayaguez_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Parque de las Cavernas del Río Camuy",
+      "neighborhood": "Camuy (northwest karst country)",
+      "type": "Cave park with trolley + guided walk",
+      "hours": "Wed-Sun 8:30am-3:30pm (last admission). Reservations strongly recommended; tickets often sell out same-day.",
+      "price_tier": "$",
+      "admission_cost": "$18 adults; $13 children 4-12; $7 under 4. Parking $4.",
+      "description": "The third-largest cave system in the world. A trolley descends into a sinkhole, then a guided 45-minute walking tour winds through Cueva Clara — a massive lit cavern with stalactites, stalagmites, and the Río Camuy flowing 700 feet below through Tres Pueblos Sinkhole. Cool 70°F inside year-round.",
+      "why_it_matters": "Kids universally remember the trolley ride into the sinkhole. It's an active experience (walking, climbing a few stairs) without the difficulty of real spelunking — and the temperature drop is a welcome break from the island heat.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly",
+        "nature",
+        "adventure"
+      ],
+      "walkability_from_old_san_juan": "1.5 hr drive west on PR-22 to exit 77, then PR-129 south. No public transit — rental car required.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 300,
+      "accessibility_notes": "Trolley is wheelchair-accessible to the cave entrance but the in-cave path has uneven wet stone and ~50 stairs — NOT stroller-friendly (use a baby carrier). Restrooms and a small cafeteria at the entrance plaza; bring a light jacket and closed-toe shoes (rubber soles — rocks are slippery).",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/parque-las-cavernas-del-rio-camuy/7270",
+        "https://parquesnacionalespr.com/parques/parque-de-las-cavernas-del-rio-camuy/",
+        "https://www.tripadvisor.com/Attraction_Review-g580106-d156946-Reviews-Rio_Camuy_Cave_Park-Camuy_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Yokahú Observation Tower + Big Tree Trail (El Yunque)",
+      "neighborhood": "El Yunque",
+      "type": "Roadside lookout + easy rainforest trail combo",
+      "hours": "El Yunque NF: 7:30am-5:30pm daily. Timed-entry reservations required to enter the upper forest road (PR-191).",
+      "price_tier": "$",
+      "admission_cost": "Reservation fee $2 per car (recreation.gov). Yokahú Tower and Big Tree Trail are free once inside.",
+      "description": "A no-hike-required combo perfect for young kids. Climb 98 stairs (no elevator) up the 1963 Yokahú Tower for a 360° view of the rainforest reaching down to the Atlantic, then drive 5 minutes up the road to Big Tree Trail — a paved, mostly flat 0.85-mile loop through old-growth tabonuco forest with interpretive signs. Combines well with La Coca Falls (drive-by roadside waterfall) before heading home.",
+      "why_it_matters": "El Yunque without the punishing La Mina or Mt. Britton climbs. Strollers can do Big Tree if they're sturdy; the tower is a quick win for tired kids who just want a view.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly",
+        "nature"
+      ],
+      "walkability_from_old_san_juan": "45 min drive east on PR-3 then PR-191 south. Plan to enter the forest before 9:30am to avoid afternoon thunderstorms.",
+      "kid_friendly": true,
+      "guided_tour_available": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 240,
+      "accessibility_notes": "Yokahú Tower has stairs only — not wheelchair/stroller accessible. Big Tree Trail is paved but has some moderate slopes and tree roots — manageable with an off-road stroller. NO food in El Yunque itself; pack lunch and water. Restrooms at El Portal Visitor Center near the entrance. Bring rain jackets — it rains every afternoon.",
+      "source_urls": [
+        "https://www.fs.usda.gov/recarea/elyunque/recarea/?recid=72012",
+        "https://www.recreation.gov/timed-entry/10086840",
+        "https://www.familyvacationcritic.com/attraction/el-yunque-national-forest/"
+      ]
+    },
+    {
+      "name": "Playa Luquillo (Playa Azul) + Luquillo Kiosks",
+      "neighborhood": "Luquillo (east coast)",
+      "type": "Family beach + casual food kiosks",
+      "hours": "Beach: sunrise to sunset (lifeguards 9am-5pm at the balneario). Kiosks: most open 11am-10pm Wed-Sun; busiest Fri-Sun.",
+      "price_tier": "$",
+      "admission_cost": "Beach free; balneario parking $5. Kiosk food $4-15 per item.",
+      "description": "A half-moon, palm-fringed bay protected by a reef — the calmest swimmable beach within a one-hour drive of San Juan, perfect for tiny swimmers. The Luquillo Kiosks (Kioskos de Luquillo) sit a 5-minute drive away: 60 numbered open-air food stalls slinging alcapurrias, bacalaítos, empanadillas, pinchos, and frozen drinks.",
+      "why_it_matters": "The best beach-plus-food day for families near El Yunque. Combine an easy morning at El Yunque, an afternoon at Playa Azul, and dinner at the kiosks before driving back.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly",
+        "beach_lover",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "50 min drive east via PR-3 (or PR-66 toll road for ~10 min faster). No reliable bus.",
+      "kid_friendly": true,
+      "guided_tour_available": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 300,
+      "accessibility_notes": "Balneario has bathrooms, showers, lifeguards, picnic tables, and a separate fully-accessible Mar Sin Barreras beach with mobi-mats and ocean-going wheelchairs (a free service — call ahead). Kiosks have varying restroom quality; pick a busier one for cleanliness. Plenty of shade under palms and pavilions.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/balneario-de-luquillo/7268",
+        "https://www.discoverpuertorico.com/profile/los-kioskos-de-luquillo/7395",
+        "https://www.tripadvisor.com/Attraction_Review-g424904-d553867-Reviews-Playa_Azul-Luquillo_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Balneario El Escambrón Snorkel Beach",
+      "neighborhood": "Puerta de Tierra (San Juan)",
+      "type": "Calm public beach + beginner snorkel reef",
+      "hours": "Beach 24 hrs; lifeguards approx 8am-5pm. Parking lot 7am-7pm.",
+      "price_tier": "$",
+      "admission_cost": "Beach free; parking $5. Snorkel gear rental from on-site Scuba Dogs $15-25.",
+      "description": "A small, reef-protected cove on the edge of Old San Juan — the only urban beach with calm enough water and a healthy enough reef for beginner snorkeling. Expect to see sergeant majors, parrotfish, tangs, and the occasional small sea turtle. Lifeguards, on-site dive shop, restrooms, and a casual café (El Hamburger across the street).",
+      "why_it_matters": "First snorkel experience without the boat trip — kids can wade in from the sand and see real reef fish 30 feet offshore. Walking distance from Old San Juan hotels.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly",
+        "beach_lover",
+        "adventure"
+      ],
+      "walkability_from_old_san_juan": "5 min Uber or 25 min walk east along Avenida Muñoz Rivera.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 180,
+      "accessibility_notes": "Paved walkway and an accessible ramp to the sand. Bathrooms, showers, picnic tables, lifeguards, palm shade — one of the most family-equipped beaches on the island. Bring water shoes for kids (rocky entry at the reef edge). Crowded on Saturdays and Sundays.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/balneario-el-escambron/7193",
+        "https://www.scubadogs.net/snorkeling-puerto-rico/",
+        "https://www.familyvacationcritic.com/things-to-do-in-san-juan-with-kids/art/"
+      ]
+    },
+    {
+      "name": "Seven Seas Beach + Icacos Cay Snorkel Catamaran (Fajardo)",
+      "neighborhood": "Fajardo (east coast)",
+      "type": "Public beach + half-day snorkel catamaran",
+      "hours": "Seven Seas: 8:30am-6:00pm (gate closes earlier in low season). Catamarans depart Puerto del Rey Marina at 9:00am and 1:00pm; ~5 hr trip.",
+      "price_tier": "$$$",
+      "admission_cost": "Seven Seas parking $5. Catamaran $99-129 adult; $59-79 child (most operators include lunch + snorkel gear + open bar for adults).",
+      "description": "Seven Seas is a long crescent of soft sand with calm shallow water — a perfect 'just go to the beach' day. Five minutes away, catamarans (East Island Excursions, Salty Dog, Erin Go Bragh) leave for Icacos Cay, an uninhabited reef island 30 minutes offshore. The boats are huge, kid-friendly, and the lunch + snorkel + beach time formula is well-tuned for families.",
+      "why_it_matters": "Best 'real Caribbean cay' experience near San Juan. The catamarans are stable double-hulls — much less seasickness risk than smaller boats — and the snorkel reef is shallow enough for non-swimmer kids in life vests.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly",
+        "beach_lover",
+        "adventure",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "1 hr drive east via PR-66/PR-3. No transit. Most catamaran operators offer hotel shuttle for ~$30/person.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 540,
+      "accessibility_notes": "Seven Seas has shaded picnic gazebos, bathrooms, showers, and lifeguards on weekends. Catamarans typically have onboard restrooms, freshwater rinse, and shaded canopy seating — but boarding is via a step-up gangway, not great for mobility-impaired guests. Bring reef-safe sunscreen (mineral required by PR law). Motion-sickness pills recommended even on calm days.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/balneario-seven-seas/7197",
+        "https://www.eastislandpr.com/",
+        "https://www.tripadvisor.com/Attraction_Review-g580106-d290974-Reviews-Seven_Seas_Beach-Fajardo_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Museo del Niño de Carolina",
+      "neighborhood": "Carolina",
+      "type": "Children's museum (interactive)",
+      "hours": "Tue-Fri 9:00am-3:30pm; Sat-Sun 10:00am-5:00pm; closed Mondays.",
+      "price_tier": "$",
+      "admission_cost": "$14 adults and children over 1; free under 1. Discount for residents.",
+      "description": "A 105,000 sq ft interactive children's museum with over 100 exhibits — a mini supermarket, a working farm, a dental clinic role-play room, a hurricane simulator, a tropical butterfly garden, an aquarium, and a planetarium. Designed for kids ages 2-12 with most signage bilingual (Spanish primary, English secondary).",
+      "why_it_matters": "The only rainy-day-proof, indoor, full-day kid attraction within 20 minutes of San Juan. It's the back-up plan when a tropical storm wrecks your beach day, but worth a visit even with perfect weather.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly"
+      ],
+      "walkability_from_old_san_juan": "25 min drive east via PR-26/PR-3 toward Carolina. Uber ~$20.",
+      "kid_friendly": true,
+      "guided_tour_available": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 300,
+      "accessibility_notes": "Fully stroller-friendly with elevators between floors. Multiple bathrooms with diaper-changing tables. On-site cafeteria with kid-priced meals. Stroller parking near major exhibits. Air-conditioned throughout — a huge plus for summer days.",
+      "source_urls": [
+        "https://museodelninopr.org/",
+        "https://www.discoverpuertorico.com/profile/museo-del-nino-de-carolina/7373",
+        "https://www.familyvacationcritic.com/attraction/museo-del-nino-de-carolina/"
+      ]
+    },
+    {
+      "name": "La Parguera Bioluminescent Bay Boat Tour",
+      "neighborhood": "Lajas (southwest coast)",
+      "type": "Bio bay boat tour",
+      "hours": "Tours nightly 7:00pm-9:30pm year-round; brightest on moonless nights. Reserve at least a week ahead.",
+      "price_tier": "$$",
+      "admission_cost": "$25-35 adult; $15-20 children 4-12; under 4 usually free.",
+      "description": "The only one of Puerto Rico's three bioluminescent bays you can visit by powerboat (not kayak), making it the most accessible bio bay for families with young kids. Tours leave from the Parguera village pier, run 60-90 minutes, and let kids dip their hands in the glowing water from the side of the boat.",
+      "why_it_matters": "Easier and safer than the kayak-only Vieques or Fajardo bio bays. La Parguera glow has dimmed in recent years (it's the dimmest of the three) — set expectations: it's magical but subtle, and a moonless night matters a lot.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly",
+        "nature",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "2.5 hr drive southwest via PR-52/PR-2. Best paired with an overnight in Cabo Rojo, Ponce, or La Parguera village itself.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 150,
+      "accessibility_notes": "Boats vary — most have bench seating and shade canopy; ask about a wheelchair-accessible operator if needed. Wear bug spray (NOT DEET on snorkelers' skin — bioluminescence is sensitive). Bring a light sweater (boat rides are breezy). Restaurants and restrooms at the pier before boarding; no facilities onboard.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/la-parguera-bioluminescent-bay/7227",
+        "https://www.paradisescuba-snorkelingpr.com/parguera-bioluminescent-bay/",
+        "https://www.tripadvisor.com/Attraction_Review-g580121-d3582860-Reviews-La_Parguera_Bioluminescent_Bay-Lajas_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Castillo San Cristóbal + Parque de las Palomas Walk",
+      "neighborhood": "Old San Juan",
+      "type": "Historic fort + outdoor city walk for kids",
+      "hours": "Castillo San Cristóbal: 9:00am-5:00pm daily (last entry 4:30pm). Parque de las Palomas: always open.",
+      "price_tier": "$",
+      "admission_cost": "Castillo $10 adults (covers both forts for 24 hrs); kids 15 and under free. Parque is free; pigeon food $1 from local vendors.",
+      "description": "Castillo San Cristóbal is the largest Spanish fort built in the Americas — and kid-reviewers often rate it MORE engaging than El Morro because of its mazelike tunnels, secret chambers, and dungeon graffiti. Pair it with a 10-minute downhill walk to Parque de las Palomas, a tiny stone plaza where dozens of pigeons land on your kids' arms when you offer them a handful of birdseed.",
+      "why_it_matters": "The kid-engaging counter-program to El Morro. Tunnels + dungeons + pigeons-on-arms is a recipe most 5-10 year-olds love far more than the open-field El Morro experience.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly",
+        "culture_seeker"
+      ],
+      "walkability_from_old_san_juan": "In Old San Juan — fully walkable. Castillo is at the east end of Calle Norzagaray; Parque de las Palomas at the south end of Calle del Cristo.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 180,
+      "accessibility_notes": "Castillo has steep ramps and uneven cobblestone — strollers manageable but tunnel sections require carrying. NPS rangers offer free family programs on weekends (junior ranger booklet). Parque has shaded benches and a small chapel (Capilla del Cristo) next door. Public bathrooms inside Castillo. No food onsite — many family-friendly restaurants are within 2 blocks.",
+      "source_urls": [
+        "https://www.nps.gov/saju/planyourvisit/san-cristobal.htm",
+        "https://www.nps.gov/saju/learn/kidsyouth/index.htm",
+        "https://www.discoverpuertorico.com/profile/parque-de-las-palomas/7251"
+      ]
+    },
+    {
+      "name": "Old San Juan Bay Pirate Cruise (Spirit of San Juan)",
+      "neighborhood": "Old San Juan",
+      "type": "Themed harbor cruise",
+      "hours": "Daytime family cruises typically 11:00am and 2:00pm, ~75 min. Evening adult cruises also available. Schedules thinner in low season — verify.",
+      "price_tier": "$$",
+      "admission_cost": "$35-45 adult; $20-25 children 4-12; under 4 free.",
+      "description": "A small-ship harbor cruise out of Pier 1 in Old San Juan, themed around Caribbean pirate history with costumed crew and a kid-focused narrative (treasure-hunt activity sheets, hat-and-eyepatch giveaways on family cruises). Sails past El Morro from the water — the photo angle most cruise-shippers miss.",
+      "why_it_matters": "Kids who are too young for a Fajardo catamaran can still get an 'on the water' experience right from Old San Juan. The El Morro-from-the-sea view is genuinely worth the ticket even without kids.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly",
+        "culture_seeker"
+      ],
+      "walkability_from_old_san_juan": "Departs from Pier 1 or Pier 2 — 5 min walk from Plaza de Armas.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 120,
+      "accessibility_notes": "Boat boarding via short gangway with a step — not wheelchair-friendly. Shaded upper deck, restroom onboard, kid-friendly snacks and juice available. No food allowed from outside. Sunscreen and a light layer (afternoon harbor breeze can be cool).",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/things-to-do/cruises",
+        "https://www.viator.com/tours/San-Juan/Old-San-Juan-Bay-Cruise/d4470-",
+        "https://www.tripadvisor.com/Attractions-g147320-Activities-c61-Old_San_Juan_San_Juan_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Piñones Bike Path + Kiosk Lunch",
+      "neighborhood": "Piñones",
+      "type": "Family bike ride + beach kiosks",
+      "hours": "Path open daylight hours; rentals 9am-5pm. Kiosks busiest Fri-Sun 11am-9pm.",
+      "price_tier": "$",
+      "admission_cost": "Bike rental $10-15/hr or $25-35/day at COPI Bikes or Piñones Eco-Tours. Kiosk food $3-12 per item.",
+      "description": "A paved, mostly flat 6-mile coastal bike path through the Piñones forest reserve, with mangrove views on one side and Atlantic surf on the other. Bike rental shops near the entrance carry tandem bikes, kid trailers, and training-wheel bikes. End at the kiosk strip (Playa Los Bohíos) for empanadillas and frozen coconuts.",
+      "why_it_matters": "The only kid-friendly bike path near San Juan with this much scenery. It's also the closest 'real Puerto Rico' food experience that even picky 6-year-olds will eat — empanadillas are basically hot pockets.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly",
+        "beach_lover",
+        "adventure"
+      ],
+      "walkability_from_old_san_juan": "20 min drive east via PR-187 toward Loíza. No transit.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 240,
+      "accessibility_notes": "Path is paved and flat — works for jogging strollers, scooters, training-wheel bikes. Minimal shade along the path (apply sunscreen before starting). Restrooms only at the rental shops and busier kiosks. Beach access at multiple points but currents can be strong — swim only at marked guarded spots.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/pinones/8661",
+        "https://www.copibikes.com/",
+        "https://www.familyvacationcritic.com/things-to-do-in-san-juan-with-kids/art/"
+      ]
+    },
+    {
+      "name": "Crash Boat Beach (Aguadilla)",
+      "neighborhood": "Aguadilla (northwest coast)",
+      "type": "Family beach + pier snorkel",
+      "hours": "Sunrise to sunset; lifeguards weekends only (9am-5pm). Food kiosks Thu-Sun.",
+      "price_tier": "$",
+      "admission_cost": "Free; parking $3 in the lot, free along the road. Snorkel rental $10-15 at on-beach kiosks.",
+      "description": "A vibrant west-coast beach known for clear turquoise water, gentle waves (calmer than most northwest beaches), and a colorful old fishing pier where kids can watch local fishermen and small reef fish under the pilings. Lined with food kiosks selling pinchos, fried fish, and piña coladas.",
+      "why_it_matters": "Best long-drive beach if you're already going to the west coast for the zoo or Camuy caves. Calmer than Domes or Wilderness in Aguadilla — sand entry is gentle and waist-deep water extends a long way out.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly",
+        "beach_lover"
+      ],
+      "walkability_from_old_san_juan": "2 hr 15 min drive west via PR-22/PR-2. No transit. Pair with Camuy Caves (45 min east) or Mayagüez Zoo (45 min south).",
+      "kid_friendly": true,
+      "guided_tour_available": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 300,
+      "accessibility_notes": "Paved parking lot adjacent to sand — shortest 'sand walk' of any west-coast beach. Public restrooms and outdoor showers. Kiosks have variable restroom quality. Partial shade from palms and gazebos but bring an umbrella for midday. Watch for occasional sea urchins near the pier pilings.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/crash-boat-beach/7308",
+        "https://www.puertorico.com/beaches/crash-boat-beach/",
+        "https://www.tripadvisor.com/Attraction_Review-g580104-d317041-Reviews-Crash_Boat_Beach-Aguadilla_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Museo de Arte de Ponce + Plaza Las Delicias",
+      "neighborhood": "Ponce (south coast)",
+      "type": "Art museum + historic plaza walk",
+      "hours": "Museo: Wed-Mon 10:00am-5:00pm; closed Tuesdays. Plaza: always open.",
+      "price_tier": "$",
+      "admission_cost": "Museo $6 adults; $3 children 4-12; free under 4. Parque de Bombas (red-and-black firehouse on the plaza) is free.",
+      "description": "The Caribbean's most important art museum — best known for Lord Frederic Leighton's 'Flaming June' — has a dedicated kids' education room and a quick-walk gallery format (60-90 minutes covers it). Combine with Plaza Las Delicias, Ponce's historic central square with the iconic Parque de Bombas firehouse-museum (free, instagrammable, kid-engaging) and a fountain plaza for running around.",
+      "why_it_matters": "Real art exposure without the museum-fatigue trap — Museo de Ponce is bite-sized, and the plaza outside is the natural release-valve when kids hit their limit. Plus a chance to see Ponce's well-preserved historic core.",
+      "best_for_persona": [
+        "family",
+        "kid_friendly",
+        "culture_seeker"
+      ],
+      "walkability_from_old_san_juan": "1 hr 15 min drive south via PR-52 toll road. Easiest long-drive cultural day from SJ.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 300,
+      "accessibility_notes": "Museo is fully accessible — elevators, stroller-friendly halls, family bathroom, AC throughout. Café onsite with sandwiches and a kid menu. Plaza Las Delicias has shaded benches, public restrooms in the Parque de Bombas, and several casual restaurants within 2 blocks (King's Cream ice cream is the local kids' must-stop).",
+      "source_urls": [
+        "https://www.museoarteponce.org/visita/",
+        "https://www.discoverpuertorico.com/profile/museo-de-arte-de-ponce/7223",
+        "https://www.discoverpuertorico.com/profile/plaza-las-delicias/7222"
+      ]
+    }
+  ]
+}
