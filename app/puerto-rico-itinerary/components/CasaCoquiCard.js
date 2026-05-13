@@ -45,10 +45,10 @@ export default function CasaCoquiCard({ bookingUrl, bookingUrlTierra, bookingUrl
         </h3>
 
         <p className="mx-auto mb-2 max-w-md text-sm leading-relaxed text-cafe-800 lg:text-base">
-          San Juan · 2 units · sleeps up to 8 · hosted by Julio.
+          San Juan · 2 units · sleeps up to 11 · hosted by Julio.
         </p>
         <p className="mx-auto mb-6 max-w-md text-sm leading-relaxed text-cafe-700">
-          Walkable to Old San Juan, beach access, fast WiFi.
+          Quiet San Juan base · short ride to Old San Juan &amp; the beach · fast WiFi.
         </p>
 
         <p className="mb-6 font-mono text-[11px] uppercase tracking-[0.08em] text-cafe-600">
@@ -60,7 +60,7 @@ export default function CasaCoquiCard({ bookingUrl, bookingUrlTierra, bookingUrl
             <UnitCard
               name="Tierra"
               tagline="The whole-family floor"
-              specs={['4 bed', '1 bath', 'sleeps 6']}
+              specs={['4 bed', '1 bath', 'sleeps 7']}
               url={bookingUrlTierra}
               eventName="cc_card_check_availability_tierra"
             />

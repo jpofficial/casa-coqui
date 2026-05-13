@@ -7,7 +7,6 @@ const NEIGHBORHOODS = [
     pitch: 'Walkable cobblestones · 5 min to El Morro · historic, lively, no parking',
     price: '$$',
     type: 'mix: boutique hotels + Airbnbs',
-    is_casa_coqui: true,
   },
   {
     name: 'Condado',
@@ -45,7 +44,7 @@ export default function WhereToStayPanel({ bookingUrl, bookingUrlTierra, booking
           Where to stay in San Juan
         </h2>
         <p className="mb-6 text-center text-sm text-cafe-700 lg:text-base">
-          Honest about it: here&apos;s how Casa Coqui&apos;s neighborhood compares to the alternatives.
+          A quick honest read on the main neighborhoods — Casa Coqui sits in the city with easy access to all of them.
         </p>
 
         <div className="space-y-3">
