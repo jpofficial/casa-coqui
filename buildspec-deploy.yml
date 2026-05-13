@@ -53,8 +53,30 @@ phases:
       - echo "Deploying to Vercel (production)"
       - vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
       - vercel deploy --prod --yes --token="$VERCEL_TOKEN"
-      - echo "Deploying Firebase functions + firestore rules + indexes"
-      - firebase deploy --only functions,firestore:rules,firestore:indexes --project "$FIREBASE_PROJECT_ID" --non-interactive
+      # Split Firebase deploys so a functions-side failure (e.g. unset
+      # params/secrets) cannot block firestore rules+indexes from shipping.
+      # Rules + indexes are stateless config — they should always deploy.
+      # Functions need defineString/defineSecret values populated via
+      # functions/.env.<projectId> (gitignored — materialized below from SSM)
+      # and `firebase functions:secrets:set NAME` for any defineSecret.
+      - echo "Deploying Firebase firestore rules + indexes"
+      - firebase deploy --only firestore:rules,firestore:indexes --project "$FIREBASE_PROJECT_ID" --non-interactive
+      - echo "Materializing functions/.env.${FIREBASE_PROJECT_ID} from SSM"
+      - |
+        ENV_FILE="functions/.env.${FIREBASE_PROJECT_ID}"
+        FUNCTIONS_PARAMS=$(aws ssm get-parameter \
+          --name "/casa-coqui/functions/params" \
+          --with-decryption \
+          --query Parameter.Value \
+          --output text 2>/dev/null || echo "")
+        if [ -n "$FUNCTIONS_PARAMS" ] && [ "$FUNCTIONS_PARAMS" != "None" ]; then
+          printf '%s\n' "$FUNCTIONS_PARAMS" > "$ENV_FILE"
+          echo "Wrote $(wc -l < "$ENV_FILE") line(s) to $ENV_FILE"
+        else
+          echo "[functions-deploy] SSM /casa-coqui/functions/params missing; functions deploy may fail."
+        fi
+      - echo "Deploying Firebase functions (best-effort — does not gate rules)"
+      - firebase deploy --only functions --project "$FIREBASE_PROJECT_ID" --non-interactive || echo "[functions-deploy] FAILED — rules + indexes already shipped. See logs above."
 
   post_build:
     commands:
