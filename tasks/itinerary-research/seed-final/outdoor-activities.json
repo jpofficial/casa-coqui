@@ -1,0 +1,490 @@
+{
+  "agent": "outdoor-researcher",
+  "generated_at": "2026-05-11",
+  "count": 19,
+  "items": [
+    {
+      "name": "Condado Beach",
+      "neighborhood": "Condado",
+      "type": "Public beach",
+      "hours": "Sunrise to sunset (24 hrs accessible; lifeguards 8am-5pm)",
+      "price_tier": "FREE",
+      "description": "Sheltered urban beach flanked by hotels and restaurants, with calm turquoise water ideal for swimming. The wide sidewalk promenade is perfect for a sunset stroll after a dip.",
+      "why_it_matters": "The quintessential SJ beach \u2014 zero travel time from Condado hotels and walkable from Old San Juan via rideshare.",
+      "best_for_persona": [
+        "family",
+        "couples",
+        "relaxation",
+        "budget",
+        "solo"
+      ],
+      "walkability_from_old_san_juan": "10 min Uber / 25 min walk along Ashford Ave",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 120,
+      "gear_needed": "Swimsuit + reef-safe sunscreen + towel",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/condado-beach/10093",
+        "https://www.puertorico.com/beaches/condado-beach/"
+      ]
+    },
+    {
+      "name": "Playa de Isla Verde",
+      "neighborhood": "Isla Verde",
+      "type": "Public beach",
+      "hours": "Open 24 hrs; lifeguards 8am-5pm weekdays, 8am-7pm weekends",
+      "price_tier": "FREE",
+      "description": "Wide, palm-lined Atlantic beach with stronger surf than Condado, set against a skyline of resort hotels. Vendors rent chairs and water-sports equipment on weekends.",
+      "why_it_matters": "One of Puerto Rico's best urban beaches for people-watching, parasailing, and active beach culture without leaving the metro.",
+      "best_for_persona": [
+        "family",
+        "couples",
+        "adventurer",
+        "relaxation",
+        "fitness"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber / 20 min bus (AMA route)",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 180,
+      "gear_needed": "Swimsuit + reef-safe sunscreen + towel; cash for chair rental",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/isla-verde-beach/10094",
+        "https://www.viator.com/Puerto-Rico/d652-ttd"
+      ]
+    },
+    {
+      "name": "Ocean Park Beach",
+      "neighborhood": "Ocean Park",
+      "type": "Public beach",
+      "hours": "Sunrise to sunset",
+      "price_tier": "FREE",
+      "description": "Laid-back residential beach beloved by locals, kite-surfers, and yoga practitioners. Calmer crowds than Isla Verde with soft white sand and reliable trade winds.",
+      "why_it_matters": "The local's alternative \u2014 minimal tourist crowds and the best kite-surfing conditions of any San Juan beach.",
+      "best_for_persona": [
+        "solo",
+        "fitness",
+        "photographer",
+        "relaxation",
+        "budget"
+      ],
+      "walkability_from_old_san_juan": "12 min Uber",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 120,
+      "gear_needed": "Swimsuit + reef-safe sunscreen; binoculars optional for bird-watching",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/ocean-park-beach/10092",
+        "https://www.lonelyplanet.com/puerto-rico/san-juan/beaches"
+      ]
+    },
+    {
+      "name": "Pi\u00f1ones Beach & Kiosk Strip (Playa Los Boh\u00edos)",
+      "neighborhood": "Pi\u00f1ones",
+      "type": "Public beach + local food experience",
+      "hours": "Beach: sunrise to sunset. Kiosks: Fri-Sun 10am-8pm (busiest Sat-Sun)",
+      "price_tier": "$",
+      "description": "A string of wild Atlantic beaches backed by a mangrove lagoon and a legendary row of frituras kiosks. Rent a bicycle on the paved coastal path that winds through the reserve.",
+      "why_it_matters": "The most authentic Puerto Rican beach-day experience near SJ \u2014 local food, scenery, and a free bike-path rarely on tourist itineraries.",
+      "best_for_persona": [
+        "couples",
+        "solo",
+        "budget",
+        "wildlife",
+        "photographer"
+      ],
+      "walkability_from_old_san_juan": "20 min drive E via Rte 187",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 240,
+      "gear_needed": "Swimsuit + reef-safe sunscreen; cash for kiosks and bike rental (~$10/hr)",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/pinones/8661",
+        "https://www.atlasobscura.com/places/pinones-puerto-rico"
+      ]
+    },
+    {
+      "name": "Reserva Natural de Pi\u00f1ones Kayak & Mangrove Tour",
+      "neighborhood": "Pi\u00f1ones",
+      "type": "Guided kayak tour (mangrove lagoon)",
+      "hours": "Tours typically 9am-12pm and 2pm-5pm; advance booking required",
+      "price_tier": "$$",
+      "description": "Paddle through a protected mangrove lagoon just east of San Juan with a local naturalist guide who explains the ecosystem, birds, and marine life hiding under the roots.",
+      "why_it_matters": "Closest rainforest-like paddling to San Juan \u2014 a calm, photogenic alternative to the bio bay for daytime wildlife seekers.",
+      "best_for_persona": [
+        "wildlife",
+        "photographer",
+        "couples",
+        "adventurer",
+        "family"
+      ],
+      "walkability_from_old_san_juan": "20 min drive E via Rte 187",
+      "kid_friendly": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 180,
+      "gear_needed": "Clothes you don't mind getting wet + water shoes + reef-safe sunscreen; paddle gear provided",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/things-to-do/water-sports/kayaking",
+        "https://www.airbnb.com/experiences/puerto-rico/san-juan"
+      ]
+    },
+    {
+      "name": "La Mina Falls \u2014 El Yunque Rainforest",
+      "neighborhood": "El Yunque",
+      "type": "Rainforest hike to waterfall",
+      "hours": "El Yunque NF open 7:30am-5:30pm daily; timed-entry passes required in advance",
+      "price_tier": "$",
+      "description": "The most popular El Yunque hike: a 1.8-mile round-trip trail (Angelito + La Mina trails) through tropical forest ending at a 35-ft waterfall with a natural swimming pool. Trail reopened 2022 post-Maria.",
+      "why_it_matters": "Bucket-list Puerto Rico experience \u2014 swimming under a rainforest waterfall is the defining 'I was here' moment for most visitors.",
+      "best_for_persona": [
+        "family",
+        "couples",
+        "adventurer",
+        "photographer",
+        "fitness"
+      ],
+      "walkability_from_old_san_juan": "45 min drive SE via PR-3 / PR-191 (Palo Colorado Visitor Center entrance)",
+      "kid_friendly": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 240,
+      "gear_needed": "Hiking sandals or water shoes + swimsuit + insect repellent + water; timed-entry pass (~$2) from recreation.gov",
+      "source_urls": [
+        "https://www.fs.usda.gov/recarea/elyunque/recarea/?recid=43541",
+        "https://www.discoverpuertorico.com/profile/el-yunque-national-forest/8642"
+      ]
+    },
+    {
+      "name": "Yokah\u00fa Tower & Big Tree Trail \u2014 El Yunque",
+      "neighborhood": "El Yunque",
+      "type": "Rainforest hike + observation tower",
+      "hours": "El Yunque NF: 7:30am-5:30pm; timed-entry required (same day-use pass as La Mina)",
+      "price_tier": "$",
+      "description": "A 1.2-mile paved interpretive loop (Big Tree Trail) through tabonuco old-growth forest leads to the Yokah\u00fa stone tower with 360\u00b0 views of El Yunque's canopy and the Atlantic coast. Reopened post-Maria.",
+      "why_it_matters": "The most accessible panoramic viewpoint in the rainforest \u2014 moderate incline, paved surface, and no swimming crowds.",
+      "best_for_persona": [
+        "family",
+        "photographer",
+        "couples",
+        "fitness",
+        "solo"
+      ],
+      "walkability_from_old_san_juan": "45 min drive SE (same El Yunque NF entrance; Rte 191 El Portal area)",
+      "kid_friendly": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 180,
+      "gear_needed": "Comfortable walking shoes + water + insect repellent + camera",
+      "source_urls": [
+        "https://www.fs.usda.gov/recarea/elyunque/recarea/?recid=43541",
+        "https://www.nps.gov/places/el-yunque-national-forest.htm"
+      ]
+    },
+    {
+      "name": "El Toro Trail \u2014 El Yunque (Summit Hike)",
+      "neighborhood": "El Yunque",
+      "type": "Rainforest hike (summit, cloud forest)",
+      "hours": "El Yunque NF: 7:30am-5:30pm; return before 3pm recommended (afternoon rain). Note: confirm open status at fs.usda.gov before visiting \u2014 intermittently closed for restoration.",
+      "price_tier": "$",
+      "description": "The only trail reaching El Toro (3,524 ft), Puerto Rico's highest peak. 8.4-mile round-trip through four distinct forest zones including sierra palm and dwarf cloud forest. Strenuous and remote.",
+      "why_it_matters": "The only summit experience in the Caribbean National Forest \u2014 for serious hikers who want solitude and a cloud-forest ecosystem unavailable anywhere else on the island.",
+      "best_for_persona": [
+        "adventurer",
+        "fitness",
+        "solo",
+        "wildlife",
+        "photographer"
+      ],
+      "walkability_from_old_san_juan": "55 min drive SE (Trailhead off Rte 186 near Mameyes, R\u00edo Grande \u2014 separate from Palo Colorado entrance)",
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 480,
+      "gear_needed": "Hiking boots (waterproof) + trekking poles + 2L water + snacks + rain jacket + insect repellent + charged phone",
+      "source_urls": [
+        "https://www.fs.usda.gov/recarea/elyunque/recarea/?recid=43541",
+        "https://www.alltrails.com/trail/puerto-rico/el-toro-trail"
+      ]
+    },
+    {
+      "name": "Laguna Grande Bioluminescent Bay Kayak Tour \u2014 Fajardo",
+      "neighborhood": "Fajardo",
+      "type": "Bioluminescent kayak tour",
+      "hours": "Tours nightly 6pm-10:30pm; new-moon windows brightest. Advance booking essential \u2014 popular tours sell out weeks ahead.",
+      "price_tier": "$$",
+      "description": "Paddle a clear-bottom kayak through a mangrove channel into Laguna Grande, where single-celled dinoflagellates (Pyrodinium bahamense) make the water glow neon blue with every stroke. One of only a handful of bio bays worldwide.",
+      "why_it_matters": "A once-in-a-lifetime natural phenomenon \u2014 the closest bioluminescent bay to San Juan and the most practical for a SJ-based day trip (no ferry or overnight needed).",
+      "best_for_persona": [
+        "couples",
+        "special_occasion",
+        "adventurer",
+        "wildlife",
+        "photographer"
+      ],
+      "walkability_from_old_san_juan": "1 hr drive E via PR-3 to Las Croabas, Fajardo",
+      "kid_friendly": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "night",
+      "time_to_allocate_min": 180,
+      "gear_needed": "Dark clothing (avoid white \u2014 it glows and distracts), water shoes, bug spray, dry bag for phone; kayak + guide provided",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/laguna-grande/8676",
+        "https://www.kayakingpuertorico.com/bioluminescent-bay-tours/"
+      ]
+    },
+    {
+      "name": "Snorkeling at Las Croabas & Seven Seas Beach \u2014 Fajardo",
+      "neighborhood": "Fajardo",
+      "type": "Snorkeling + public beach",
+      "hours": "Seven Seas open daily sunrise to sunset; boat snorkel charters depart 9am-1pm",
+      "price_tier": "$",
+      "description": "Seven Seas is a calm, crescent-shaped beach in a protected bay. Snorkel from shore over healthy coral, or join a half-day boat charter to the cays of La Cordillera for pristine reef and sea turtles.",
+      "why_it_matters": "The best reef snorkeling reachable as a day trip from SJ without catching a ferry \u2014 calm, clear water and regular sea turtle sightings.",
+      "best_for_persona": [
+        "family",
+        "wildlife",
+        "adventurer",
+        "couples",
+        "relaxation"
+      ],
+      "walkability_from_old_san_juan": "1 hr drive E via PR-3 to Fajardo",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 240,
+      "gear_needed": "Swimsuit + reef-safe sunscreen + reef-safe snorkel mask (or rent on-site); water shoes recommended",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/seven-seas-beach/8688",
+        "https://www.puertorico.com/attractions/seven-seas-beach/"
+      ]
+    },
+    {
+      "name": "El Morro Fort Ramparts & Sunset Walk \u2014 Old San Juan",
+      "neighborhood": "Old San Juan",
+      "type": "Historic fortress + scenic sunset spot",
+      "hours": "NPS: 9am-6pm daily. The esplanade (exterior lawn) is open sunrise to sunset \u2014 free access. Interior fort: $10 adult / $5 child.",
+      "price_tier": "FREE",
+      "description": "The grassy esplanade stretching from La Perla to El Morro is where locals fly kites at sunset with the 16th-century fortress as backdrop. The rampart walls offer Atlantic panoramas and crashing surf views.",
+      "why_it_matters": "The single most iconic free outdoor experience in Puerto Rico \u2014 equal parts history, architecture, and jaw-dropping Atlantic scenery.",
+      "best_for_persona": [
+        "photographer",
+        "couples",
+        "family",
+        "solo",
+        "special_occasion",
+        "budget"
+      ],
+      "walkability_from_old_san_juan": "Walkable \u2014 15 min on foot from Plaza de Armas",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "sunset",
+      "time_to_allocate_min": 120,
+      "gear_needed": "Comfortable walking shoes; camera for golden hour",
+      "source_urls": [
+        "https://www.nps.gov/saju/index.htm",
+        "https://www.discoverpuertorico.com/profile/castillo-san-felipe-del-morro/8595"
+      ]
+    },
+    {
+      "name": "Surfing & Surf-Watching at La Punta (Pine Grove) \u2014 Isla Verde",
+      "neighborhood": "Isla Verde",
+      "type": "Surf break + beach",
+      "hours": "Beach access sunrise to sunset; surf conditions best Oct-Mar (NE swells)",
+      "price_tier": "FREE",
+      "description": "Pine Grove is Isla Verde's reef break, beloved by intermediate surfers. Non-surfers can watch from the rocky point or book a lesson with a local surf school operating from the beach.",
+      "why_it_matters": "The closest consistent surf spot to central SJ \u2014 great for watching skilled local surfers or booking your first lesson without a long drive.",
+      "best_for_persona": [
+        "adventurer",
+        "fitness",
+        "solo",
+        "couples",
+        "photographer"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber to Isla Verde",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "early_morning",
+      "time_to_allocate_min": 180,
+      "gear_needed": "Swimsuit + reef-safe sunscreen; surf lesson rental includes board + rash guard (~$60/2 hrs with instructor)",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/things-to-do/water-sports/surfing",
+        "https://www.islaverde.com/beaches/"
+      ]
+    },
+    {
+      "name": "Luquillo Beach (Balneario La Monserrate) \u2014 Luquillo",
+      "neighborhood": "R\u00edo Grande",
+      "type": "Public beach (balneario) + food kiosks",
+      "hours": "Wed-Sun 8am-5pm (fee area); kiosks open daily ~10am-8pm",
+      "price_tier": "$",
+      "description": "A crescent mile of calm, coconut palm-shaded beach with the green Sierra de Luquillo mountains as backdrop. The adjacent kiosk row (El Kioskos) serves Puerto Rico's best alcapurrias, bacala\u00edtos, and cold Medalla.",
+      "why_it_matters": "The postcard Puerto Rico beach \u2014 where locals from across the island come for a perfect combination of calm water, mountain backdrop, and legendary beach food.",
+      "best_for_persona": [
+        "family",
+        "relaxation",
+        "budget",
+        "couples",
+        "solo",
+        "wildlife"
+      ],
+      "walkability_from_old_san_juan": "40 min drive E via PR-3 (Luquillo exit)",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 240,
+      "gear_needed": "Swimsuit + reef-safe sunscreen + towel; cash for kiosks (~$3-8/item) and parking ($4/car)",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/luquillo-beach/8672",
+        "https://www.puertorico.com/beaches/luquillo-beach/"
+      ]
+    },
+    {
+      "name": "Kayaking R\u00edo Esp\u00edritu Santo \u2014 R\u00edo Grande (El Yunque foothills)",
+      "neighborhood": "R\u00edo Grande",
+      "type": "River kayaking / stand-up paddleboard",
+      "hours": "Tours depart 9am and 2pm daily; advance booking required",
+      "price_tier": "$$",
+      "description": "Paddle the Esp\u00edritu Santo River, one of Puerto Rico's cleanest rivers, through a corridor of bamboo and tropical trees at the base of El Yunque. Calm flat-water suitable for beginners; passes through protected forest reserve land.",
+      "why_it_matters": "A serene river-in-the-rainforest experience that pairs perfectly with an El Yunque hike \u2014 totally different ecosystem than the coastal activities and rarely crowded.",
+      "best_for_persona": [
+        "couples",
+        "adventurer",
+        "wildlife",
+        "photographer",
+        "family",
+        "solo"
+      ],
+      "walkability_from_old_san_juan": "40 min drive E via PR-3 (R\u00edo Grande area)",
+      "kid_friendly": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 180,
+      "gear_needed": "Clothes you don't mind getting wet + water shoes + insect repellent; paddle gear and PFD provided",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/things-to-do/water-sports/kayaking",
+        "https://www.elyunquerainforest.com/kayaking-rio-espiritu-santo/"
+      ]
+    },
+    {
+      "name": "Cueva del Indio \u2014 Arecibo (Coastal Sea Cave & Ta\u00edno Petroglyphs)",
+      "neighborhood": "Arecibo",
+      "type": "Outdoor coastal hike + sea caves + archaeological site",
+      "hours": "Daily 9am-5pm; small entrance fee collected by local landowners on-site",
+      "price_tier": "$",
+      "description": "Walk across rugged ironshore limestone along the north coast to sea caves carved by Atlantic surf, where pre-Columbian Ta\u00edno petroglyphs are carved into the rock. Dramatic blowhole and wave-crash views.",
+      "why_it_matters": "An off-the-beaten-path gem combining archaeology, dramatic coastal geology, and raw Atlantic power \u2014 no tour buses, entirely managed by the local community.",
+      "best_for_persona": [
+        "adventurer",
+        "photographer",
+        "solo",
+        "couples",
+        "wildlife"
+      ],
+      "walkability_from_old_san_juan": "75 min drive W via PR-22 to Arecibo (Rte 681 north coast)",
+      "kid_friendly": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 180,
+      "gear_needed": "Closed-toe shoes (coral rock is sharp) + water + hat + sunscreen; no railings \u2014 caution near cliff edges",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/cueva-del-indio/8614",
+        "https://www.atlasobscura.com/places/cueva-del-indio"
+      ]
+    },
+    {
+      "activity_id": "SAN-OUTDOOR-AUG-001",
+      "name": "Calle Fortaleza (photo destination)",
+      "neighborhood": "Old San Juan",
+      "type": "Photo destination",
+      "hours": "Anytime; best mid-morning or late afternoon",
+      "price_tier": "FREE",
+      "description": "Iconic OSJ photo street. \u26a0\ufe0f Umbrella canopy gone as of 2024-2025; replaced with string lights behind barricade.",
+      "why_it_matters": "Most Pinterest pins are stale \u2014 knowing the current state is a moat.",
+      "best_for_persona": [
+        "photographer",
+        "couples",
+        "family"
+      ],
+      "walkability_from_old_san_juan": "In OSJ",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 30,
+      "gear_needed": "Phone or camera",
+      "source_urls": []
+    },
+    {
+      "activity_id": "SAN-OUTDOOR-AUG-002",
+      "name": "Las Pailas Natural Water Slides",
+      "neighborhood": "R\u00edo Grande",
+      "type": "Adventure / natural pool",
+      "hours": "Daylight, no admission gate",
+      "price_tier": "$",
+      "description": "Natural rock water slides at El Yunque's edge. $5 parking, $1 per person. Coordinates: 18\u00b020'16.3\"N 65\u00b043'51.8\"W.",
+      "why_it_matters": "Fastest-rising venue \u2014 zero in 2023 content, hero in 4/12 2024-26 vlogs.",
+      "best_for_persona": [
+        "adventurer",
+        "family",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "50 min drive SE",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 180,
+      "gear_needed": "Swimsuit, water shoes, towel",
+      "source_urls": []
+    },
+    {
+      "activity_id": "SAN-OUTDOOR-AUG-003",
+      "name": "La Perla Viewpoint (from Calle Norzagaray)",
+      "neighborhood": "Old San Juan",
+      "type": "Photo destination (viewpoint only)",
+      "hours": "Anytime",
+      "price_tier": "FREE",
+      "description": "Hero viewpoint of La Perla neighborhood + ocean wall from Calle Norzagaray. \u26a0\ufe0f DO NOT walk into La Perla itself per local consensus.",
+      "why_it_matters": "Hero photo in 5/12 visual content \u2014 Despacito connection. Viewpoint only.",
+      "best_for_persona": [
+        "photographer",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "In OSJ",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "sunset",
+      "time_to_allocate_min": 20,
+      "gear_needed": "Camera",
+      "source_urls": []
+    },
+    {
+      "activity_id": "SAN-OUTDOOR-AUG-004",
+      "name": "Playa Escambr\u00f3n",
+      "neighborhood": "San Juan",
+      "type": "Public beach + snorkeling",
+      "hours": "Sunrise to sunset",
+      "price_tier": "FREE",
+      "description": "Closest snorkeling beach to OSJ \u2014 small reef, calm water, kiosk concessions.",
+      "why_it_matters": "Snorkel without driving 90 min \u2014 appears in 3 SEO blog itineraries.",
+      "best_for_persona": [
+        "family",
+        "budget",
+        "adventurer",
+        "relaxation"
+      ],
+      "walkability_from_old_san_juan": "10 min Uber",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 180,
+      "gear_needed": "Swimsuit, snorkel mask (rentals on site)",
+      "source_urls": []
+    }
+  ],
+  "augmented_at": "2026-05-12",
+  "audit_2026_05_12": 2
+}

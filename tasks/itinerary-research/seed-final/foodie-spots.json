@@ -1,0 +1,628 @@
+{
+  "agent": "foodie-researcher",
+  "generated_at": "2026-05-11",
+  "count": 26,
+  "items": [
+    {
+      "name": "Marmalade",
+      "neighborhood": "Old San Juan",
+      "type": "New American / fine dining",
+      "hours": "Tue-Sun 6pm-10:30pm, closed Mon",
+      "price_tier": "$$$$",
+      "description": "Peter Schintler's flagship fine-dining room on Calle Fortaleza \u2014 regularly credited as Old San Juan's best tasting-menu experience, with a wine list that routinely wins Wine Spectator awards.",
+      "why_it_matters": "The benchmark for upscale dining in OSJ; its 5-course format showcases hyper-local Puerto Rican ingredients with French technique \u2014 a local-meets-world-class combination rare in the Caribbean.",
+      "best_for_persona": [
+        "foodie",
+        "couples",
+        "special_occasion"
+      ],
+      "walkability_from_old_san_juan": "In Old SJ",
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 150,
+      "source_urls": [
+        "https://www.marmaladepr.com",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "name": "Pirilo Pizza R\u00fastica",
+      "neighborhood": "Old San Juan",
+      "type": "Neapolitan-style pizza / casual",
+      "hours": "Mon-Thu 11am-10pm, Fri-Sat 11am-11pm, Sun 11am-9pm",
+      "price_tier": "$$",
+      "description": "A beloved local pizza spot that has become an OSJ institution, known for its perfectly charred, thin-crust Neapolitan pies fired in a wood-burning oven with island-sourced toppings.",
+      "why_it_matters": "Locals consistently rank this as the best pizza on the island \u2014 it fills a neighborhood dining niche that feels authentically un-touristy even steps from the cruise ship docks.",
+      "best_for_persona": [
+        "foodie",
+        "couples",
+        "groups",
+        "family",
+        "solo"
+      ],
+      "walkability_from_old_san_juan": "In Old SJ",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "lunch",
+      "time_to_allocate_min": 60,
+      "source_urls": [
+        "https://www.yelp.com/biz/pirilo-pizza-rustica-san-juan",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "name": "El Jibarito",
+      "neighborhood": "Old San Juan",
+      "type": "Puerto Rican criollo / casual family",
+      "hours": "Mon-Sat 11am-9pm, closed Sun",
+      "price_tier": "$",
+      "description": "A decades-old criollo institution on Calle Sol serving hefty plates of mofongo, pernil, and bacala\u00edtos in a no-frills dining room that feels unchanged since the 1970s.",
+      "why_it_matters": "The quintessential 'honest Puerto Rican food' lunch stop \u2014 portions are huge, prices are local, and it's been feeding both residents and in-the-know visitors for generations.",
+      "best_for_persona": [
+        "budget",
+        "family",
+        "groups",
+        "local_color",
+        "solo"
+      ],
+      "walkability_from_old_san_juan": "In Old SJ",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "lunch",
+      "time_to_allocate_min": 60,
+      "source_urls": [
+        "https://www.yelp.com/biz/el-jibarito-san-juan",
+        "https://www.nytimes.com/interactive/2018/travel/what-to-do-36-hours-in-san-juan-puerto-rico.html"
+      ]
+    },
+    {
+      "name": "Bar\u00fa Bistro & Bar",
+      "neighborhood": "Old San Juan",
+      "type": "Latin fusion / upscale casual",
+      "hours": "Tue-Thu 6pm-10:30pm, Fri-Sat 6pm-11pm, Sun 12pm-4pm, closed Mon",
+      "price_tier": "$$$",
+      "description": "Intimate bistro on Calle Cristo with a menu that fuses Colombian, Caribbean, and Mediterranean influences \u2014 known for its ceviche flights, whole-roasted fish, and a beautifully curated rum cocktail list.",
+      "why_it_matters": "A true neighborhood gem \u2014 its indoor-outdoor terrace setting in a colonial building is romantic and photogenic, and the kitchen takes real risks with flavor combinations that pay off.",
+      "best_for_persona": [
+        "foodie",
+        "couples",
+        "special_occasion"
+      ],
+      "walkability_from_old_san_juan": "In Old SJ",
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 120,
+      "source_urls": [
+        "https://www.yelp.com/biz/baru-bistro-and-bar-san-juan",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "name": "Caf\u00e9 Cuatro Sombras",
+      "neighborhood": "Old San Juan",
+      "type": "Puerto Rican specialty coffee / caf\u00e9",
+      "hours": "Mon-Sat 8am-6pm, Sun 9am-4pm",
+      "price_tier": "$",
+      "description": "A farm-to-cup coffee bar on Calle Cristo sourcing single-origin beans exclusively from the Cuatro Sombras estate in Yauco \u2014 serves light breakfast pastries and espresso drinks alongside bags of the island's finest coffee.",
+      "why_it_matters": "Puerto Rican coffee is among the world's best and almost none gets exported \u2014 this is the best place in San Juan to drink it fresh-roasted from an estate that has won Cup of Excellence.",
+      "best_for_persona": [
+        "solo",
+        "couples",
+        "foodie",
+        "budget"
+      ],
+      "walkability_from_old_san_juan": "In Old SJ",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "breakfast",
+      "time_to_allocate_min": 60,
+      "source_urls": [
+        "https://cuatrosombras.com",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "name": "Ra\u00edces",
+      "neighborhood": "Old San Juan",
+      "type": "Puerto Rican criollo / upscale casual",
+      "hours": "Mon-Thu 12pm-10pm, Fri-Sat 12pm-11pm, Sun 12pm-9pm",
+      "price_tier": "$$",
+      "description": "The most polished version of traditional Puerto Rican cooking in OSJ \u2014 a festive two-story restaurant where every dish from the tostones to the mofongo relleno is executed with care and consistency.",
+      "why_it_matters": "Where to bring visitors who want authentic criollo in a pleasant setting rather than a plastic-chair lunch spot \u2014 the rum pi\u00f1a coladas made tableside are a crowd-pleasing rite of passage.",
+      "best_for_persona": [
+        "family",
+        "groups",
+        "couples",
+        "local_color"
+      ],
+      "walkability_from_old_san_juan": "In Old SJ",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "lunch",
+      "time_to_allocate_min": 90,
+      "source_urls": [
+        "https://www.raicespr.com",
+        "https://www.tripadvisor.com/Restaurant_Review-g147405-d2255099-Reviews-Raices-San_Juan_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "La Bodeguita de Medio",
+      "neighborhood": "Old San Juan",
+      "type": "Cuban-Caribbean / casual bar",
+      "hours": "Sun-Thu 12pm-12am, Fri-Sat 12pm-2am",
+      "price_tier": "$$",
+      "description": "A lively sister to the Havana original perched above the bay on Calle del Muelle \u2014 Cuban sandwiches, ropa vieja, and mojitos with a terrace view of the harbor and cruise ships.",
+      "why_it_matters": "The best water-view lunch in OSJ with credible Cuban-Caribbean cooking and an atmosphere that spills from afternoon into night \u2014 the mojito program is legitimately excellent.",
+      "best_for_persona": [
+        "couples",
+        "groups",
+        "nightlife",
+        "local_color"
+      ],
+      "walkability_from_old_san_juan": "In Old SJ",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 90,
+      "source_urls": [
+        "https://www.yelp.com/biz/la-bodeguita-de-medio-san-juan",
+        "https://www.tripadvisor.com/Restaurant_Review-g147405-d465219-Reviews-La_Bodeguita_de_Medio-San_Juan_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Se\u00f1or Paleta",
+      "neighborhood": "Old San Juan",
+      "type": "Mexican artisan paletas / dessert kiosk",
+      "hours": "Mon-Thu 11am-9pm, Fri-Sun 11am-10pm",
+      "price_tier": "$",
+      "description": "A tiny street-facing shop on Calle Fortaleza specializing in handmade Mexican ice cream bars in unexpected flavors like tamarind-chile, hibiscus, mango-chamoy, and coconut-guayaba.",
+      "why_it_matters": "The best $4 dessert in Old San Juan \u2014 a cult favorite among both locals and food-media visitors, and the perfect ending to a cobblestone afternoon walk.",
+      "best_for_persona": [
+        "budget",
+        "family",
+        "solo",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "In Old SJ",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 60,
+      "source_urls": [
+        "https://www.instagram.com/senorpaleta_pr",
+        "https://www.yelp.com/biz/senor-paleta-san-juan-2"
+      ]
+    },
+    {
+      "name": "1919 Restaurant",
+      "neighborhood": "Condado",
+      "type": "Contemporary Puerto Rican / fine dining",
+      "hours": "Wed-Sun 6:30pm-10pm, closed Mon-Tue",
+      "price_tier": "$$$$",
+      "description": "The fine-dining flagship inside the Condado Vanderbilt's sister property \u2014 chef Juan Jos\u00e9 Cuevas's tasting menu is the most rigorous expression of modern Puerto Rican gastronomy on the island.",
+      "why_it_matters": "Cuevas trained under some of the world's top chefs and returns that expertise to Puerto Rican terroir; this is the island's most intellectually serious restaurant and a required stop for serious foodies.",
+      "best_for_persona": [
+        "foodie",
+        "special_occasion",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "15-min Uber from Old San Juan",
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 150,
+      "source_urls": [
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico",
+        "https://www.nytimes.com/interactive/2018/travel/what-to-do-36-hours-in-san-juan-puerto-rico.html"
+      ]
+    },
+    {
+      "name": "Kasalta",
+      "neighborhood": "Condado",
+      "type": "Puerto Rican bakery / caf\u00e9 / lunch counter",
+      "hours": "Mon-Sat 6am-10pm, Sun 6am-9pm",
+      "price_tier": "$",
+      "description": "A legendary Ocean Park / Condado-adjacent bakery and caf\u00e9 that has operated for decades \u2014 the mallorca sandwich (a sweet roll stuffed with ham, cheese, and egg) is a Puerto Rican breakfast icon.",
+      "why_it_matters": "Barack Obama ate here during his 2011 PR visit and the photo is on the wall; it's the authentic neighborhood breakfast institution with the best pastry case in metro San Juan.",
+      "best_for_persona": [
+        "solo",
+        "budget",
+        "family",
+        "local_color"
+      ],
+      "walkability_from_old_san_juan": "20 min Uber",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "breakfast",
+      "time_to_allocate_min": 60,
+      "source_urls": [
+        "https://www.kasaltapr.com",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "name": "Santaella",
+      "neighborhood": "Santurce",
+      "type": "Puerto Rican modern / casual fine dining",
+      "hours": "Tue-Thu 12pm-10pm, Fri-Sat 12pm-11pm, Sun 12pm-9pm, closed Mon",
+      "price_tier": "$$$",
+      "description": "Chef Jos\u00e9 Santaella's flagship at La Placita de Santurce \u2014 Puerto Rican market cuisine elevated with European technique, centered on the building's century-old marketplace aesthetic.",
+      "why_it_matters": "Ground zero for Puerto Rico's culinary renaissance \u2014 Santaella is the chef most responsible for elevating criollo cooking to fine-dining status and his namesake restaurant proves the thesis nightly.",
+      "best_for_persona": [
+        "foodie",
+        "couples",
+        "special_occasion",
+        "local_color"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 120,
+      "source_urls": [
+        "https://www.santaellapr.com",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "name": "Lote 23",
+      "neighborhood": "Santurce",
+      "type": "Food truck park / mixed cuisine",
+      "hours": "Wed-Thu 5pm-11pm, Fri 5pm-12am, Sat 12pm-12am, Sun 12pm-10pm",
+      "price_tier": "$",
+      "description": "An open-air food truck collective in Santurce with 15+ rotating vendors covering everything from Korean BBQ to Puerto Rican alcapurrias, craft beer, and natural wines in a festive communal setting.",
+      "why_it_matters": "The most vibrant food-and-culture gathering space post-Maria \u2014 part of Santurce's creative revival, it mixes street art, local music, young chefs testing concepts, and an excellent craft beer lineup.",
+      "best_for_persona": [
+        "groups",
+        "budget",
+        "nightlife",
+        "vegetarian",
+        "local_color"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 90,
+      "source_urls": [
+        "https://www.lote23pr.com",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "name": "Condado Vanderbilt \u2014 Ola",
+      "neighborhood": "Condado",
+      "type": "Spanish / seafood / fine dining",
+      "hours": "Tue-Sat 6:30pm-10pm, closed Sun-Mon",
+      "price_tier": "$$$$",
+      "description": "Jos\u00e9 Andr\u00e9s's Puerto Rico outpost inside the historic Condado Vanderbilt hotel \u2014 a Spanish-inflected seafood tasting experience with whole-roasted fish, paella, and a spectacular ocean-view dining room.",
+      "why_it_matters": "The only Jos\u00e9 Andr\u00e9s restaurant in Puerto Rico \u2014 his post-Hurricane Maria commitment to the island is well documented, and this restaurant represents his most sustained culinary presence here.",
+      "best_for_persona": [
+        "foodie",
+        "special_occasion",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 150,
+      "source_urls": [
+        "https://www.condadovanderbilt.com/dining/ola",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "name": "Condado Tacos",
+      "neighborhood": "Condado",
+      "type": "Baja-style tacos / fast casual",
+      "hours": "Sun-Thu 11am-11pm, Fri-Sat 11am-12am",
+      "price_tier": "$",
+      "description": "A Condado walk-up taco counter that has earned genuine local loyalty with fresh tortillas, excellent al pastor, and island-spun salsas \u2014 more than just a snappy name.",
+      "why_it_matters": "The go-to post-beach taco stop in Condado for locals \u2014 quick, cheap, quality; a reliable anchor when you need something fast and good between the hotel strip and the lagoon.",
+      "best_for_persona": [
+        "budget",
+        "solo",
+        "groups",
+        "family"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "lunch",
+      "time_to_allocate_min": 60,
+      "source_urls": [
+        "https://www.yelp.com/biz/condado-tacos-san-juan",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "name": "Pikayo",
+      "neighborhood": "Condado",
+      "type": "Puerto Rican nouveau / fine dining",
+      "hours": "Tue-Sat 7pm-10pm, closed Sun-Mon",
+      "price_tier": "$$$$",
+      "description": "Chef Wilo Benet's landmark fine-dining restaurant \u2014 the pioneer of modern Puerto Rican cuisine, blending French training with deep criollo roots into an elegant tasting experience.",
+      "why_it_matters": "Benet is the godfather of Puerto Rican modern cooking; Pikayo has been the island's flagship fine-dining address for two decades and remains a standard-setter every serious food traveler should visit.",
+      "best_for_persona": [
+        "foodie",
+        "special_occasion",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 150,
+      "source_urls": [
+        "https://www.pikayo.com",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "name": "Avocado Bistro",
+      "neighborhood": "Condado",
+      "type": "Vegan / plant-based / casual",
+      "hours": "Mon-Sat 11am-9pm, Sun 11am-5pm",
+      "price_tier": "$$",
+      "description": "The leading all-vegan restaurant in metro San Juan \u2014 serving plant-based reinventions of PR classics like vegan mofongo, jackfruit pernil, and cashew-based flans in a bright, casual space.",
+      "why_it_matters": "Virtually the only spot in San Juan where vegetarians and vegans can get a full Puerto Rican culinary experience without compromises \u2014 the jackfruit mofongo alone justifies the visit.",
+      "best_for_persona": [
+        "vegetarian",
+        "foodie",
+        "solo",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "lunch",
+      "time_to_allocate_min": 90,
+      "source_urls": [
+        "https://www.yelp.com/biz/avocado-bistro-santurce",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "name": "Zest at The Water Club",
+      "neighborhood": "Condado",
+      "type": "Caribbean fusion / hotel dining / rooftop",
+      "hours": "Wed-Sun 6pm-10pm, closed Mon-Tue",
+      "price_tier": "$$$",
+      "description": "The Water Club hotel's rooftop restaurant with panoramic views of the Atlantic \u2014 the menu leans Caribbean-influenced New American with strong island seafood and a cocktail program built around local rums.",
+      "why_it_matters": "Delivers the best rooftop ocean view for dinner in Condado with food that actually earns its keep \u2014 the setting elevates a first-night arrival dinner into something memorable.",
+      "best_for_persona": [
+        "couples",
+        "special_occasion",
+        "foodie"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 120,
+      "source_urls": [
+        "https://www.waterclubsanjuan.com/dining",
+        "https://www.tripadvisor.com/Restaurant_Review-g147405-d468282-Reviews-Zest_at_The_Water_Club-San_Juan_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Casita Miramar",
+      "neighborhood": "Santurce",
+      "type": "Puerto Rican criollo / homestyle",
+      "hours": "Tue-Sat 12pm-9pm, closed Sun-Mon",
+      "price_tier": "$$",
+      "description": "A beloved neighbourhood landmark in Miramar serving traditional Puerto Rican home cooking \u2014 the slow-braised oxtail, rice with pigeon peas, and flan de queso are textbook executions of the island's comfort canon.",
+      "why_it_matters": "The insider's answer when someone asks 'where do Puerto Ricans actually eat?' \u2014 a multigenerational family restaurant with no concessions to tourist tastes and consistently excellent arroz con pollo.",
+      "best_for_persona": [
+        "foodie",
+        "local_color",
+        "couples",
+        "solo"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "lunch",
+      "time_to_allocate_min": 90,
+      "source_urls": [
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico",
+        "https://www.nytimes.com/interactive/2018/travel/what-to-do-36-hours-in-san-juan-puerto-rico.html"
+      ]
+    },
+    {
+      "name": "El Coqui del Mar",
+      "neighborhood": "Condado",
+      "type": "Seafood / Puerto Rican / casual",
+      "hours": "Mon-Sat 12pm-9pm, Sun 12pm-7pm",
+      "price_tier": "$$",
+      "description": "A no-frills seafood house in the residential pocket of Condado serving market-price whole fish, chillo frito, and Puerto Rican-style shrimp in garlic sauce \u2014 frequented more by locals than hotel guests.",
+      "why_it_matters": "Gives visitors access to the local seafood-restaurant tradition that exists independently of the hotel-strip dining machine \u2014 honest product, honest prices, and the mofongo de camarones is a highlight.",
+      "best_for_persona": [
+        "local_color",
+        "budget",
+        "family",
+        "solo"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "lunch",
+      "time_to_allocate_min": 60,
+      "source_urls": [
+        "https://www.yelp.com/biz/el-coqui-del-mar-san-juan",
+        "https://www.tripadvisor.com/Restaurant_Review-g147405-d1784993-Reviews-El_Coqui_Del_Mar-San_Juan_Puerto_Rico.html"
+      ]
+    },
+    {
+      "name": "Chef Juanjo",
+      "neighborhood": "Santurce",
+      "type": "Puerto Rican modern / chef's counter",
+      "hours": "Thu-Sat 7pm-10pm (seatings at 7 and 9:30), closed Sun-Wed",
+      "price_tier": "$$$",
+      "description": "Chef Juan Jos\u00e9 \u00c1vila's intimate 16-seat chef's counter in Santurce \u2014 a set menu experience that changes monthly and showcases hyper-seasonal Puerto Rican ingredients through a modern lens.",
+      "why_it_matters": "The most exciting emerging-chef dining experience in San Juan \u2014 tighter, more experimental, and more personal than the established fine-dining rooms; a dining ticket that serious food travelers seek out.",
+      "best_for_persona": [
+        "foodie",
+        "special_occasion",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 150,
+      "source_urls": [
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico",
+        "https://www.instagram.com/chefjuanjopr"
+      ]
+    },
+    {
+      "name": "Vianda",
+      "neighborhood": "Santurce",
+      "type": "New Puerto Rican / farm-to-table / upscale casual",
+      "hours": "Tue-Sat 6pm-10:30pm, closed Sun-Mon",
+      "price_tier": "$$$",
+      "description": "Chef Francis Guzm\u00e1n's market-driven restaurant focused entirely on Puerto Rican-grown ingredients \u2014 the tasting menu and \u00e0 la carte both showcase root vegetables (viandas), local proteins, and island dairy.",
+      "why_it_matters": "The most philosophically committed expression of Puerto Rican terroir dining \u2014 Guzm\u00e1n sources aggressively local and the result is a menu that could exist nowhere else in the world.",
+      "best_for_persona": [
+        "foodie",
+        "couples",
+        "special_occasion",
+        "vegetarian"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 120,
+      "source_urls": [
+        "https://www.viandapr.com",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "name": "Al Cuadrado Bakery",
+      "neighborhood": "Santurce",
+      "type": "Artisan bakery / caf\u00e9 / breakfast",
+      "hours": "Tue-Sat 7am-3pm, Sun 8am-2pm, closed Mon",
+      "price_tier": "$",
+      "description": "A cult-status Santurce bakery producing naturally leavened sourdough, seasonal croissants, and Puerto Rican-inflected pastries from a small open kitchen \u2014 lines form before 8am on weekends.",
+      "why_it_matters": "The best bread in Puerto Rico, full stop \u2014 chefs around the island order from here; visiting foodies who discover it at 7am feel like they've found a secret the internet hasn't caught up to yet.",
+      "best_for_persona": [
+        "foodie",
+        "solo",
+        "budget",
+        "local_color"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "breakfast",
+      "time_to_allocate_min": 60,
+      "source_urls": [
+        "https://www.instagram.com/alcuadradobakery",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "name": "Verde Mesa",
+      "neighborhood": "Condado",
+      "type": "Organic / vegetarian-forward / casual brunch",
+      "hours": "Wed-Mon 9am-5pm, closed Tue",
+      "price_tier": "$$",
+      "description": "A bright, plant-forward caf\u00e9 in Condado known for the best brunch in the neighborhood \u2014 grain bowls, avocado toasts made with real craft, daily rotating quiches, and excellent local cold-brew coffee.",
+      "why_it_matters": "Fills the glaring brunch gap in metro San Juan's dining scene with genuine cooking care; beloved by Condado residents who want something lighter than fried plantains on a Sunday morning.",
+      "best_for_persona": [
+        "vegetarian",
+        "couples",
+        "solo",
+        "foodie"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "breakfast",
+      "time_to_allocate_min": 90,
+      "source_urls": [
+        "https://www.yelp.com/biz/verde-mesa-san-juan",
+        "https://www.eater.com/maps/best-restaurants-san-juan-puerto-rico"
+      ]
+    },
+    {
+      "activity_id": "SAN-FOODIE-AUG-001",
+      "name": "Cocina al Fondo",
+      "neighborhood": "Santurce",
+      "type": "Restaurant",
+      "hours": "Tue-Sat 6pm-10pm, closed Sun-Mon",
+      "price_tier": "$$$$",
+      "description": "2023 James Beard winner. Hyper-local PR ingredients, modern tasting menu.",
+      "why_it_matters": "#1 priority \u2014 highest editorial momentum in San Juan dining right now.",
+      "best_for_persona": [
+        "foodie",
+        "couples",
+        "special_occasion"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber",
+      "kid_friendly": false,
+      "reservation_required": true,
+      "ideal_time_of_day": "evening",
+      "time_to_allocate_min": 150,
+      "source_urls": [
+        "https://www.jamesbeard.org/awards/2023"
+      ]
+    },
+    {
+      "activity_id": "SAN-FOODIE-AUG-002",
+      "name": "La Casita Blanca",
+      "neighborhood": "Santurce",
+      "type": "Restaurant",
+      "hours": "Mon-Sat 11am-9pm",
+      "price_tier": "$$",
+      "description": "The locals' canonical comida criolla answer. Classic PR home cooking.",
+      "why_it_matters": "Reddit consensus #1 for authentic criollo \u2014 what locals send tourists to.",
+      "best_for_persona": [
+        "foodie",
+        "family",
+        "budget",
+        "local_color"
+      ],
+      "walkability_from_old_san_juan": "12 min Uber",
+      "kid_friendly": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "lunch",
+      "time_to_allocate_min": 90,
+      "source_urls": [
+        "https://reddit.com/r/PuertoRicoTravel"
+      ]
+    },
+    {
+      "activity_id": "SAN-FOODIE-AUG-003",
+      "name": "La Alcapurria Quem\u00e1",
+      "neighborhood": "Santurce",
+      "type": "Street food",
+      "hours": "Thu-Sun 6pm-1am",
+      "price_tier": "$",
+      "description": "Top street food kiosk near La Placita. Alcapurrias, mofongo, beer.",
+      "why_it_matters": "Constantly named by locals \u2014 the late-night Santurce circuit anchor.",
+      "best_for_persona": [
+        "foodie",
+        "budget",
+        "nightlife",
+        "local_color"
+      ],
+      "walkability_from_old_san_juan": "12 min Uber",
+      "kid_friendly": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "late_night",
+      "time_to_allocate_min": 60,
+      "source_urls": [
+        "https://reddit.com/r/PuertoRicoTravel"
+      ]
+    }
+  ],
+  "augmented_at": "2026-05-12",
+  "audit_2026_05_12": 3
+}
