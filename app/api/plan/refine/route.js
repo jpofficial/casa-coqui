@@ -23,7 +23,7 @@ function sanitizeFreeText(raw) {
   s = s.replace(/<\|[a-z_]+\|>/gi, '');
   s = s.replace(/^#{2,}\s*/gm, '');
   s = s.replace(/[\x00-\x08\x0B-\x1F\x7F]/g, '');
-  s = s.replace(/[  ]/g, '\n');
+  s = s.replace(/[\u2028\u2029]/g, '\n');
   s = s.replace(/[​-‏‪-‮⁦-⁩﻿]/g, '');
   return s.trim();
 }
