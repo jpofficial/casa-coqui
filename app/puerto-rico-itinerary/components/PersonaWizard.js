@@ -6,8 +6,8 @@ import LoadingState from './LoadingState';
 
 const STEPS = [
   {
-    question: "What&apos;s your travel vibe?",
-    helper: "Pick all that apply. We&apos;ll match activities to your taste.",
+    question: "What's your travel vibe?",
+    helper: "Pick all that apply. We'll match activities to your taste.",
     multiSelect: true,
     field: 'interests',
     options: [
@@ -216,9 +216,15 @@ export default function PersonaWizard() {
             type="button"
             onClick={handleContinue}
             disabled={!canContinue()}
-            className="w-full rounded-2xl bg-coqui-500 px-8 py-4 font-semibold text-white shadow-[0_6px_14px_-3px_rgba(26,154,90,0.4)] disabled:bg-cafe-300 disabled:text-cafe-600 disabled:shadow-none lg:py-5 lg:text-lg"
+            className="w-full rounded-2xl border-2 border-coqui-500 bg-coqui-500 px-8 py-4 font-semibold text-white shadow-[0_6px_14px_-3px_rgba(26,154,90,0.4)] transition-colors disabled:border-coqui-200 disabled:bg-white disabled:text-coqui-400 disabled:shadow-none lg:py-5 lg:text-lg"
           >
-            {step < STEPS.length - 1 ? 'Continue →' : 'Build my itinerary →'}
+            {canContinue()
+              ? step < STEPS.length - 1
+                ? 'Continue →'
+                : 'Build my itinerary →'
+              : current.multiSelect
+              ? 'Pick at least one to continue'
+              : 'Choose one to continue'}
           </button>
         </div>
       </div>

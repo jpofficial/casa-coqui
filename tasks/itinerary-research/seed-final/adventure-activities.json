@@ -1,0 +1,412 @@
+{
+  "agent": "subagent-G-adventure",
+  "generated_at": "2026-05-12",
+  "count": 14,
+  "items": [
+    {
+      "name": "Toro Verde Adventure Park — 'The Beast' Zip Line",
+      "neighborhood": "Orocovis",
+      "type": "Zip-line adventure park",
+      "hours": "Wed-Sun 8am-4pm (last entry 1pm); closed Mon-Tue. Reservation required.",
+      "price_tier": "$$$",
+      "admission_cost": "$99-$135 per person depending on zip-line package",
+      "description": "Home of 'The Monster' (formerly the longest zip line in the world at 2.5 km) and 'The Beast,' which has you flying superman-style at up to 95 mph over a verdant central-mountain valley. Multi-line packages, suspension bridge, and 'Pretty Monster' line for those wanting the view without the top-speed plunge.",
+      "why_it_matters": "The single most extreme zip line experience in the Americas — nothing in the Caribbean or US comes close to the scale, speed, or scenery of Toro Verde's central cordillera setting.",
+      "best_for_persona": [
+        "adventure",
+        "experiential",
+        "groups",
+        "couples",
+        "photographer"
+      ],
+      "walkability_from_old_san_juan": "75-90 min drive SW via PR-22 and PR-10 to Orocovis — no public transit; rental car or shuttle required",
+      "kid_friendly": false,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 360,
+      "accessibility_notes": "Not wheelchair accessible. Weight limits: 70-275 lbs for The Beast/Monster. Minimum age 10 for most lines; harness fit required.",
+      "gear_needed": "Closed-toe athletic shoes (mandatory), athletic clothing, hair tied back; harness and helmet provided",
+      "source_urls": [
+        "https://toroverde.com/",
+        "https://www.discoverpuertorico.com/profile/toro-verde-nature-adventure-park/8702"
+      ]
+    },
+    {
+      "name": "Carabalí Rainforest Park — ATV Rainforest Adventure",
+      "neighborhood": "Luquillo",
+      "type": "Guided ATV off-road tour",
+      "hours": "Daily 9am-4pm; tours depart at 9am, 11am, 1pm, 3pm. Reservation required.",
+      "price_tier": "$$$",
+      "admission_cost": "$95-$135 single rider / $160-$200 double rider for 1-2 hr tours",
+      "description": "Single- or two-seat ATVs along muddy trails at the foothills of El Yunque on a 600-acre private ranch. Routes pass river crossings, jungle canopy, and a panoramic ocean overlook. Beginner instruction included before you set off behind a lead guide.",
+      "why_it_matters": "The most popular family-friendly off-road experience near San Juan — combines El Yunque-edge rainforest scenery with adrenaline, without the long drives to remote operators.",
+      "best_for_persona": [
+        "adventure",
+        "family",
+        "experiential",
+        "groups",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "45-55 min drive E via PR-3 to Luquillo; many operators offer SJ hotel pickup as add-on",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 300,
+      "accessibility_notes": "Not wheelchair accessible. Drivers must be 16+ with valid license; passengers 6+. Closed-toe shoes mandatory. Expect to get muddy.",
+      "gear_needed": "Closed-toe shoes you don't mind ruining, change of clothes, sunglasses, bandana for dust; helmets and goggles provided",
+      "source_urls": [
+        "https://carabalirainforestpark.com/",
+        "https://www.discoverpuertorico.com/profile/carabali-rainforest-park/8607"
+      ]
+    },
+    {
+      "name": "Carabalí Rainforest Park — Horseback Beach & Rainforest Ride",
+      "neighborhood": "Luquillo",
+      "type": "Guided horseback riding tour",
+      "hours": "Daily 9am-3pm; rides depart hourly with reservation. 1-hr rainforest and 2-hr beach options.",
+      "price_tier": "$$",
+      "admission_cost": "$65 (1 hr rainforest) / $99 (2 hr beach + rainforest combo)",
+      "description": "Ride a Paso Fino — Puerto Rico's smooth-gaited heritage horse breed — along jungle trails or down to a stretch of secluded beach near Luquillo. The 2-hour combo loops through the rainforest and ends with a horseback walk in the surf.",
+      "why_it_matters": "The only nearby ride where you can experience the smooth gait of an authentically Puerto Rican Paso Fino horse and dip your boots in the Atlantic in one outing.",
+      "best_for_persona": [
+        "couples",
+        "family",
+        "experiential",
+        "romantic",
+        "groups"
+      ],
+      "walkability_from_old_san_juan": "45-55 min drive E via PR-3 to Luquillo",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 240,
+      "accessibility_notes": "Riders must be 6+ and under 240 lbs. Long pants and closed-toe shoes required. Not wheelchair accessible.",
+      "gear_needed": "Long pants, closed-toe shoes (boots or sneakers), sunscreen, hat with chinstrap; helmets provided",
+      "source_urls": [
+        "https://carabalirainforestpark.com/",
+        "https://www.tripadvisor.com/Attraction_Review-g1066667-d1198960-Reviews-Carabali_Rainforest_Adventure_Park.html"
+      ]
+    },
+    {
+      "name": "Hacienda Campo Rico — ATV, Zip-Line & Horseback",
+      "neighborhood": "Carolina",
+      "type": "Multi-activity adventure ranch",
+      "hours": "Daily 9am-4pm by reservation only; ATV at 9am/12pm/3pm, zip-line 10am/1pm.",
+      "price_tier": "$$$",
+      "admission_cost": "$85-$115 ATV; $79 zip-line; $79 horseback (combos $150-$230)",
+      "description": "A 2,200-acre former dairy estate 15 minutes from San Juan offers ATVs through mahogany groves, a 5-platform zip-line canopy tour, and gentle horseback rides. The closest 'big adventure' park to the metro area — perfect for travelers without a long-drive budget.",
+      "why_it_matters": "By far the closest combined ATV/zip-line/horseback operator to Old San Juan — turns adventure activities into a half-day trip instead of a full-day commitment.",
+      "best_for_persona": [
+        "adventure",
+        "family",
+        "groups",
+        "experiential",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "20-25 min drive E via PR-26 to Carolina (Campo Rico exit)",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 240,
+      "accessibility_notes": "Not wheelchair accessible. ATV drivers 16+ with license; zip-line minimum 70 lbs / max 250 lbs; horseback 8+.",
+      "gear_needed": "Closed-toe shoes (mandatory), athletic clothing, sunscreen; helmets/harness provided",
+      "source_urls": [
+        "https://campo-rico.com/",
+        "https://www.discoverpuertorico.com/profile/hacienda-campo-rico/8651"
+      ]
+    },
+    {
+      "name": "Río Camuy Cave Park (Parque de las Cavernas del Río Camuy)",
+      "neighborhood": "Camuy",
+      "type": "Show cave guided tour",
+      "hours": "Wed-Sun 8:30am-3:30pm; closed Mon-Tue. Reservation strongly recommended.",
+      "price_tier": "$",
+      "admission_cost": "$18 adult / $13 child + $5 parking",
+      "description": "Guided walking tour into Cueva Clara, a cathedral-sized chamber 170 ft tall, formed by the third-largest underground river in the world. A trolley shuttles you down into the sinkhole, then a paved path leads through stalactite formations with bilingual interpretation.",
+      "why_it_matters": "The defining underground experience of Puerto Rico — the karst country here is one of the largest cave systems in the Western Hemisphere, and Cueva Clara is the most accessible chamber.",
+      "best_for_persona": [
+        "family",
+        "nature",
+        "experiential",
+        "photographer",
+        "groups"
+      ],
+      "walkability_from_old_san_juan": "90 min drive W via PR-22 to Camuy — a full-day commitment; pair with Arecibo or north-coast stops",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 360,
+      "accessibility_notes": "Trolley + paved chamber path are mobility-friendly to a degree, but the cave entrance involves steep grades and stairs in places — confirm with park before visiting. Bring layers — cave is cooler than surface.",
+      "gear_needed": "Closed-toe shoes with grip (cave floor is wet), light jacket, water, cash for parking and snacks",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/rio-camuy-cave-park/8682",
+        "https://www.drna.pr.gov/parques-nacionales/parque-de-las-cavernas-del-rio-camuy/"
+      ]
+    },
+    {
+      "name": "Cueva Ventana ('Window Cave')",
+      "neighborhood": "Arecibo",
+      "type": "Guided cave hike with viewpoint",
+      "hours": "Daily 9am-3:45pm (last tour 2pm); reservation required.",
+      "price_tier": "$",
+      "admission_cost": "$23 adult / $19 child / $12 ages 4-12",
+      "description": "A 45-minute guided walk through two limestone caves ending at a massive natural window opening with a panoramic view over the Río Grande de Arecibo valley. Bats overhead, Taíno petroglyphs near the entrance, and one of the most photographed views in Puerto Rico.",
+      "why_it_matters": "The 'window' shot is the most iconic adventure-photo in Puerto Rico — and the cave itself is far shorter and easier than Camuy, making it doable as a half-day from San Juan.",
+      "best_for_persona": [
+        "adventure",
+        "photographer",
+        "couples",
+        "experiential",
+        "groups"
+      ],
+      "walkability_from_old_san_juan": "75 min drive W via PR-22 to Arecibo (PR-10 exit)",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 240,
+      "accessibility_notes": "Not wheelchair accessible — uneven cave floor, low ceilings in spots, short scramble at the window. Bring a headlamp or phone flashlight as backup.",
+      "gear_needed": "Closed-toe shoes with grip, water, insect repellent; helmets and flashlights provided by operator",
+      "source_urls": [
+        "https://cuevaventanapr.com/",
+        "https://www.discoverpuertorico.com/profile/cueva-ventana/8615"
+      ]
+    },
+    {
+      "name": "Charco Azul (Patillas) — Natural Swimming Hole",
+      "neighborhood": "Patillas",
+      "type": "Natural pool / cliff jumping",
+      "hours": "Daylight only (no formal hours); arrive before 10am on weekends to beat crowds.",
+      "price_tier": "FREE",
+      "admission_cost": "Free; $5 informal parking on busy weekends",
+      "description": "A short 0.5-mile rainforest walk leads to a crystalline mountain pool with a 15-ft cliff jump and a deep swimming basin fed by the Río Grande de Patillas. Locals come for the day with coolers; weekdays you may have it nearly to yourself.",
+      "why_it_matters": "The most accessible cliff-jumping spot in Puerto Rico — a slice of mountain-river paradise that costs nothing and rewards travelers willing to drive to the southeast.",
+      "best_for_persona": [
+        "adventure",
+        "experiential",
+        "solo",
+        "groups",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "75 min drive S via PR-52 and PR-184 to Patillas",
+      "kid_friendly": false,
+      "guided_tour_available": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 240,
+      "accessibility_notes": "No facilities — no bathrooms or lifeguards. Trail is uneven and can be slippery after rain. Jump at your own risk; check water depth first.",
+      "gear_needed": "Swimsuit, water shoes (mandatory — rocks are slippery), towel, packed lunch, trash bag (pack it out)",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/bosque-estatal-de-carite/8602",
+        "https://www.atlasobscura.com/places/charco-azul-puerto-rico"
+      ]
+    },
+    {
+      "name": "Las Tinajas / Charco Frío — Fajardo Hike & Swim",
+      "neighborhood": "Fajardo",
+      "type": "Hike + natural pools + cliff jumping",
+      "hours": "Daylight; informal — no gate or hours. Best weekday mornings.",
+      "price_tier": "FREE",
+      "admission_cost": "Free",
+      "description": "A 1-mile semi-technical hike along a stream in the Sierra de Luquillo leads to a chain of natural pools and small waterfalls. The largest, Charco Frío, has 8-12 ft jumps and a rope swing. The trail involves rock-hopping and a couple of waist-deep crossings.",
+      "why_it_matters": "The east coast's best wild-swim hike — far less crowded than El Yunque's official waterfalls and free of the timed-entry pass system.",
+      "best_for_persona": [
+        "adventure",
+        "experiential",
+        "solo",
+        "groups",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "55 min drive E via PR-3 to Fajardo (trailhead on PR-9990)",
+      "kid_friendly": false,
+      "guided_tour_available": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 240,
+      "accessibility_notes": "Not accessible — trail crosses streams and involves climbing over wet rocks. Skip after heavy rain (flash-flood risk). No facilities.",
+      "gear_needed": "Water shoes or hiking sandals (mandatory), swimsuit, dry bag, snacks, headlamp if hiking out near sunset",
+      "source_urls": [
+        "https://www.alltrails.com/trail/puerto-rico/fajardo/las-tinajas-charco-frio",
+        "https://www.discoverpuertorico.com/things-to-do/outdoor-adventure"
+      ]
+    },
+    {
+      "name": "Jet Ski Tour — Condado Lagoon & Coast",
+      "neighborhood": "Condado",
+      "type": "Jet ski rental / guided tour",
+      "hours": "Daily 9am-5pm by reservation; weather-dependent.",
+      "price_tier": "$$$",
+      "admission_cost": "$110-$150 per jet ski (1 hr) / $180-$250 (2 hr); 2 riders per ski",
+      "description": "Launch from Condado Lagoon and ride out along the protected lagoon and onto the Atlantic coastline with a hotel-skyline backdrop, escorted by a guide on a follow-along ski. Quick instructional briefing first; no boating license required.",
+      "why_it_matters": "The fastest adrenaline hit reachable on foot from most San Juan hotels — no driving, no full-day commitment, and that postcard view of the Condado strip from the water.",
+      "best_for_persona": [
+        "adventure",
+        "couples",
+        "groups",
+        "experiential"
+      ],
+      "walkability_from_old_san_juan": "10 min Uber to Condado Lagoon (Laguna del Condado)",
+      "kid_friendly": false,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 120,
+      "accessibility_notes": "Drivers must be 16+ with photo ID; minimum age 5 to ride as passenger with adult. Closed-water swimmers recommended. Not wheelchair accessible.",
+      "gear_needed": "Swimsuit, reef-safe sunscreen, sunglasses with strap, GoPro mount optional; PFDs provided",
+      "source_urls": [
+        "https://www.condadojetskirentals.com/",
+        "https://www.discoverpuertorico.com/things-to-do/water-sports"
+      ]
+    },
+    {
+      "name": "Catamaran Day Trip to Icacos & La Cordillera Cays — Fajardo",
+      "neighborhood": "Fajardo",
+      "type": "Catamaran snorkel + island day trip",
+      "hours": "Daily departures 9am or 10am, return 4-5pm; check-in 30 min before. Reservation required.",
+      "price_tier": "$$$",
+      "admission_cost": "$110-$160 per adult (includes lunch, drinks, gear) / $80-$100 child",
+      "description": "Sail from Puerto del Rey marina out to the uninhabited cays of La Cordillera Reserve — Icacos, Palomino, or Palominito. Open-bar catamaran with two snorkel stops on healthy reef, anchored beach time on a postcard sandbar, and a buffet lunch on board.",
+      "why_it_matters": "The single best 'BVI-style' deserted-island day from San Juan — uninhabited, snorkel-grade reef, and no overnight or ferry required.",
+      "best_for_persona": [
+        "couples",
+        "groups",
+        "family",
+        "experiential",
+        "special_occasion"
+      ],
+      "walkability_from_old_san_juan": "1 hr drive E via PR-3 to Puerto del Rey, Fajardo; many operators offer hotel pickup",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 480,
+      "accessibility_notes": "Catamaran boarding involves a steep gangway; not wheelchair accessible on most vessels. Sea swells common; bring motion-sickness meds.",
+      "gear_needed": "Swimsuit, reef-safe sunscreen, towel, hat, GoPro; snorkel gear + lunch + drinks included",
+      "source_urls": [
+        "https://www.eastislandpr.com/",
+        "https://www.discoverpuertorico.com/profile/la-cordillera-keys/8669"
+      ]
+    },
+    {
+      "name": "Surfing Day Trip — Rincón (West Coast)",
+      "neighborhood": "Rincón",
+      "type": "Surfing day trip + lessons",
+      "hours": "Best surf Oct-Mar; lessons daily 8am-3pm by reservation. Domes/Maria's break.",
+      "price_tier": "$$$",
+      "admission_cost": "$75-$120 group lesson (2 hr) / $150-$200 private; board rental $25-$35/day",
+      "description": "Cross-island drive to Rincón, the surf capital of the Caribbean. Beginner lessons at sandy-bottom breaks like Sandy Beach, intermediate-to-advanced at Domes, Maria's, and Tres Palmas reef. Whale-watching off the point from January-March.",
+      "why_it_matters": "The biggest, most consistent winter surf in the Caribbean — Rincón hosted the 1968 World Surfing Championship and remains a pilgrimage for surfers who want real waves, not metro shore-break.",
+      "best_for_persona": [
+        "adventure",
+        "experiential",
+        "solo",
+        "couples",
+        "groups"
+      ],
+      "walkability_from_old_san_juan": "2.5-3 hr drive W via PR-22 (toll) — best done as overnight, but doable as a long day trip",
+      "kid_friendly": false,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 720,
+      "accessibility_notes": "Not wheelchair accessible. Beginner lessons require ability to swim. Long drive — consider overnighting in Rincón.",
+      "gear_needed": "Swimsuit, rash guard (lessons include), reef-safe sunscreen, towel; surf school provides board and leash",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/rincon/8691",
+        "https://www.rinconsurfschool.com/"
+      ]
+    },
+    {
+      "name": "Wilderness Beach Surf & Crash Boat — Aguadilla",
+      "neighborhood": "Aguadilla",
+      "type": "Surf + scenic beach day",
+      "hours": "Beaches sunrise to sunset; surf lessons 8am-2pm by reservation.",
+      "price_tier": "$$",
+      "admission_cost": "Free beach access; lessons $75-$110 group / $140-$180 private",
+      "description": "Wilderness (aka Surfer's Beach) sits on the old Ramey Air Force Base bluffs with consistent reef-break waves and dramatic limestone cliffs. Crash Boat Beach nearby offers calm snorkeling and a sunset food-shack scene with fresh empanadillas.",
+      "why_it_matters": "An easier-to-reach surf alternative to Rincón with a wilder, less-developed feel — and Crash Boat is the most photogenic sunset-bar beach on the west coast.",
+      "best_for_persona": [
+        "adventure",
+        "experiential",
+        "couples",
+        "groups",
+        "photographer"
+      ],
+      "walkability_from_old_san_juan": "2.25 hr drive NW via PR-22 to Aguadilla",
+      "kid_friendly": false,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 600,
+      "accessibility_notes": "Wilderness requires a short cliff descent on a dirt path — not accessible. Crash Boat is closer to flat-access friendly. Long drive; consider an overnight.",
+      "gear_needed": "Swimsuit, reef-safe sunscreen, water shoes (rocky entry at Wilderness), towel, cash for kiosks",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/crash-boat-beach/8623",
+        "https://www.surfer.com/travel/puerto-rico-surfing-guide"
+      ]
+    },
+    {
+      "name": "Rappelling & Canyoneering at San Sebastián / Las Marías",
+      "neighborhood": "San Sebastián",
+      "type": "Guided canyoneering / waterfall rappel",
+      "hours": "Tours by reservation only; typical 8am or 9am departure, Wed-Sun.",
+      "price_tier": "$$$",
+      "admission_cost": "$135-$185 per person (full day, includes gear, lunch)",
+      "description": "Strap into a harness and descend 60-100 ft waterfalls in the mountainous interior with licensed canyoneering guides. Routes include river-walking, swimming through pools, and 2-3 waterfall rappels, ending at a swimming hole. Beginner-friendly with full instruction.",
+      "why_it_matters": "Puerto Rico's only proper waterfall-rappelling experience — a level of adventure most travelers don't even know is possible in the Caribbean.",
+      "best_for_persona": [
+        "adventure",
+        "experiential",
+        "groups",
+        "solo",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "90 min drive W via PR-22 to San Sebastián; tour pickup often available from western hotels",
+      "kid_friendly": false,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 540,
+      "accessibility_notes": "Not accessible. Must be able to swim, comfortable with heights, and physically able to hike wet, uneven terrain. Minimum age typically 12; weight limits apply for harness fit.",
+      "gear_needed": "Quick-dry clothes you don't mind ruining, water shoes or trail runners, change of clothes, dry bag for phone; technical gear (harness, helmet, ropes) provided",
+      "source_urls": [
+        "https://www.acampapr.com/",
+        "https://www.discoverpuertorico.com/things-to-do/outdoor-adventure"
+      ]
+    },
+    {
+      "name": "Parasailing — Isla Verde Beach",
+      "neighborhood": "Isla Verde",
+      "type": "Parasailing",
+      "hours": "Daily 10am-5pm, weather-dependent; check-in at hotel beach concessions.",
+      "price_tier": "$$$",
+      "admission_cost": "$85-$120 single / $150-$200 tandem (10-12 min flight)",
+      "description": "Lift off from the back of a powerboat 400-600 ft above Isla Verde, taking in views from El Morro to El Yunque on a clear day. Wet or dry landing options; tandem rides are the most popular for couples and friends.",
+      "why_it_matters": "The easiest aerial adventure from a San Juan hotel beach — no driving, no full-day commitment, and the only way to see the metro coastline from the air without a helicopter.",
+      "best_for_persona": [
+        "adventure",
+        "couples",
+        "groups",
+        "experiential",
+        "photographer"
+      ],
+      "walkability_from_old_san_juan": "15 min Uber to Isla Verde; walkable from any Isla Verde hotel",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 90,
+      "accessibility_notes": "Weight limits 100-450 lbs (tandem). Operators typically require ages 6+; under 18 with parent. Not wheelchair accessible boarding the boat.",
+      "gear_needed": "Swimsuit (in case of wet landing), GoPro mount (provided by some operators), sunglasses with strap; PFD and harness provided",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/things-to-do/water-sports",
+        "https://www.tripadvisor.com/Attractions-g147320-Activities-c61-t220-San_Juan_Puerto_Rico.html"
+      ]
+    }
+  ]
+}
