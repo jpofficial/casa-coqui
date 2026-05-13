@@ -1,0 +1,382 @@
+{
+  "agent": "subagent-I-unique",
+  "generated_at": "2026-05-12",
+  "count": 13,
+  "items": [
+    {
+      "name": "Mosquito Bay Bioluminescent Tour — Vieques",
+      "neighborhood": "Vieques (Esperanza)",
+      "type": "Bioluminescent kayak / electric-boat tour (Vieques)",
+      "hours": "Tours nightly 6:30pm-10:30pm depending on moon phase; closed near full moon. Reservations open 2-4 weeks ahead and sell out fast.",
+      "price_tier": "$$",
+      "admission_cost": "$55-$75/person guided kayak tour; ferry $2 each way + rental car or local taxi on island",
+      "description": "Mosquito Bay (Bahía Bioluminiscente) on Vieques is the brightest documented bioluminescent bay in the world, certified by Guinness. Tours paddle clear-bottom kayaks (or board electric pontoons) through pitch-dark mangrove channels into the bay. Swimming has been banned since ~2007 to protect the dinoflagellates — you'll see the glow only by paddle stroke, fish trails, and dipping your hand in the water.",
+      "why_it_matters": "This is the headline bio bay experience on Earth — measurably brighter than Fajardo or La Parguera. It's also the reason people add Vieques to a PR trip. Worth the logistics if you're willing to overnight on the island.",
+      "best_for_persona": [
+        "experiential",
+        "special_occasion",
+        "couples",
+        "wildlife",
+        "photographer",
+        "adventurer"
+      ],
+      "walkability_from_old_san_juan": "~2hr drive SE to Ceiba ferry terminal + 30-min Vieques Ferry (Puerto Rico Ports Authority) + 15-min drive to Esperanza. Realistically a 2-day trip — book at least one overnight on Vieques.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "night",
+      "time_to_allocate_min": 180,
+      "accessibility_notes": "Kayak requires moderate mobility (climbing in/out, paddling 1.5hr). Electric-boat options available through some operators for limited-mobility guests; ask Abe's Snorkeling or JAK Water Sports directly.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/bioluminescent-bay/8612",
+        "https://www.discoverpuertorico.com/article/your-guide-puerto-ricos-bioluminescent-bays",
+        "https://www.cntraveler.com/story/visiting-vieques-puerto-rico"
+      ]
+    },
+    {
+      "name": "La Parguera Bioluminescent Bay Boat Tour — Lajas",
+      "neighborhood": "La Parguera (Lajas)",
+      "type": "Bioluminescent boat tour (the only swim-allowed bio bay)",
+      "hours": "Boats depart nightly ~7pm-10pm from La Parguera docks; new-moon nights are brightest. Skip 3 nights around full moon.",
+      "price_tier": "$",
+      "admission_cost": "$15-$25/person on a small public boat from Parguera Fishing Charters or Aleli Tours",
+      "description": "La Parguera is the only bio bay in Puerto Rico where you can still swim in the glow — boats anchor in the bay and guests jump in to watch their bodies trail blue light. The dinoflagellate concentration is lower than Mosquito Bay (decades of motorboat traffic dimmed it), but it's the most accessible and family-friendly option.",
+      "why_it_matters": "If you want the bio bay experience without a Vieques overnight, this is the answer — and the only one where you can actually swim in it. Pair with a day on the Cayo Caracoles mangrove cays.",
+      "best_for_persona": [
+        "experiential",
+        "family",
+        "couples",
+        "budget",
+        "adventurer"
+      ],
+      "walkability_from_old_san_juan": "~2hr 15min drive SW via PR-52 + PR-2 to Lajas; can be done as long day trip but most pair with overnight in Cabo Rojo / La Parguera",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "night",
+      "time_to_allocate_min": 120,
+      "accessibility_notes": "Boats are flat-decked, easier boarding than kayaks. Swimming optional. Bring swimsuit + towel + change of clothes; bay water is warm but you'll be wet for the drive back.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/la-parguera-bioluminescent-bay/8669",
+        "https://www.discoverpuertorico.com/article/your-guide-puerto-ricos-bioluminescent-bays"
+      ]
+    },
+    {
+      "name": "Ruta del Lechón (Pork Highway) — Guavate, Cayey",
+      "neighborhood": "Guavate (Cayey)",
+      "type": "Culinary pilgrimage / open-air lechonera circuit",
+      "hours": "Lechoneras open Fri-Sun ~10am-9pm; peak scene is Sunday 1pm-6pm with live music. Quietest right at opening; busiest after 2pm.",
+      "price_tier": "$",
+      "admission_cost": "FREE entry; plates $10-$18 cash (lechón, arroz con gandules, morcilla, pasteles); Medalla / piña colada $3-$6",
+      "description": "Route 184 winds through the Cayey mountains past a dozen open-air lechoneras where whole pigs roast on spits over coals. Lechonera Los Piños (the most famous), El Rancho Original, and El Mojito are the anchor stops. Live trio music, picnic tables under tin roofs, mountain views, and the best slow-roasted pork you'll eat in your life.",
+      "why_it_matters": "The defining Puerto Rican Sunday — anointed by Anthony Bourdain, ranked by Eater as one of America's great regional food traditions. You'll see more locals than tourists. The 'unicorn moment' food experience of PR.",
+      "best_for_persona": [
+        "experiential",
+        "foodie",
+        "budget",
+        "family",
+        "couples",
+        "solo"
+      ],
+      "walkability_from_old_san_juan": "~50min drive S via PR-52 to exit 32 (Cayey/Guavate); no public transit — rent a car or hire a driver. Designated driver essential.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 240,
+      "accessibility_notes": "Most lechoneras are open-air with ramped or step-free entries; bathrooms are basic. Bring cash (some don't take cards). The drive up has hairpin turns — avoid if prone to motion sickness.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/article/lechon-route-184-guavate",
+        "https://www.eater.com/maps/best-restaurants-puerto-rico-san-juan",
+        "https://www.cntraveler.com/story/the-pork-highway-of-puerto-rico"
+      ]
+    },
+    {
+      "name": "Flamenco Beach Day Trip — Culebra",
+      "neighborhood": "Culebra (Playa Flamenco)",
+      "type": "Top-10 world beach day trip (ferry-required)",
+      "hours": "Beach open daily sunrise to sunset; lifeguards on weekends. Vieques/Culebra Ferry from Ceiba departs ~5 daily, 9am ferry recommended outbound, last return ~6:30pm.",
+      "price_tier": "$",
+      "admission_cost": "Ferry $2 each way (residents priced; book at puertoricoferry.com); $5 parking at Ceiba; trolley/taxi from Dewey to Flamenco ~$3-$5; chair rental ~$10",
+      "description": "Flamenco Beach (Playa Flamenco) is a horseshoe of fine white sand around a turquoise bay on Culebra's north side, repeatedly ranked top-10 in the world by Conde Nast and Travel + Leisure. A rusted WWII US Navy tank on the sand is the iconic photo. Calm water, mild snorkeling at the rocky ends, food kiosks, and almost no development.",
+      "why_it_matters": "This is the postcard beach people associate with Puerto Rico, even if they don't know its name. Culebra is a protected nature refuge with no big resorts, so the beach is genuinely preserved.",
+      "best_for_persona": [
+        "experiential",
+        "family",
+        "couples",
+        "relaxation",
+        "photographer",
+        "budget"
+      ],
+      "walkability_from_old_san_juan": "~2hr drive E to Ceiba + 45-min ferry + 10-min taxi. Realistic minimum 12-hr day; many travelers overnight in Culebra to also see Tamarindo Beach + Carlos Rosario snorkel.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 720,
+      "accessibility_notes": "Ferry boarding has stairs; some ferries have ADA seating. Sand is soft and far from parking — beach wheelchair available free at the Flamenco station (call ahead). Bring everything you need; one small kiosk row only.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/flamenco-beach/8645",
+        "https://www.cntraveler.com/gallery/best-beaches-in-the-world",
+        "https://www.puertoricoferry.com/"
+      ]
+    },
+    {
+      "name": "Rincón Surf Lesson — West Coast",
+      "neighborhood": "Rincón",
+      "type": "Surf lesson / surf day trip (west coast)",
+      "hours": "Lessons run year-round, 8am-11am and 2pm-5pm; best surf Oct-Apr (NE swells). Whale season Jan-Mar layers on humpback sightings.",
+      "price_tier": "$$",
+      "admission_cost": "$80-$110/person 2-hour group lesson (board + rashguard + instructor) at Rincón Surf School or Surf 787; private $150+",
+      "description": "Rincón has been the Caribbean's surf capital since the 1968 World Surfing Championships put it on the map. Domes (named for the shuttered nuclear plant), Maria's, Sandy Beach, and Tres Palmas Marine Reserve string together along the west coast — each with different break personalities. Local surf schools start beginners on the softer inside breaks at Sandy or Antonio's.",
+      "why_it_matters": "PR's west coast is a totally different vibe than San Juan — surf town, sunsets over the water (only place on the island), and laid-back energy. Worth the 3-hour drive even just for a lesson and sunset dinner.",
+      "best_for_persona": [
+        "experiential",
+        "adventurer",
+        "fitness",
+        "solo",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "~2hr 45min drive W via PR-22 (toll); most pair with overnight in Rincón or Aguadilla. Whale watching boats out of Rincón Marina (Jan-Mar humpbacks) add a separate half-day.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 180,
+      "accessibility_notes": "Adaptive surfing available on request at Rincón Surf School (call 24hr ahead). Sandy Beach has soft entry; reef breaks like Domes are not beginner-friendly.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/things-to-do/water-sports/surfing",
+        "https://www.discoverpuertorico.com/profile/rincon/8682",
+        "https://www.cntraveler.com/story/the-best-things-to-do-in-rincon-puerto-rico"
+      ]
+    },
+    {
+      "name": "Whale Watching off Rincón — Humpback Migration",
+      "neighborhood": "Rincón (Punta Higüero)",
+      "type": "Seasonal wildlife / boat tour (Jan-Mar only)",
+      "hours": "Season mid-January through late March. Boat tours depart 8am and 1pm; land-based viewing from Punta Higüero Lighthouse all day.",
+      "price_tier": "$$",
+      "admission_cost": "Boat tour $75-$120/person (Taino Divers, Punta Cana Charters); land viewing FREE at lighthouse",
+      "description": "Each winter, North Atlantic humpback whales migrate from the Stellwagen Bank off Massachusetts to the warm waters off Rincón to calve and breed. Boat tours leave the Black Eagle marina; on calmer days you can watch breaches with binoculars from the cliffs at Punta Higüero Lighthouse (which has a small free interpretive museum).",
+      "why_it_matters": "One of the few reliable Caribbean whale-watching destinations, and you can do it from shore for free. Pairs naturally with a Rincón surf overnight.",
+      "best_for_persona": [
+        "experiential",
+        "wildlife",
+        "photographer",
+        "family",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "~2hr 45min drive W; usually combined with a Rincón overnight. Lighthouse parking is free.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 240,
+      "accessibility_notes": "Lighthouse park has paved paths and viewing decks. Boat trips can be rough offshore — bring motion-sickness meds. Season is hard-set; outside Jan-Mar you'll see zero whales.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/punta-higuero-lighthouse/8680",
+        "https://www.discoverpuertorico.com/article/whale-watching-rincon"
+      ]
+    },
+    {
+      "name": "Hacienda San Pedro Coffee Farm Tour — Jayuya",
+      "neighborhood": "Jayuya (Cordillera Central)",
+      "type": "Working coffee farm tour + tasting",
+      "hours": "Tours by appointment, typically Mon-Sat 10am and 2pm; harvest season Aug-Dec is the most active visit.",
+      "price_tier": "$$",
+      "admission_cost": "$25-$40/person 90-min tour with tasting; bag of beans $18-$28",
+      "description": "Hacienda San Pedro is a fifth-generation family coffee farm in the central mountains at ~2,500 ft elevation, growing 100% Arabica varieties (Limaní, Caturra, Borbón). The tour walks you through cultivation, depulping, fermentation, sun-drying patios, and roasting — ending with a guided cupping of their estate roasts.",
+      "why_it_matters": "PR was one of the original elite coffee regions in the world (royal courts in Europe drank PR coffee in the 1800s). Hurricane Maria devastated the industry; visiting working farms is part of the recovery. This is the real one — not a tourist coffee 'experience.'",
+      "best_for_persona": [
+        "experiential",
+        "foodie",
+        "couples",
+        "solo",
+        "photographer"
+      ],
+      "walkability_from_old_san_juan": "~2hr drive SW via PR-22 / PR-10 to Jayuya; mountain roads, drive in daylight. Often combined with a stop at Cerro de Punta or an Utuado overnight.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": true,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 180,
+      "accessibility_notes": "Working farm with slopes, gravel, and patios — uneven terrain. Wear closed shoes. Call ahead if mobility is limited; some sections of the tour can be skipped.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/hacienda-san-pedro/8651",
+        "https://www.discoverpuertorico.com/article/coffee-tours-puerto-rico"
+      ]
+    },
+    {
+      "name": "Salsa Night at La Respuesta — Santurce",
+      "neighborhood": "Santurce (Calle Loíza adjacent)",
+      "type": "Live salsa / dance lesson + social night",
+      "hours": "Wednesdays 'La Junta' salsa social 8pm-2am (beginner lesson 8pm-9pm, open dancing after); weekend live bands Fri-Sat 10pm-3am.",
+      "price_tier": "$",
+      "admission_cost": "$10-$15 cover at the door (cash); drinks $6-$12",
+      "description": "La Respuesta is the cultural anchor of Santurce's nightlife scene — a converted warehouse venue that hosts La Junta on Wednesdays (a weekly salsa social where dancers of all levels show up and rotate partners). The lesson at 8pm covers basic salsa-on-2 / NY-style, then the floor opens to live or DJ-spun salsa, bomba, and plena until late.",
+      "why_it_matters": "PR is the birthplace of modern salsa (Fania Records, Hector Lavoe, Ismael Rivera) and dance is woven into everyday life. La Junta is the most welcoming entry point for visitors who actually want to dance with locals — not just watch a show.",
+      "best_for_persona": [
+        "experiential",
+        "nightlife",
+        "solo",
+        "couples",
+        "adventurer"
+      ],
+      "walkability_from_old_san_juan": "10-min Uber to Santurce; walkable from Condado in ~25min. Late-night Ubers are easy from this area.",
+      "kid_friendly": false,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "night",
+      "time_to_allocate_min": 180,
+      "accessibility_notes": "21+ venue, ID required. Dance floor is hardwood, can get hot — dress in breathable clothes. No reserved seating; arrive by 8:15pm for the lesson if you want a good spot.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/article/where-dance-salsa-san-juan",
+        "https://www.nytimes.com/2023/02/22/travel/san-juan-puerto-rico-nightlife.html"
+      ]
+    },
+    {
+      "name": "Cabo Rojo Lighthouse, Playuela Cliffs & Pink Salt Flats — Southwest",
+      "neighborhood": "Cabo Rojo (Boquerón / Los Morrillos)",
+      "type": "Coastal hike + lighthouse + working salt flats",
+      "hours": "Salt flats interpretive center 9am-4pm Wed-Sun; lighthouse grounds dawn to dusk; cliffs accessible anytime (no gate).",
+      "price_tier": "FREE",
+      "admission_cost": "FREE; small donation suggested at salt flats visitor center",
+      "description": "Three connected sites at PR's southwest corner: the 1882 Los Morrillos lighthouse perched above 200-ft limestone cliffs; Playa Sucia (Playuela), a turquoise crescent at the cliff base reachable by a 20-min walk; and the Cabo Rojo salt flats (Salinas) — working salt pans where halophilic algae turn the water hot pink. The whole peninsula is a National Wildlife Refuge and Audubon-designated bird area.",
+      "why_it_matters": "The most geologically dramatic landscape in PR, and the only spot on the island that looks Mediterranean — white cliffs, pink water, empty turquoise beach. Off most San Juan tourist itineraries; raw and beautiful.",
+      "best_for_persona": [
+        "experiential",
+        "adventurer",
+        "photographer",
+        "wildlife",
+        "couples"
+      ],
+      "walkability_from_old_san_juan": "~2hr 30min drive SW via PR-52 + PR-2; commonly chained with La Parguera bio bay overnight to make the long drive worthwhile.",
+      "kid_friendly": true,
+      "guided_tour_available": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "afternoon",
+      "time_to_allocate_min": 300,
+      "accessibility_notes": "Lighthouse cliff path is rocky, uneven, no railings — keep small kids close. Salt flat boardwalk is flat and stroller-friendly. Bring shade, water, and reef-safe sunscreen; zero services on-site.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/los-morrillos-lighthouse/8615",
+        "https://www.fws.gov/refuge/cabo-rojo",
+        "https://www.discoverpuertorico.com/article/cabo-rojo-pink-salt-flats"
+      ]
+    },
+    {
+      "name": "Cerro de Punta + Toro Negro Forest Drive — Cordillera Central",
+      "neighborhood": "Jayuya / Ponce border",
+      "type": "Mountain scenic drive + summit hike (highest point in PR)",
+      "hours": "Toro Negro State Forest open 8:30am-5pm; cell signal patchy. Avoid afternoon storms — start by 9am.",
+      "price_tier": "FREE",
+      "admission_cost": "FREE",
+      "description": "Cerro de Punta (4,390 ft / 1,338 m) is the highest point in Puerto Rico, in the Toro Negro State Forest. A paved access road climbs to a communications tower with a short trail to the actual summit — 360° views across both coasts of the island on clear mornings. The drive in along PR-143 (the 'Ruta Panorámica') winds through cloud forest and includes overlooks like El Bolo and the Toro Negro recreation area with a swimming pool fed by mountain springs.",
+      "why_it_matters": "The 'top of Puerto Rico' literally. Almost no tourists make it here — it's a local Sunday driving destination. Pair with Hacienda San Pedro coffee tour or Charco Azul for a full Cordillera day.",
+      "best_for_persona": [
+        "experiential",
+        "adventurer",
+        "photographer",
+        "solo",
+        "couples",
+        "fitness"
+      ],
+      "walkability_from_old_san_juan": "~2hr 15min drive S via PR-52 + PR-149; final approach is twisty single-lane mountain road, not for nervous drivers.",
+      "kid_friendly": true,
+      "guided_tour_available": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "early_morning",
+      "time_to_allocate_min": 360,
+      "accessibility_notes": "Final summit trail is steep gravel/rock, ~0.3 mile each way. Drive itself is the scenic experience and accessible to all. Bring layers — summit is 15°F cooler than San Juan and often in clouds.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/toro-negro-state-forest/8689",
+        "https://www.discoverpuertorico.com/article/ruta-panoramica-scenic-drive"
+      ]
+    },
+    {
+      "name": "Charco Azul + Charco Frío Natural Pools — Carite Forest",
+      "neighborhood": "Patillas / San Lorenzo (Carite State Forest)",
+      "type": "Natural swimming pool + light hike",
+      "hours": "Carite State Forest open daily 8am-5pm; trails accessible during daylight only. Weekdays nearly empty.",
+      "price_tier": "FREE",
+      "admission_cost": "FREE; informal $5 parking from locals near the trailhead at Charco Azul",
+      "description": "Charco Azul is a deep, electric-blue jungle swimming hole reached by a 15-min flat walk through Carite Forest; Charco Frío is a sister pool nearby with a small jumping ledge and waterfall. The forest is the wet southern slope of the Cayey range and the water stays cold year-round — a startling and gorgeous swim. Locals come on weekends with coolers; weekdays you'll often have it to yourself.",
+      "why_it_matters": "The less-touristy alternative to El Yunque's La Mina Falls — fewer crowds, free parking, and arguably bluer water. The Pork Highway (Guavate) is on the same road, so you can chain a swim and a lechón Sunday into one perfect day.",
+      "best_for_persona": [
+        "experiential",
+        "adventurer",
+        "family",
+        "budget",
+        "photographer"
+      ],
+      "walkability_from_old_san_juan": "~1hr 10min drive S via PR-52 + PR-184; the same road continues to Guavate's lechoneras. Easily a half-day from San Juan.",
+      "kid_friendly": true,
+      "guided_tour_available": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 180,
+      "accessibility_notes": "Trail is mostly flat dirt but slippery after rain — water shoes recommended. No lifeguards, no facilities. Don't jump from rocks without scouting depth first.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/charco-azul/8617",
+        "https://www.discoverpuertorico.com/profile/carite-state-forest/8616"
+      ]
+    },
+    {
+      "name": "Jardín Botánico de Caguas + Jardín Botánico UPR — San Juan Area",
+      "neighborhood": "Río Piedras (UPR) / Caguas",
+      "type": "Botanical garden / urban nature walk",
+      "hours": "UPR Botanical Garden: Tue-Sun 6am-6pm (free). Jardín Botánico de Caguas: Tue-Sun 8am-4pm; small fee.",
+      "price_tier": "FREE",
+      "admission_cost": "UPR: FREE. Caguas: $3 adult / $1 child",
+      "description": "Two contrasting tropical gardens within 30 min of OSJ. The UPR Botanical Garden in Río Piedras has 75 acres of palm collections, a bamboo grove, a rainforest path, and an orchid greenhouse — quiet, free, and full of birds at dawn. The Caguas botanical garden integrates Taíno cultural sites, a heliconia collection, and a working medicinal-plant garden tied to indigenous and African herbal traditions.",
+      "why_it_matters": "Easy, cheap nature escape without the El Yunque commute. Especially valuable on a rainy or El Yunque-passed-out day, or for travelers with limited mobility.",
+      "best_for_persona": [
+        "experiential",
+        "wildlife",
+        "photographer",
+        "family",
+        "relaxation",
+        "budget"
+      ],
+      "walkability_from_old_san_juan": "UPR garden: 15-min Uber S. Caguas garden: 30-min drive S via PR-52.",
+      "kid_friendly": true,
+      "guided_tour_available": true,
+      "reservation_required": false,
+      "ideal_time_of_day": "morning",
+      "time_to_allocate_min": 120,
+      "accessibility_notes": "Both gardens have mostly paved or compact-gravel paths; UPR has some unpaved forest sections. Stroller- and wheelchair-friendly on the main loops.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/jardin-botanico-de-la-upr/8662",
+        "https://www.discoverpuertorico.com/profile/jardin-botanico-y-cultural-de-caguas/8663"
+      ]
+    },
+    {
+      "name": "Capilla del Cristo + Parque de las Palomas — Old San Juan",
+      "neighborhood": "Old San Juan",
+      "type": "Historic chapel + pigeon park (free OSJ micro-stop)",
+      "hours": "Capilla: typically open Tue and Sun 10am-3:30pm (hours vary — confirmed on Discover PR); Parque de las Palomas: daily dawn to dusk.",
+      "price_tier": "FREE",
+      "admission_cost": "FREE; ~$1 cash for pigeon-food cup from vendor at the park",
+      "description": "At the dead end of Calle del Cristo sits the tiny 18th-century Capilla del Cristo de la Salud — built to commemorate either a miraculous rescue or a fatal carriage accident (depends who you ask), with a baroque silver-and-gold altar inside. The adjacent Parque de las Palomas is a small terrace overlooking San Juan Bay where hundreds of pigeons swirl around tourists feeding them; the city wall here is one of the best free sunset spots in OSJ.",
+      "why_it_matters": "Two of the highest-density 'micro-moments' in Old San Juan — both free, both walkable in under 5 min from Plaza de Armas, and a more interesting alternative to crowded Calle Fortaleza for a quick photo stop.",
+      "best_for_persona": [
+        "experiential",
+        "photographer",
+        "family",
+        "couples",
+        "budget",
+        "solo"
+      ],
+      "walkability_from_old_san_juan": "In OSJ — 8-min walk south from Plaza de Armas down Calle del Cristo",
+      "kid_friendly": true,
+      "guided_tour_available": false,
+      "reservation_required": false,
+      "ideal_time_of_day": "late_afternoon",
+      "time_to_allocate_min": 45,
+      "accessibility_notes": "Calle del Cristo is steep cobblestone — challenging for wheelchairs and strollers. Parque de las Palomas terrace is mostly flat. Pigeons land on people — skip if anyone in the party is afraid of birds.",
+      "source_urls": [
+        "https://www.discoverpuertorico.com/profile/capilla-del-cristo/8599",
+        "https://www.discoverpuertorico.com/profile/parque-de-las-palomas/8601"
+      ]
+    }
+  ]
+}
