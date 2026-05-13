@@ -61,6 +61,17 @@ const STEPS = [
     ],
   },
   {
+    question: 'Do you have a car?',
+    helper:
+      'Some day-trips (Vieques, Culebra, El Yunque) are much easier with one. We tailor the logistics either way.',
+    multiSelect: false,
+    field: 'has_car',
+    options: [
+      { value: 'yes', label: '🚗 Yes, renting / driving' },
+      { value: 'no', label: '🚖 No — Uber & ferries only' },
+    ],
+  },
+  {
     freeText: true,
     field: 'special_requests',
     question: 'Tell us about you',

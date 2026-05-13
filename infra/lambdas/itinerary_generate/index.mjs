@@ -14,16 +14,23 @@ const bedrock = new BedrockRuntimeClient({ region: REGION });
 export const handler = async (event) => {
   try {
     const body = JSON.parse(event.body || '{}');
-    const { interests, num_days, traveler_type, pace, special_requests } = body;
+    const { interests, num_days, traveler_type, pace, special_requests, has_car } = body;
 
     if (!Array.isArray(interests) || interests.length === 0)
       return resp(400, { error: 'interests required' });
     if (!num_days || num_days < 1 || num_days > 14)
       return resp(400, { error: 'num_days must be 1-14' });
 
+    // has_car is optional; if present, must be 'yes' or 'no' to avoid prompt
+    // injection. Anything else is treated as unknown.
+    const hasCarNormalized = has_car === 'yes' || has_car === 'no' ? has_car : null;
+
     const plan_id = nanoid(10);
     const activities = await loadActivities(interests);
-    const prompt = buildPrompt({ interests, num_days, traveler_type, pace, special_requests, activities });
+    const prompt = buildPrompt({
+      interests, num_days, traveler_type, pace, special_requests,
+      has_car: hasCarNormalized, activities,
+    });
 
     const { days, usage } = await generateWithBedrock(prompt);
     console.log(JSON.stringify({
@@ -142,19 +149,32 @@ async function loadActivities(interests) {
   );
 }
 
-function buildPrompt({ interests, num_days, traveler_type, pace, special_requests, activities }) {
-  const compact = activities.map((a) => ({
-    id: a.activity_id,
-    name: a.name,
-    neighborhood: a.neighborhood,
-    type: a.type,
-    time_of_day: a.ideal_time_of_day,
-    duration_min: a.time_to_allocate_min,
-    hours: a.hours,
-    persona: a.best_for_persona,
-    walk: a.walkability_from_old_san_juan,
-    why: a.why_it_matters,
-  }));
+function buildPrompt({ interests, num_days, traveler_type, pace, special_requests, has_car, activities }) {
+  const compact = activities.map((a) => {
+    // logistics_notes is the host's voice on how to get to/from the activity.
+    // logistics_notes_no_car is an optional override emphasising the no-car
+    // path (ferries, taxis, return-ride coordination). Both are forwarded as
+    // ground truth — the prompt instructs Claude to relay them verbatim.
+    const logistics =
+      has_car === 'no' && a.logistics_notes_no_car
+        ? a.logistics_notes_no_car
+        : a.logistics_notes || null;
+    return {
+      id: a.activity_id,
+      name: a.name,
+      neighborhood: a.neighborhood,
+      type: a.type,
+      time_of_day: a.ideal_time_of_day,
+      duration_min: a.time_to_allocate_min,
+      hours: a.hours,
+      persona: a.best_for_persona,
+      walk: a.walkability_from_old_san_juan,
+      why: a.why_it_matters,
+      cost_notes: a.admission_cost || null,
+      reservation_required: a.reservation_required || false,
+      logistics_notes: logistics,
+    };
+  });
 
   // Pace-based daily activity count — keeps days realistic
   const paceCap = pace === 'packed' ? '4-5' : pace === 'slow' ? '2-3' : '3-4';
@@ -212,7 +232,8 @@ USER PROFILE:
 - interests: ${JSON.stringify(interests)}
 - num_days: ${num_days}
 - traveler_type: ${traveler_type}
-- pace: ${pace}${safeSpecialRequests ? `
+- pace: ${pace}
+- has_car: ${has_car || 'unknown'}${safeSpecialRequests ? `
 
 USER SELF-DISCLOSURE (HIGH PRIORITY — these are constraints, not suggestions):
 
@@ -280,6 +301,8 @@ NARRATIVE FIELD (REQUIRED on every day):
 - DO NOT include specific clock times in the narrative (no "5:30am", no "10:00 AM"). The item.time bucket is the source of truth; the narrative is the friendly retelling that uses words ("first thing in the morning", "around lunch", "after the sun goes down").
 - Reference the same activities listed in items[] — the narrative is a friendly retelling of the day, not new recommendations.
 - If narrative says "morning", item.time must be "morning" or "breakfast". If narrative says "after lunch", item.time must be "afternoon". Internal consistency between narrative and items is REQUIRED.
+- LOGISTICS — if ANY activity in the day has a non-null logistics_notes field, you MUST weave that information into the narrative conversationally (as if a local host were telling the traveler). Do NOT paraphrase critical details (ferry booking URLs, phone numbers, dollar amounts, named return-ride coordination warnings) — relay them verbatim. Examples of when this kicks in: Vieques/Culebra ferry trips, El Yunque rainforest, bioluminescent bay tours, anything requiring a ferry/charter/reservation. If logistics_notes mentions parking cost, ferry booking URL, last-return-time, or "arrange return ride before going", these are non-negotiable — include them.
+- If the user does NOT have a car (see USER PROFILE has_car field below) and the day includes an activity outside metro San Juan, the narrative MUST address how the user will get back to San Juan (Uber from rural areas like Ceiba/Fajardo is unreliable — coordinate a return ride in advance). Use the activity's logistics_notes (which is already swapped to the no-car variant if available) as the source of truth.
 
 <example>
 [
