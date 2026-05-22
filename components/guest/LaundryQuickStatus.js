@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import Link from 'next/link';
+import { useDocument } from '@/hooks/useFirestore';
 import useLocale from '@/hooks/useLocale';
 import { t } from '@/lib/i18n';
 
@@ -23,31 +22,11 @@ function getRemainingMinutes(sessionExpiresAt) {
 
 function MachineStatusPill({ machineId, icon, label }) {
   const { locale } = useLocale();
-  const [status, setStatus] = useState('available');
-  const [sessionExpiresAt, setSessionExpiresAt] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data: machine, loading } = useDocument('laundry', machineId);
+  const status = machine?.status ?? 'available';
+  const sessionExpiresAt = machine?.sessionExpiresAt ?? null;
   const [remainingMinutes, setRemainingMinutes] = useState(null);
   const intervalRef = useRef(null);
-
-  useEffect(() => {
-    const ref = doc(db, 'laundry', machineId);
-    const unsubscribe = onSnapshot(
-      ref,
-      (snap) => {
-        if (snap.exists()) {
-          const d = snap.data();
-          setStatus(d.status ?? 'available');
-          setSessionExpiresAt(d.sessionExpiresAt ?? null);
-        } else {
-          setStatus('available');
-          setSessionExpiresAt(null);
-        }
-        setLoading(false);
-      },
-      () => setLoading(false)
-    );
-    return unsubscribe;
-  }, [machineId]);
 
   // Update remaining minutes every minute
   useEffect(() => {

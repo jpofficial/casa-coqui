@@ -6,7 +6,37 @@ import { onIdTokenChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import useAuth from '@/hooks/useAuth';
 
-const MAX_CLAIMS_RETRIES = 2;
+const MAX_CLAIMS_RETRIES = 4;
+const RETRY_DELAY_MS = 1500;
+
+// Sets up a one-shot retry trigger that fires when either:
+//   1. Firebase Auth reports a token change (custom claims refreshed), OR
+//   2. A timer expires.
+// Whichever fires first wins; the other is cleared. The timer fallback exists
+// because onIdTokenChanged is unreliable in Safari Private/Incognito mode
+// (IndexedDB restrictions) and we cannot wait forever for an event that may
+// never come.
+function setupClaimsRetry(onTrigger) {
+  let unsubTokenChange = null;
+  let timerId = null;
+  let fired = false;
+
+  const fire = () => {
+    if (fired) return;
+    fired = true;
+    if (unsubTokenChange) { unsubTokenChange(); unsubTokenChange = null; }
+    if (timerId) { clearTimeout(timerId); timerId = null; }
+    onTrigger();
+  };
+
+  unsubTokenChange = onIdTokenChanged(auth, (u) => { if (u) fire(); });
+  timerId = setTimeout(fire, RETRY_DELAY_MS);
+
+  return () => {
+    if (unsubTokenChange) { unsubTokenChange(); unsubTokenChange = null; }
+    if (timerId) { clearTimeout(timerId); timerId = null; }
+  };
+}
 
 export function useDocument(collectionName, docId) {
   const { user, loading: authLoading } = useAuth();
@@ -28,7 +58,7 @@ export function useDocument(collectionName, docId) {
     setLoading(true);
     setError(null);
 
-    let unsubTokenChange = null;
+    let cancelRetry = null;
     const unsub = onSnapshot(
       doc(db, collectionName, docId),
       (snapshot) => {
@@ -40,23 +70,16 @@ export function useDocument(collectionName, docId) {
         console.error(`[Firestore] ${collectionName}/${docId} listener error:`, err.code, err.message);
         setError(err);
         setLoading(false);
-        // Re-subscribe on next token change if claims were not yet set when we
-        // first subscribed (typical for anonymous guest sessions where custom
-        // claims are set asynchronously by /api/guests/validate-token).
         if (err.code === 'permission-denied' && retryCountRef.current < MAX_CLAIMS_RETRIES) {
           retryCountRef.current += 1;
-          unsubTokenChange = onIdTokenChanged(auth, (u) => {
-            if (!u) return;
-            if (unsubTokenChange) { unsubTokenChange(); unsubTokenChange = null; }
-            setClaimsRetry((n) => n + 1);
-          });
+          cancelRetry = setupClaimsRetry(() => setClaimsRetry((n) => n + 1));
         }
       }
     );
 
     return () => {
       unsub();
-      if (unsubTokenChange) unsubTokenChange();
+      if (cancelRetry) cancelRetry();
     };
   }, [user, authLoading, collectionName, docId, claimsRetry]);
 
@@ -87,7 +110,7 @@ export function useCollection(collectionName, queryConstraints = []) {
     setLoading(true);
     setError(null);
 
-    let unsubTokenChange = null;
+    let cancelRetry = null;
     const q = query(collection(db, collectionName), ...constraintsRef.current);
     const unsub = onSnapshot(
       q,
@@ -102,18 +125,14 @@ export function useCollection(collectionName, queryConstraints = []) {
         setLoading(false);
         if (err.code === 'permission-denied' && retryCountRef.current < MAX_CLAIMS_RETRIES) {
           retryCountRef.current += 1;
-          unsubTokenChange = onIdTokenChanged(auth, (u) => {
-            if (!u) return;
-            if (unsubTokenChange) { unsubTokenChange(); unsubTokenChange = null; }
-            setClaimsRetry((n) => n + 1);
-          });
+          cancelRetry = setupClaimsRetry(() => setClaimsRetry((n) => n + 1));
         }
       }
     );
 
     return () => {
       unsub();
-      if (unsubTokenChange) unsubTokenChange();
+      if (cancelRetry) cancelRetry();
     };
   }, [user, authLoading, collectionName, claimsRetry]);
 
