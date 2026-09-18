@@ -159,7 +159,7 @@ class CasaCoquiEc2PipelineStack(Stack):
             "Ec2BuildProject",
             project_name=EC2_BUILD_PROJECT_NAME,
             description="Casa Coqui EC2 - npm ci + next build, outputs pre-built artifact",
-            build_spec=codebuild.BuildSpec.from_source_filename("buildspec.yml"),
+            build_spec=codebuild.BuildSpec.from_source_filename("ci/buildspec.yml"),
             environment=codebuild.BuildEnvironment(
                 build_image=codebuild.LinuxBuildImage.STANDARD_7_0,
                 compute_type=codebuild.ComputeType.SMALL,

@@ -86,6 +86,7 @@ lib/                 Domain logic — notifications, pricing, reply-agent, i18n,
 hooks/               React hooks — auth, real-time Firestore, push, staff notifications
 functions/          Firebase Cloud Functions (email parse, reorder, reminders, link expiry)
 infra/              AWS CDK app, Lambdas, and the SAM reply-agent state machine
+ci/                  CodeBuild buildspecs for the three AWS pipelines (Vercel, EC2, pricing)
 tools/pricing/       Standalone pricing-autopilot tool (SQLite, scrapers, decision engine)
 scripts/             Ops scripts — seed/, migrations/, debug/, plus deploy hooks (codedeploy/, ec2/)
 data/                Seed & research data behind the Mi Itinerario activity catalog

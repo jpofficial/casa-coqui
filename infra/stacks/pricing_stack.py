@@ -210,7 +210,7 @@ class CasaCoquiPricingStack(Stack):
                 webhook=False,  # Schedule-triggered only, no on-commit builds.
             ),
             build_spec=codebuild.BuildSpec.from_source_filename(
-                "buildspec-pricing.yml"
+                "ci/buildspec-pricing.yml"
             ),
             environment=codebuild.BuildEnvironment(
                 # Ubuntu 22.04-based image (aws/codebuild/standard:7.0).
