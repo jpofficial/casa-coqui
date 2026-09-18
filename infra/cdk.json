@@ -15,6 +15,7 @@
     "casa-coqui:github-owner": "jpofficial",
     "casa-coqui:github-repo": "casa-coqui",
     "casa-coqui:github-branch": "main",
+    "codestar_connection_arn": "arn:aws:codeconnections:us-east-1:524140443248:connection/beb59a0a-315f-4a9b-b179-4d8fa4c7a1c5",
     "@aws-cdk/aws-iam:minimizePolicies": true,
     "@aws-cdk/core:newStyleStackSynthesis": true,
     "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true
