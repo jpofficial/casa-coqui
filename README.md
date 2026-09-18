@@ -104,14 +104,17 @@ npm run dev                  # http://localhost:3000
 npm test                     # unit tests (runs in the property's timezone)
 ```
 
-Environment variables are documented in [`.env.example`](.env.example), and the approach to secrets (what lives where, and rotation) is documented in [`SECRETS.md`](SECRETS.md). No credentials are committed to this repository.
+Environment variables are documented in [`.env.example`](.env.example), and the approach to secrets (what lives where, and rotation) is documented in [`docs/secrets-management.md`](docs/secrets-management.md). No credentials are committed to this repository.
 
 ---
 
 ## Engineering notes worth a look
 
+The [`docs/`](docs/README.md) folder holds the reasoning behind the larger pieces:
+
+- **`docs/architecture/`** — system designs: the FCM-only notification architecture, the reservation & reply-agent flow, and the role-based (guest / host / cleaner) experience model.
 - **`docs/postmortems/`** — real incident write-ups (a welcome-message generation bug, a listener race condition) and how they were fixed.
-- **`docs/superpowers/specs/` & `plans/`** — design docs and implementation plans that capture the reasoning behind larger features (the reply-agent port, thread coherence, the itinerary app).
+- **`docs/superpowers/specs/` & `plans/`** — design docs and implementation plans for larger features (the reply-agent port, thread coherence, the itinerary app).
 - **`tasks/security-review-*.md`** — self-directed security reviews (general, XSS, prompt-injection).
 - **`tools/pricing/TECHNICAL-PAPER.md`** — a deeper write-up of the pricing model.
 
