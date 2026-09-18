@@ -150,8 +150,8 @@ class CasaCoquiPricingStack(Stack):
         )
 
         # Allow CodeBuild to use the existing AWS CodeConnection for GitHub
-        # source access. Same connection that CasaCoquiPipelineStack and
-        # CasaCoquiEc2PipelineStack use for their pipeline source actions.
+        # source access. Same connection that CasaCoquiPipelineStack
+        # uses for its pipeline source action.
         codebuild_role.add_to_policy(
             iam.PolicyStatement(
                 sid="UseCodeConnection",
@@ -249,8 +249,8 @@ class CasaCoquiPricingStack(Stack):
         # L1 escape hatch — override source Auth to use CodeConnections
         # (AWS-managed modern GitHub auth) instead of classic OAuth.
         # codebuild.Source.git_hub() defaults to OAUTH auth, but this
-        # account uses CodeConnections (same pattern as pipeline_stack
-        # and ec2_pipeline_stack). Wire them together so no separate
+        # account uses CodeConnections (same pattern as pipeline_stack).
+        # Wire them together so no separate
         # GitHub PAT or OAuth App install is needed.
         cfn_project = self.project.node.default_child
         cfn_project.add_property_override(

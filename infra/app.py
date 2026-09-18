@@ -92,7 +92,6 @@ email.add_dependency(foundation)
 
 # ------------------------------------------------------------------
 # EC2 Hosting stack — EC2, ALB, CodeDeploy (already deployed).
-# Referenced by the EC2 pipeline stack below.
 # ------------------------------------------------------------------
 ARTIFACT_BUCKET_NAME = "casacoquifoundationstack-artifactbucket7410c9ef-dylmy0p5mscz"
 PIPELINE_SECRET_ARN = (
@@ -115,8 +114,8 @@ hosting = CasaCoquiHostingStack(
 
 # EC2 Pipeline stack — REMOVED 2026-05-09 to stop CodeBuild/CodePipeline
 # free-tier overage. The `ec2-deploy` branch is no longer the production
-# source; main is. See docs/changes/2026-05-09-remove-ec2-pipeline-stack.md
-# for the rationale and rollback procedure.
+# source; main is. The stack code was retired from the repo in 2026-09; the
+# design is preserved in docs/superpowers/specs/2026-04-18-codepipeline-ec2-deploy-design.md.
 
 # ------------------------------------------------------------------
 # Pricing stack — autopilot CodeBuild + S3 + EventBridge Scheduler.
@@ -139,8 +138,8 @@ pricing = CasaCoquiPricingStack(
     # the live state. Manual builds with --source-version main were the
     # only thing keeping production current before this change.
     github_branch="main",
-    # Reuses the existing AWS CodeConnection (same one pipeline_stack and
-    # ec2_pipeline_stack consume). `aws codebuild list-source-credentials`
+    # Reuses the existing AWS CodeConnection (same one pipeline_stack
+    # consumes). `aws codebuild list-source-credentials`
     # is the source of truth for this ARN.
     codeconnection_arn=(
         "arn:aws:codeconnections:us-east-1:524140443248"

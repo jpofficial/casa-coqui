@@ -13,7 +13,7 @@ A production Progressive Web App that runs a real multi-family Airbnb property i
 - **Automated email pipeline** — inbound Airbnb emails land in SES, a Lambda parses and threads them, and bookings + welcome-message drafts are created in Firestore automatically.
 - **Pricing autopilot** — a competitor-scraping + decision-engine tool that captures market rates, models seasonality/holidays, and recommends nightly prices.
 - **Mi Itinerario** — an AI travel-itinerary generator (persona wizard → DynamoDB-backed generation/refinement Lambdas) that doubles as a funnel back to the listing.
-- **Infrastructure as code** — the whole AWS side is defined in CDK (Python) with a CodePipeline/CodeBuild/CodeDeploy delivery flow.
+- **Infrastructure as code** — the whole AWS side is defined in CDK (Python) with a CodePipeline/CodeBuild delivery flow.
 - **Bilingual & mobile-first** — full English/Spanish localization, designed for phones first (most guests *and* the host are on mobile).
 
 ---
@@ -70,7 +70,7 @@ Bookings & occupancy calendar · **cleaning management** with a dedicated cleane
 | AI | Anthropic Claude (`@anthropic-ai/sdk`), RAG, AWS AppConfig-managed prompts |
 | Data stores | DynamoDB (itineraries), S3, SQLite (pricing tool) |
 | Email | Amazon SES (inbound), Resend (outbound) |
-| Infra / CI-CD | AWS CDK (Python), CodePipeline · CodeBuild · CodeDeploy |
+| Infra / CI-CD | AWS CDK (Python), CodePipeline · CodeBuild |
 | Hosting | Vercel (web) + AWS (backend services) |
 | PWA | next-pwa, custom service worker with deep-linking & notification grouping |
 | Testing | `node:test` across app, functions, and Lambda packages |
@@ -86,9 +86,9 @@ lib/                 Domain logic — notifications, pricing, reply-agent, i18n,
 hooks/               React hooks — auth, real-time Firestore, push, staff notifications
 functions/          Firebase Cloud Functions (email parse, reorder, reminders, link expiry)
 infra/              AWS CDK app, Lambdas, and the SAM reply-agent state machine
-ci/                  CodeBuild buildspecs for the three AWS pipelines (Vercel, EC2, pricing)
+ci/                  CodeBuild buildspecs for the two AWS pipelines (Vercel, pricing)
 tools/pricing/       Standalone pricing-autopilot tool (SQLite, scrapers, decision engine)
-scripts/             Ops scripts — seed/, migrations/, debug/, plus deploy hooks (codedeploy/, ec2/)
+scripts/             Ops scripts — seed/, migrations/, debug/
 data/                Seed & research data behind the Mi Itinerario activity catalog
 docs/                Design specs, plans, and postmortems (the "how" and "why")
 ```
