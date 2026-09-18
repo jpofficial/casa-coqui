@@ -203,7 +203,7 @@ editedReply              (what Julio actually sent — for voice training)
 - Escalation triggers: refunds, complaints, schedule conflicts, anything legal-adjacent
 
 ### 6.2 Voice corpus cold start
-- One-time import script `scripts/seed-voice-corpus.js`
+- One-time import script `scripts/seed/seed-voice-corpus.js`
 - Julio pastes 10–20 real past Airbnb replies into a JSON/text file
 - Script creates `airbnb_messages` docs with `direction: 'outbound_draft'`, `draftStatus: 'sent'`, `editedReply: <text>`
 - Until seeded, replies are competent but generic; system prompt carries baseline tone
@@ -272,7 +272,7 @@ Each phase is one PR.
 - `lib/welcome-ai.js` (+ `functions/lib/welcome-ai.js` duplicate)
 - `lib/reply-ai.js` (+ `functions/lib/reply-ai.js` duplicate)
 - `app/api/bookings/[id]/welcome/route.js`
-- `scripts/seed-voice-corpus.js`
+- `scripts/seed/seed-voice-corpus.js`
 - `SECRETS.md`
 
 **Modified:**

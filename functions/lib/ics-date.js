@@ -5,7 +5,7 @@
 //
 // Date helpers for ICS / VEVENT parsing. Shared between the Cloud Function
 // sync loop (functions/icsSync.js) and the one-shot backfill script
-// (scripts/fix-airbnb-dates.js) so both paths agree on how a VEVENT date
+// (scripts/migrations/fix-airbnb-dates.js) so both paths agree on how a VEVENT date
 // maps to a YYYY-MM-DD calendar day.
 //
 // Property timezone is hardcoded to America/Puerto_Rico (single-location

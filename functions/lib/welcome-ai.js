@@ -124,7 +124,7 @@ function daysBetween(a, b) {
 async function generateWelcomeMessage({ booking, settings, template }) {
   // 'pending' and 'error' should regenerate — 'error' is welcomeSweeper's
   // retry signal. The `&& booking.welcomeStatus` short-circuit permits
-  // seed-script bookings (scripts/seed-data.js, scripts/seed-test-bookings.js)
+  // seed-script bookings (scripts/seed/seed-data.js, scripts/seed/seed-test-bookings.js)
   // that never initialized the field.
   if (booking.welcomeStatus && TERMINAL_WELCOME_STATES.has(booking.welcomeStatus)) {
     console.log('welcome generation skipped — terminal state', {

@@ -20,6 +20,14 @@ The [main README](../README.md) is the best place to start. This folder holds th
 
 Incident write-ups: what broke, the root cause, and the fix.
 
+## Security reviews — `security-reviews/`
+
+Self-directed reviews of the codebase, each from a different angle:
+
+- [2026-05-12-general.md](security-reviews/2026-05-12-general.md) — general security posture
+- [2026-05-12-xss.md](security-reviews/2026-05-12-xss.md) — cross-site scripting
+- [2026-05-12-prompt-injection.md](security-reviews/2026-05-12-prompt-injection.md) — prompt-injection risks in the AI features
+
 ## Operations
 
 - [getting-started.md](getting-started.md) — project setup guide

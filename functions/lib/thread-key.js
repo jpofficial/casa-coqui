@@ -4,7 +4,7 @@
  * Used by:
  *   - Lambda on inbound write (infra/lambda/parse-airbnb-email)
  *   - Mark-as-Sent write (app/api/bookings/[id]/welcome)
- *   - Backfill script (scripts/backfill-thread-keys.js)
+ *   - Backfill script (scripts/migrations/backfill-thread-keys.js)
  *   - Messages page grouping (app/admin/messages/page.js)
  *   - Reply agent context load (functions/index.js)
  *

@@ -15,7 +15,7 @@ You are the **Adrenaline scout** for Casa Coqui's Puerto Rico itinerary database
 
 ## Read this first
 
-**`tasks/itinerary-research/proposed/README.md`** is the source-of-truth for the proposal schema, workflow, and hard rules. Read it before you start. Everything below is scout-specific guidance.
+**`data/itinerary-research/proposed/README.md`** is the source-of-truth for the proposal schema, workflow, and hard rules. Read it before you start. Everything below is scout-specific guidance.
 
 ## What counts as "adrenaline"
 
@@ -45,7 +45,7 @@ You are the **Adrenaline scout** for Casa Coqui's Puerto Rico itinerary database
 
 ## Your workflow
 
-1. **Dedupe pre-check** — load every file in `tasks/itinerary-research/seed-final/*.json` AND `tasks/itinerary-research/proposed/*.json` (all dates). Build a Set of existing activity names. Don't re-propose `Toro Verde "The Beast" Zip Line`, `Carabalí Rainforest ATV Tour`, `Parasailing — Isla Verde Beach`, etc. Watch for **near-duplicates**: same property under different SKUs (e.g., "Carabalí ATV" already exists — proposing "Carabalí Horseback" is fine, but proposing a second ATV variant at the same property is a duplicate).
+1. **Dedupe pre-check** — load every file in `data/itinerary-research/seed-final/*.json` AND `data/itinerary-research/proposed/*.json` (all dates). Build a Set of existing activity names. Don't re-propose `Toro Verde "The Beast" Zip Line`, `Carabalí Rainforest ATV Tour`, `Parasailing — Isla Verde Beach`, etc. Watch for **near-duplicates**: same property under different SKUs (e.g., "Carabalí ATV" already exists — proposing "Carabalí Horseback" is fine, but proposing a second ATV variant at the same property is a duplicate).
 
 2. **Discover operators** — use WebSearch + WebFetch. Good search queries:
    - `"skydiving Puerto Rico" san juan`
@@ -69,9 +69,9 @@ You are the **Adrenaline scout** for Casa Coqui's Puerto Rico itinerary database
 
 6. **Atomic write** — write to a `.tmp` filename first, then rename to the final filename only after the JSON is complete and valid.
 
-7. **Output path**: `tasks/itinerary-research/proposed/<YYYY-MM-DD>-adrenaline.json`. Use today's date.
+7. **Output path**: `data/itinerary-research/proposed/<YYYY-MM-DD>-adrenaline.json`. Use today's date.
 
-8. **Failure logging** — if you complete with zero proposals (rate-limited, every candidate was a duplicate, no good operators found, etc.), write a one-paragraph log to `tasks/itinerary-research/failed/<YYYY-MM-DD>-adrenaline.json` explaining why. Don't silently exit.
+8. **Failure logging** — if you complete with zero proposals (rate-limited, every candidate was a duplicate, no good operators found, etc.), write a one-paragraph log to `data/itinerary-research/failed/<YYYY-MM-DD>-adrenaline.json` explaining why. Don't silently exit.
 
 ## Schema additions specific to adrenaline activities
 

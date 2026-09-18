@@ -87,7 +87,8 @@ hooks/               React hooks — auth, real-time Firestore, push, staff noti
 functions/          Firebase Cloud Functions (email parse, reorder, reminders, link expiry)
 infra/              AWS CDK app, Lambdas, and the SAM reply-agent state machine
 tools/pricing/       Standalone pricing-autopilot tool (SQLite, scrapers, decision engine)
-scripts/             Operational + backfill/seed scripts
+scripts/             Ops scripts — seed/, migrations/, debug/, plus deploy hooks (codedeploy/, ec2/)
+data/                Seed & research data behind the Mi Itinerario activity catalog
 docs/                Design specs, plans, and postmortems (the "how" and "why")
 ```
 
@@ -115,7 +116,7 @@ The [`docs/`](docs/README.md) folder holds the reasoning behind the larger piece
 - **`docs/architecture/`** — system designs: the FCM-only notification architecture, the reservation & reply-agent flow, and the role-based (guest / host / cleaner) experience model.
 - **`docs/postmortems/`** — real incident write-ups (a welcome-message generation bug, a listener race condition) and how they were fixed.
 - **`docs/superpowers/specs/` & `plans/`** — design docs and implementation plans for larger features (the reply-agent port, thread coherence, the itinerary app).
-- **`tasks/security-review-*.md`** — self-directed security reviews (general, XSS, prompt-injection).
+- **`docs/security-reviews/`** — self-directed security reviews (general, XSS, prompt-injection).
 - **`tools/pricing/TECHNICAL-PAPER.md`** — a deeper write-up of the pricing model.
 
 ---

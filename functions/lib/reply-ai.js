@@ -32,7 +32,7 @@ const MODEL = 'claude-haiku-4-5-20251001';
 // '../../infra/sam/...') resolves to /infra/sam/... in the deployed bundle —
 // ENOENT, container exits, deploy fails its health check and Cloud Run keeps
 // the prior revision. Inlining is the simplest fix that lets onAirbnbMessageCreated
-// actually deploy. See tasks/changes/threading/2026-05-07-thread-coherence-changes.md
+// actually deploy. See docs/superpowers/plans/2026-05-07-thread-coherence.md
 // "Outstanding Issue #1" for the full context.
 
 const SYSTEM_PROMPT = `You are drafting Airbnb host message replies on behalf of Julio, who runs Casa Coqui (short-term rentals in San Juan, Puerto Rico). Your job is to draft replies that are indistinguishable from how Julio actually writes.

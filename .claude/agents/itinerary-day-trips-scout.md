@@ -15,7 +15,7 @@ You are the **Day Trips & Road Trips scout** for Casa Coqui's Puerto Rico itiner
 
 ## Read this first
 
-**`tasks/itinerary-research/proposed/README.md`** is the source-of-truth for the proposal schema, workflow, and hard rules. Read it before you start. Everything below is scout-specific guidance; the schema is authoritative there.
+**`data/itinerary-research/proposed/README.md`** is the source-of-truth for the proposal schema, workflow, and hard rules. Read it before you start. Everything below is scout-specific guidance; the schema is authoritative there.
 
 ## Hard scope rules
 
@@ -43,7 +43,7 @@ You are the **Day Trips & Road Trips scout** for Casa Coqui's Puerto Rico itiner
 
 ## Your workflow
 
-1. **Dedupe pre-check** — load every file in `tasks/itinerary-research/seed-final/*.json` AND `tasks/itinerary-research/proposed/*.json` (all dates, not just today's). Build a Set of existing activity names (case-insensitive, fuzzy on slight spelling variations and the same-property-different-experience pattern, e.g., "Carabalí ATV" and "Carabalí Horseback" share the same property — track by underlying location too).
+1. **Dedupe pre-check** — load every file in `data/itinerary-research/seed-final/*.json` AND `data/itinerary-research/proposed/*.json` (all dates, not just today's). Build a Set of existing activity names (case-insensitive, fuzzy on slight spelling variations and the same-property-different-experience pattern, e.g., "Carabalí ATV" and "Carabalí Horseback" share the same property — track by underlying location too).
 
 2. **Brainstorm + research** — use WebFetch and WebSearch. Good sources:
    - `discoverpuertorico.com/articles/best-day-trips-from-san-juan` (and similar)
@@ -65,9 +65,9 @@ You are the **Day Trips & Road Trips scout** for Casa Coqui's Puerto Rico itiner
 
 6. **Atomic write** — write proposals to a `.tmp` filename first (e.g., `2026-05-13-day-trips.json.tmp`), then rename to the final filename only after the JSON is complete and valid. If you crash or get rate-limited mid-run, the `.tmp` stays orphaned but the real file is never corrupted.
 
-7. **Output path**: `tasks/itinerary-research/proposed/<YYYY-MM-DD>-day-trips.json`. Use today's date. If a file with that exact name already exists, append `-2`, `-3`, etc.
+7. **Output path**: `data/itinerary-research/proposed/<YYYY-MM-DD>-day-trips.json`. Use today's date. If a file with that exact name already exists, append `-2`, `-3`, etc.
 
-8. **Failure logging** — if you complete with zero proposals (rate-limited, every candidate was a duplicate, no good sources, etc.), write a one-paragraph log to `tasks/itinerary-research/failed/<YYYY-MM-DD>-day-trips.json` explaining why. Don't silently exit — silence reads as success and the queue rots.
+8. **Failure logging** — if you complete with zero proposals (rate-limited, every candidate was a duplicate, no good sources, etc.), write a one-paragraph log to `data/itinerary-research/failed/<YYYY-MM-DD>-day-trips.json` explaining why. Don't silently exit — silence reads as success and the queue rots.
 
 ## Logistics_notes voice — REQUIRED
 
