@@ -12,7 +12,6 @@ A production Progressive Web App that runs a real multi-family Airbnb property i
 - **AI reply agent** — an AWS Step Functions pipeline (draft → evaluate → reason → revise → write-back) that drafts guest replies in the host's voice using retrieval over past conversations, with prompts managed as configuration (AWS AppConfig) rather than hardcoded.
 - **Automated email pipeline** — inbound Airbnb emails land in SES, a Lambda parses and threads them, and bookings + welcome-message drafts are created in Firestore automatically.
 - **Pricing autopilot** — a competitor-scraping + decision-engine tool that captures market rates, models seasonality/holidays, and recommends nightly prices.
-- **Mi Itinerario** — an AI travel-itinerary generator (persona wizard → DynamoDB-backed generation/refinement Lambdas) that doubles as a funnel back to the listing.
 - **Infrastructure as code** — the whole AWS side is defined in CDK (Python) with a CodePipeline/CodeBuild delivery flow.
 - **Bilingual & mobile-first** — full English/Spanish localization, designed for phones first (most guests *and* the host are on mobile).
 
@@ -68,7 +67,7 @@ Bookings & occupancy calendar · **cleaning management** with a dedicated cleane
 | Storage / Push | Firebase Cloud Storage, Firebase Cloud Messaging |
 | Serverless | Firebase Cloud Functions, AWS Lambda, AWS Step Functions |
 | AI | Anthropic Claude (`@anthropic-ai/sdk`), RAG, AWS AppConfig-managed prompts |
-| Data stores | DynamoDB (itineraries), S3, SQLite (pricing tool) |
+| Data stores | S3, SQLite (pricing tool) |
 | Email | Amazon SES (inbound), Resend (outbound) |
 | Infra / CI-CD | AWS CDK (Python), CodePipeline · CodeBuild |
 | Hosting | Vercel (web) + AWS (backend services) |
@@ -80,7 +79,7 @@ Bookings & occupancy calendar · **cleaning management** with a dedicated cleane
 ## Repository layout
 
 ```
-app/                 Next.js routes — /g/[code] (guest), /admin, /api, /puerto-rico-itinerary
+app/                 Next.js routes — /g/[code] (guest), /admin, /api
 components/          Guest, admin, cleaner, and shared UI components
 lib/                 Domain logic — notifications, pricing, reply-agent, i18n, firebase helpers
 hooks/               React hooks — auth, real-time Firestore, push, staff notifications
@@ -89,7 +88,6 @@ infra/              AWS CDK app, Lambdas, and the SAM reply-agent state machine
 ci/                  CodeBuild buildspecs for the two AWS pipelines (Vercel, pricing)
 tools/pricing/       Standalone pricing-autopilot tool (SQLite, scrapers, decision engine)
 scripts/             Ops scripts — seed/, migrations/, debug/
-data/                Seed & research data behind the Mi Itinerario activity catalog
 docs/                Design specs, plans, and postmortems (the "how" and "why")
 ```
 
@@ -116,8 +114,7 @@ The [`docs/`](docs/README.md) folder holds the reasoning behind the larger piece
 
 - **`docs/architecture/`** — system designs: the FCM-only notification architecture, the reservation & reply-agent flow, and the role-based (guest / host / cleaner) experience model.
 - **`docs/postmortems/`** — real incident write-ups (a welcome-message generation bug, a listener race condition) and how they were fixed.
-- **`docs/superpowers/specs/` & `plans/`** — design docs and implementation plans for larger features (the reply-agent port, thread coherence, the itinerary app).
-- **`docs/security-reviews/`** — self-directed security reviews (general, XSS, prompt-injection).
+- **`docs/superpowers/specs/` & `plans/`** — design docs and implementation plans for larger features (the reply-agent port, thread coherence).
 - **`tools/pricing/TECHNICAL-PAPER.md`** — a deeper write-up of the pricing model.
 
 ---

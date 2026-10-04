@@ -21,7 +21,6 @@ from stacks.pipeline_stack import CasaCoquiPipelineStack
 from stacks.email_stack import CasaCoquiEmailStack
 from stacks.hosting_stack import CasaCoquiHostingStack
 from stacks.pricing_stack import CasaCoquiPricingStack
-from stacks.itinerary_stack import MiItinerarioStack
 
 
 app = cdk.App()
@@ -152,8 +151,6 @@ pricing = CasaCoquiPricingStack(
 )
 pricing.add_dependency(foundation)
 
-itinerary = MiItinerarioStack(app, "MiItinerarioStack", env=env)
-
 cdk.Tags.of(app).add("Project", "casa-coqui")
 cdk.Tags.of(app).add("ManagedBy", "cdk")
 cdk.Tags.of(foundation).add("Lifecycle", "retain")
@@ -161,6 +158,5 @@ cdk.Tags.of(pipeline).add("Lifecycle", "rebuildable")
 cdk.Tags.of(email).add("Lifecycle", "retain")
 cdk.Tags.of(hosting).add("Lifecycle", "rebuildable")
 cdk.Tags.of(pricing).add("Lifecycle", "rebuildable")
-cdk.Tags.of(itinerary).add("Lifecycle", "rebuildable")
 
 app.synth()
