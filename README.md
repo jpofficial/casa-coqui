@@ -1,8 +1,27 @@
 # Casa Coqui — Guest Portal & Property Management Platform
 
+**Live site:** [casa-coqui.com](https://casa-coqui.com) · guest portal opens from a private per-booking link; the admin dashboard is behind a host login.
+
 A production Progressive Web App that runs a real multi-family Airbnb property in Puerto Rico. It pairs a mobile-first **guest portal** with a host-facing **admin dashboard**, and is backed by an event-driven serverless architecture spanning Firebase and AWS — including an AI reply agent, an automated email pipeline, and a data-driven pricing engine.
 
 > Built as a solo project to solve the day-to-day operations of hosting: getting guests checked in without friction, keeping the host on top of cleaning/maintenance/supplies, and answering booking messages in the host's own voice.
+
+---
+
+## Screenshots
+
+> **Placeholders — screenshots not captured yet.** Each cell below names the file it expects under
+> [`docs/screenshots/`](docs/screenshots/README.md). Capture the three screens listed there, drop the PNGs in,
+> and replace the placeholder row with the commented-out image row.
+
+| Guest portal (phone) | Host admin dashboard | Pricing — rate calendar |
+|:--:|:--:|:--:|
+| 📱 _placeholder_<br>`docs/screenshots/guest-portal-phone.png` | 🖥️ _placeholder_<br>`docs/screenshots/admin-dashboard.png` | 📈 _placeholder_<br>`docs/screenshots/pricing-rate-calendar.png` |
+| `/g/[code]` home — welcome, check-in guide, WiFi, live laundry status | `/admin` home — active stays, laundry status, monthly revenue, tasks | `/admin/pricing/calendar` — nightly rates, fill-rate advisor, chat |
+
+<!-- SCREENSHOTS: once the PNGs exist, swap the placeholder row above for this one:
+| ![Guest portal on a phone](docs/screenshots/guest-portal-phone.png) | ![Host admin dashboard](docs/screenshots/admin-dashboard.png) | ![Pricing rate calendar](docs/screenshots/pricing-rate-calendar.png) |
+-->
 
 ---
 
