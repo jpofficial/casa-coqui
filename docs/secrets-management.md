@@ -35,7 +35,7 @@ A JSON string containing the Firebase Admin SDK service account credentials. Use
 
 | Environment | Location | Notes |
 |-------------|----------|-------|
-| Next.js (Vercel) | Vercel project settings > Environment Variables | Used by API routes and `lib/firebaseAdmin.js`. |
+| Next.js (Vercel) | Vercel project settings > Environment Variables | Used by API routes and `lib/firebase-admin.js`. |
 | Cloud Functions (local dev) | `functions/.env` (gitignored) | Read by `functions/firebaseInit.js` for local emulator runs. |
 | AWS Lambda (email parser) | AWS Secrets Manager, secret name `casa-coqui/firebase-service-account` | Lambda retrieves at cold start via `@aws-sdk/client-secrets-manager`. |
 
@@ -56,5 +56,5 @@ A JSON string containing the Firebase Admin SDK service account credentials. Use
 
 - Never hardcode secrets in source code.
 - Never commit `.env.local`, `functions/.env`, or any downloaded service account JSON to git.
-- All secret names used as environment variables must appear in `.env.local.example` (with empty values) so developers know what to populate.
+- All secret names used as environment variables must appear in `.env.example` (with empty values) so developers know what to populate.
 - If a secret is ever accidentally committed, treat it as compromised: rotate immediately and audit access logs.

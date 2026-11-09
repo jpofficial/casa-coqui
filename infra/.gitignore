@@ -1,4 +1,6 @@
 cdk.out/
+# Account-specific context (ARNs, lookups) — see cdk.context.example.json
+cdk.context.json
 .venv/
 __pycache__/
 *.egg-info/

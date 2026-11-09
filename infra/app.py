@@ -25,6 +25,33 @@ from stacks.pricing_stack import CasaCoquiPricingStack
 
 app = cdk.App()
 
+
+# ---------------------------------------------------------------------------
+# Account-specific identifiers (not committed)
+# ---------------------------------------------------------------------------
+# Anything that names a specific AWS account — the account id, the GitHub
+# CodeConnection ARN, names/ARNs of already-deployed resources — stays out of
+# the repo. Each value resolves from CDK context first, then an environment
+# variable:
+#
+#   1. `-c <context-key>=<value>` on the cdk command line, or the same key in
+#      an untracked infra/cdk.context.json (copy cdk.context.example.json)
+#   2. the environment variable named at each call site below
+#
+# A missing value fails synth loudly instead of falling back to a placeholder:
+# a placeholder default once reset the pipeline's GitHub connection on deploy.
+def account_setting(context_key: str, env_var: str, *, example: str) -> str:
+    value = app.node.try_get_context(context_key) or os.environ.get(env_var)
+    if not value:
+        raise SystemExit(
+            f"Missing account-specific setting '{context_key}'.\n"
+            f"  Pass -c {context_key}=<value>, add it to infra/cdk.context.json "
+            f"(see cdk.context.example.json), or export {env_var}.\n"
+            f"  Shape: {example}"
+        )
+    return value
+
+
 env = cdk.Environment(
     account=os.environ.get("CDK_DEFAULT_ACCOUNT"),
     region=os.environ.get("CDK_DEFAULT_REGION", "us-east-1"),
@@ -43,6 +70,14 @@ if not notification_email:
 github_owner = app.node.try_get_context("casa-coqui:github-owner") or "jpofficial"
 github_repo = app.node.try_get_context("casa-coqui:github-repo") or "casa-coqui"
 github_branch = app.node.try_get_context("casa-coqui:github-branch") or "main"
+
+# GitHub CodeConnection used by both the Vercel pipeline and the pricing
+# autopilot. `aws codebuild list-source-credentials` is the source of truth.
+codeconnection_arn = account_setting(
+    "codestar_connection_arn",
+    "CASA_COQUI_CODECONNECTION_ARN",
+    example="arn:aws:codeconnections:us-east-1:<account-id>:connection/<connection-uuid>",
+)
 
 # Foundation first — its constructs become inputs to the Pipeline stack.
 foundation = CasaCoquiFoundationStack(
@@ -64,6 +99,7 @@ pipeline = CasaCoquiPipelineStack(
     github_owner=github_owner,
     github_repo=github_repo,
     github_branch=github_branch,
+    codestar_connection_arn=codeconnection_arn,
     description="Casa Coqui CI/CD pipeline — CodeBuild + CodePipeline. Lifecycle: rebuildable.",
 )
 
@@ -92,12 +128,26 @@ email.add_dependency(foundation)
 # ------------------------------------------------------------------
 # EC2 Hosting stack — EC2, ALB, CodeDeploy (already deployed).
 # ------------------------------------------------------------------
-ARTIFACT_BUCKET_NAME = "casacoquifoundationstack-artifactbucket7410c9ef-dylmy0p5mscz"
-PIPELINE_SECRET_ARN = (
-    "arn:aws:secretsmanager:us-east-1:524140443248"
-    ":secret:casa-coqui/pipeline-FNJvCt"
+# These three name resources the Foundation stack already created; they are
+# looked up by value (not imported) so the Hosting stack stays decoupled.
+# Read them off the Foundation stack outputs:
+#   aws cloudformation describe-stacks --stack-name CasaCoquiFoundationStack \
+#     --query 'Stacks[0].Outputs'
+ARTIFACT_BUCKET_NAME = account_setting(
+    "casa-coqui:artifact-bucket-name",
+    "CASA_COQUI_ARTIFACT_BUCKET_NAME",
+    example="casacoquifoundationstack-artifactbucket<hash>-<suffix>",
 )
-KMS_KEY_ARN = "arn:aws:kms:us-east-1:524140443248:key/3c534568-f0e6-4d38-b581-d862604669cb"
+PIPELINE_SECRET_ARN = account_setting(
+    "casa-coqui:pipeline-secret-arn",
+    "CASA_COQUI_PIPELINE_SECRET_ARN",
+    example="arn:aws:secretsmanager:us-east-1:<account-id>:secret:casa-coqui/pipeline-<suffix>",
+)
+KMS_KEY_ARN = account_setting(
+    "casa-coqui:pipeline-cmk-arn",
+    "CASA_COQUI_PIPELINE_CMK_ARN",
+    example="arn:aws:kms:us-east-1:<account-id>:key/<key-id>",
+)
 
 hosting = CasaCoquiHostingStack(
     app,
@@ -105,6 +155,7 @@ hosting = CasaCoquiHostingStack(
     env=env,
     artifact_bucket_name=ARTIFACT_BUCKET_NAME,
     pipeline_secret_arn=PIPELINE_SECRET_ARN,
+    cmk_arn=KMS_KEY_ARN,
     description=(
         "Casa Coqui EC2 hosting - ALB, CodeDeploy, Route53. "
         "DOP-C02 exam practice."
@@ -138,12 +189,8 @@ pricing = CasaCoquiPricingStack(
     # only thing keeping production current before this change.
     github_branch="main",
     # Reuses the existing AWS CodeConnection (same one pipeline_stack
-    # consumes). `aws codebuild list-source-credentials`
-    # is the source of truth for this ARN.
-    codeconnection_arn=(
-        "arn:aws:codeconnections:us-east-1:524140443248"
-        ":connection/beb59a0a-315f-4a9b-b179-4d8fa4c7a1c5"
-    ),
+    # consumes) — resolved above from context / env, never committed.
+    codeconnection_arn=codeconnection_arn,
     description=(
         "Casa Coqui pricing autopilot — CodeBuild + S3 + EventBridge Scheduler. "
         "Lifecycle: rebuildable."

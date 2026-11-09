@@ -50,6 +50,34 @@ Deploy (codebuild.PipelineProject, buildspec-deploy.yml)
 - A Firebase service account JSON for `casa-coqui` with roles:
   `Firebase Admin`, `Cloud Functions Admin`, `Firebase Rules Admin`
 
+## Account-specific settings (not committed)
+
+Anything that names a specific AWS account — the account id, the GitHub
+CodeConnection ARN, and the names/ARNs of already-deployed Foundation
+resources that the Hosting stack looks up — is kept out of the repo.
+`app.py` resolves each one from CDK context first, then an environment
+variable, and refuses to synth if a value is missing (no silent placeholder).
+
+| Context key (`-c key=value` or `cdk.context.json`) | Env var fallback | Used by |
+|-----------------------------------------------------|------------------|---------|
+| `codestar_connection_arn` | `CASA_COQUI_CODECONNECTION_ARN` | Pipeline + Pricing stacks (GitHub source) |
+| `casa-coqui:artifact-bucket-name` | `CASA_COQUI_ARTIFACT_BUCKET_NAME` | Hosting stack |
+| `casa-coqui:pipeline-secret-arn` | `CASA_COQUI_PIPELINE_SECRET_ARN` | Hosting stack |
+| `casa-coqui:pipeline-cmk-arn` | `CASA_COQUI_PIPELINE_CMK_ARN` | Hosting stack |
+
+```bash
+cd infra
+cp cdk.context.example.json cdk.context.json      # gitignored; fill in your values
+# the Hosting values are Foundation stack outputs:
+aws cloudformation describe-stacks --stack-name CasaCoquiFoundationStack --query 'Stacks[0].Outputs'
+# the connection ARN:
+aws codeconnections list-connections --query 'Connections[].ConnectionArn'
+```
+
+Heads-up: `cdk.context.json` is also where the CDK caches lookups
+(`HostedZone.from_lookup`), and `cdk context --clear` wipes the whole file —
+keep a copy, or use the env vars instead.
+
 ## First-run bootstrap
 
 All steps below run exactly once.
@@ -183,6 +211,8 @@ Now run step **5** (seed the real secret values).
 ### 10. Deploy the Pipeline stack
 
 ```bash
+# codestar_connection_arn comes from cdk.context.json / CASA_COQUI_CODECONNECTION_ARN
+# (see "Account-specific settings"); passing -c explicitly also works:
 cdk deploy CasaCoquiPipelineStack \
   -c codestar_connection_arn="$CODESTAR_ARN"
 ```

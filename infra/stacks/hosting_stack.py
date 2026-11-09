@@ -62,6 +62,7 @@ class CasaCoquiHostingStack(Stack):
         *,
         artifact_bucket_name: str,
         pipeline_secret_arn: str,
+        cmk_arn: str,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -201,9 +202,9 @@ class CasaCoquiHostingStack(Stack):
         # aren't enough when KMS is involved.
         ec2_role.add_to_policy(iam.PolicyStatement(
             actions=["kms:Decrypt", "kms:DescribeKey"],
-            resources=[
-                "arn:aws:kms:us-east-1:524140443248:key/3c534568-f0e6-4d38-b581-d862604669cb"
-            ],
+            # ARN of the Foundation stack's CMK — passed in from app.py
+            # (context / env), never hardcoded here.
+            resources=[cmk_arn],
         ))
 
         # Pricing data bucket — read-only access for the systemd sync timer.

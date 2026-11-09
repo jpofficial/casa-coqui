@@ -31,7 +31,9 @@ fi
 QUESTION="$1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE="${SCRIPT_DIR}/../samples/full-input.json"
-SM_ARN="${SM_ARN:-arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft}"
+# Default to the caller's own account so no account id lives in the repo;
+# override with SM_ARN=... to target another state machine.
+SM_ARN="${SM_ARN:-arn:aws:states:${AWS_REGION:-us-east-1}:$(aws sts get-caller-identity --query Account --output text):stateMachine:casa-coqui-reply-draft}"
 GUEST_NAME="${GUEST_NAME:-Tester}"
 MESSAGE_ID="${MESSAGE_ID:-ask-$(date +%s)}"
 

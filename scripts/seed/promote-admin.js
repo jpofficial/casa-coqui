@@ -21,7 +21,10 @@ const authAdmin = getAuth(app);
 const db = getFirestore(app);
 
 async function promote() {
-  const email = '01juliop@gmail.com';
+  // Email from argv, then ADMIN_EMAIL / NEXT_PUBLIC_ADMIN_EMAIL in .env.local,
+  // then the historical default — so `node scripts/seed/promote-admin.js` keeps
+  // working unchanged and `check-admin-claims.js` can point at an explicit fix.
+  const email = process.argv[2] || env.ADMIN_EMAIL || env.NEXT_PUBLIC_ADMIN_EMAIL || '01juliop@gmail.com';
   const user = await authAdmin.getUserByEmail(email);
   console.log('Found user:', user.uid, user.email);
   console.log('Current claims:', user.customClaims);

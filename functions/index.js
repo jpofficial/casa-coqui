@@ -28,9 +28,11 @@ const logger = require('firebase-functions/logger');
 // ── Phase 3 v3.1 — F2: v2 secrets/params, NOT functions.config() ─────────
 const BRIDGE_AWS_ACCESS_KEY_ID = defineSecret('BRIDGE_AWS_ACCESS_KEY_ID');
 const BRIDGE_AWS_SECRET_ACCESS_KEY = defineSecret('BRIDGE_AWS_SECRET_ACCESS_KEY');
-const REPLY_DRAFT_STATE_MACHINE_ARN = defineString('REPLY_DRAFT_STATE_MACHINE_ARN', {
-  default: 'arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft',
-});
+// No default on purpose: the ARN names a specific AWS account and must not live
+// in the repo. Set it in functions/.env.<projectId> (materialized from SSM
+// /casa-coqui/functions/params by ci/buildspec-deploy.yml at deploy time) —
+// see functions/.env.example for the shape.
+const REPLY_DRAFT_STATE_MACHINE_ARN = defineString('REPLY_DRAFT_STATE_MACHINE_ARN');
 const APPCONFIG_APPLICATION = defineString('APPCONFIG_APPLICATION', { default: 'casa-coqui-reply-agent' });
 const APPCONFIG_ENVIRONMENT = defineString('APPCONFIG_ENVIRONMENT', { default: 'prod' });
 const APPCONFIG_FLAGS_PROFILE = defineString('APPCONFIG_FLAGS_PROFILE', { default: 'feature-flags' });
