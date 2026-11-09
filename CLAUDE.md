@@ -29,7 +29,7 @@ A Progressive Web App (PWA) that runs a real multi-unit Airbnb property in Puert
 - Environment variables in `.env.local` (prefixed `NEXT_PUBLIC_` for client-side); the committed template is `.env.example`. Cloud Functions params live in `functions/.env.<projectId>` (template: `functions/.env.example`).
 - All Firebase config via environment variables, never hardcoded. No account-specific identifiers (AWS account id, ARNs, emails) in committed code — CDK reads them from context/env (`infra/cdk.context.example.json`).
 - API routes return consistent JSON: `{ success: true, data: {} }` or `{ success: false, error: "" }`
-- `lib/` is ESM (imported by Next.js); `functions/lib/` is CommonJS (Cloud Functions runtime). Several modules exist in both — see *Shared modules*.
+- `lib/` is ESM (imported by Next.js) except the shared CommonJS sources (`lib/thread-key.js`, `lib/welcome-ai-core.js`); `functions/lib/` is CommonJS (Cloud Functions runtime). See *Shared modules*.
 
 ## Project Structure
 ```
@@ -51,16 +51,20 @@ A Progressive Web App (PWA) that runs a real multi-unit Airbnb property in Puert
   /ui/                 — Shared UI primitives
 /lib                   — Domain logic (ESM): firebase.js (client), firebase-admin.js (server),
                          api-auth.js, roles.js, notifications.js, staff-notifications.js,
-                         i18n.js, thread-key.js, reply-ai.js, reply-agent-chain.js, rag-filter.js,
-                         welcome-ai.js, voice-profile.js, pricing-*.js, …
+                         i18n.js, thread-key.js, welcome-ai.js + welcome-ai-core.js,
+                         voice-profile.js, pricing-*.js, …
   /__tests__/          — node:test suites
 /hooks                 — useAuth, useFirestore, useLocale, useNotifications, usePush,
                          useStaffNotifications, useStaffNotificationPrefs
 /functions             — Firebase Cloud Functions (CommonJS): index.js, icsSync.js,
                          cleaningReminder.js, expireLinks.js, reorderCheck.js, parseReceipt.js
-  /lib/                — Function helpers incl. CJS copies of shared modules; Jest tests
+  /lib/                — Function helpers; reply-ai.js / reply-agent-chain.js / rag-filter.js (legacy
+                         JS reply chain — only copy); generated copies of lib/thread-key.js and
+                         lib/welcome-ai-core.js (see *Shared modules*); Jest tests
 /infra                 — AWS CDK app (Python): app.py, stacks/, tests/ (pytest)
-  /lambda/parse-airbnb-email/   — SES inbound email parser Lambda + Jest tests
+  /lambda/parse-airbnb-email/   — SES inbound email parser Lambda: thin index.js handler over
+                                   src/{classify,extract,match,thread,idempotency,firestore,notify,s3,process-record}.js
+                                   + Jest tests
   /sam/reply-agent/             — Step Functions reply agent (SAM) + Lambdas
 /ci                    — CodeBuild buildspecs (Vercel build/deploy, pricing)
 /scripts               — seed/, migrations/, debug/, check-prompt-drift.js
@@ -95,8 +99,14 @@ The schema is defined by usage plus `firestore.rules` (access) and `firestore.in
 - `settings` — App config (property, units, WiFi, templates)
 - `agent_runs` — AI call logs for debugging
 
-## Shared modules (duplicated on purpose — keep in sync)
-`thread-key.js` exists in `lib/`, `functions/lib/` and `infra/lambda/parse-airbnb-email/`; `reply-ai.js`, `welcome-ai.js`, `reply-agent-chain.js` and `rag-filter.js` exist in `lib/` (ESM) and `functions/lib/` (CJS). Each deploy target only ships its own directory, so changes must be mirrored. `scripts/check-prompt-drift.js` (run in `prebuild`) fails the build if the reply-agent SYSTEM_PROMPT drifts between `lib/reply-ai.js`, `functions/lib/reply-ai.js` and the AppConfig seed.
+## Shared modules (generated copies — never hand-edit the copy)
+Firebase deploys only `functions/`, so a module both the web app and Cloud Functions need exists in both places. The copies are **generated**, not maintained by hand:
+- Sources (CommonJS, importable from Next.js and plain Node): `lib/thread-key.js`, `lib/welcome-ai-core.js`.
+- Generated copies: `functions/lib/thread-key.js`, `functions/lib/welcome-ai-core.js` (each starts with an `@generated` banner).
+- `npm run sync:shared` rewrites the copies; `npm run check:shared` fails on drift and runs in `npm test`, `prebuild` and CI. Edit the source, run sync, commit both.
+- `lib/welcome-ai.js` (adds the host voice profile) and `functions/lib/welcome-ai.js` (adds the terminal-state guard) are thin wrappers around the core and are intentionally different.
+- The legacy JS reply chain (`reply-ai.js`, `reply-agent-chain.js`, `rag-filter.js`) lives only in `functions/lib/`; the Next.js twins were unused and removed. `scripts/check-prompt-drift.js` (run in `prebuild`) fails the build if the reply-agent SYSTEM_PROMPT drifts between `functions/lib/reply-ai.js` and the AppConfig seed.
+- The inbound Lambda has its own v2 threading (`infra/lambda/parse-airbnb-email/src/thread.js`) and does not use `thread-key.js`.
 
 ## Key Flows to Understand
 1. **Guest Access**: Host creates booking → unique link generated → guest taps link → phone OTP verification → check-in form → portal access → link expires at checkout

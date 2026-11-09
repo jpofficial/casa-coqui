@@ -1,24 +1,26 @@
 #!/usr/bin/env node
 /**
  * check-prompt-drift.js — fails build if the canonical SYSTEM_PROMPT
- * has drifted across its three source files.
+ * has drifted across its source files.
  *
- * Three sources hold the same prompt content (a 9000+ character host-voice
- * spec). Until Phase 4.5 decommissions the legacy JS chain, all three MUST
+ * Two sources hold the same prompt content (a 9000+ character host-voice
+ * spec). Until Phase 4.5 decommissions the legacy JS chain, both MUST
  * stay byte-identical:
  *
- *   1. lib/reply-ai.js                            (Next.js admin/API)
- *   2. functions/lib/reply-ai.js                  (Cloud Functions legacy chain)
- *   3. infra/sam/reply-agent/config/system-prompt.seed.json
+ *   1. functions/lib/reply-ai.js                  (Cloud Functions legacy chain)
+ *   2. infra/sam/reply-agent/config/system-prompt.seed.json
  *      → field `system_prompt_text`               (AppConfig Hosted Configuration)
  *
- * If any one drifts from the others, drafts produced by different code paths
+ * (A third copy, lib/reply-ai.js, was an unused Next.js twin and was removed
+ * in the Phase 4 dedupe.)
+ *
+ * If one drifts from the other, drafts produced by different code paths
  * will sound different. Comment-based "keep in sync" warnings have already
  * been proven insufficient (Issue #1, commit c49adf3) — this script is the
  * durable enforcement.
  *
  * Exit codes:
- *   0  — all three sources hash identically
+ *   0  — all sources hash identically
  *   1  — drift detected
  *   2  — one or more sources could not be read/parsed
  *
@@ -70,7 +72,6 @@ function sha256(s) {
 }
 
 const SOURCES = [
-  { label: 'lib/reply-ai.js (Next.js)', read: () => readJsSystemPrompt('lib/reply-ai.js') },
   { label: 'functions/lib/reply-ai.js (Cloud Functions)', read: () => readJsSystemPrompt('functions/lib/reply-ai.js') },
   {
     label: 'infra/sam/reply-agent/config/system-prompt.seed.json#system_prompt_text (AppConfig)',

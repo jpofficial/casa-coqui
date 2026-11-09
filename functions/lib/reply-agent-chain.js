@@ -7,7 +7,7 @@
  *   3. Evaluator: checklist + voice score + RAG consistency
  *   4. Reviser (if needed): rewrite with evaluator feedback
  *
- * DUPLICATED from lib/reply-agent-chain.js — keep in sync until extracted to a workspace package.
+ * Only copy (the unused Next.js twin, lib/reply-agent-chain.js, was removed).
  *
  * CommonJS version for Firebase Cloud Functions runtime.
  */

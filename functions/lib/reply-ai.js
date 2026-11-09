@@ -1,7 +1,9 @@
 /**
  * Reply Agent AI — drafts responses to inbound Airbnb guest messages in Julio's voice.
  *
- * DUPLICATED from lib/reply-ai.js — keep in sync until extracted to a workspace package.
+ * Only JS copy (the unused Next.js twin, lib/reply-ai.js, was removed). The
+ * SYSTEM_PROMPT below must stay byte-identical with the AppConfig seed —
+ * scripts/check-prompt-drift.js enforces that in `prebuild`, `npm test` and CI.
  *
  * CommonJS version for Firebase Cloud Functions runtime.
  * Uses ANTHROPIC_API_KEY from environment (set via firebase functions:secrets:set).
@@ -22,9 +24,8 @@ const MODEL = 'claude-haiku-4-5-20251001';
 // System prompt — reply in Julio's voice
 // ---------------------------------------------------------------------------
 // IMPORTANT: This SYSTEM_PROMPT is duplicated with:
-//   - lib/reply-ai.js (repo root, ESM, used by Next.js routes)
 //   - infra/sam/reply-agent/config/system-prompt.seed.json (SAM/AppConfig)
-// All three must stay in sync.
+// Both must stay in sync — scripts/check-prompt-drift.js fails the build otherwise.
 //
 // Why inlined here (not loaded from seed file):
 // The Cloud Functions deploy package only includes the functions/ directory,
