@@ -16,7 +16,7 @@ describe('startReplyDraftExecution', () => {
     mockSend.mockReset();
     mockEmit.mockReset();
     process.env.REPLY_DRAFT_STATE_MACHINE_ARN =
-      'arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft';
+      'arn:aws:states:us-east-1:123456789012:stateMachine:casa-coqui-reply-draft';
   });
 
   test('happy path — calls StartExecution + emits BridgeRouteSuccesses', async () => {

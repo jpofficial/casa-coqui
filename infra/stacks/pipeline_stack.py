@@ -13,6 +13,8 @@ Resources:
 All resources in this stack use RemovalPolicy.DESTROY so they can be
 torn down and recreated independently of the Foundation stack.
 """
+from typing import Optional
+
 from aws_cdk import (
     CfnOutput,
     CfnParameter,
@@ -54,6 +56,7 @@ class CasaCoquiPipelineStack(Stack):
         github_owner: str,
         github_repo: str,
         github_branch: str,
+        codestar_connection_arn: Optional[str] = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -72,7 +75,11 @@ class CasaCoquiPipelineStack(Stack):
                 "Tools → Settings → Connections. Pass via `cdk deploy -c "
                 "codestar_connection_arn=<ARN>` or accept the default lookup."
             ),
-            default=self.node.try_get_context("codestar_connection_arn")
+            # app.py resolves the real ARN from context / env and passes it in;
+            # the context lookup + placeholder remain only for direct
+            # construction (tests, ad-hoc synth).
+            default=codestar_connection_arn
+            or self.node.try_get_context("codestar_connection_arn")
             or "arn:aws:codestar-connections:us-east-1:000000000000:connection/00000000-0000-0000-0000-000000000000",
             # AWS renamed the service from codestar-connections to
             # codeconnections in 2024. Accept both so existing consoles

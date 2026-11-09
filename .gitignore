@@ -35,6 +35,7 @@ functions/firebase-debug.log
 # time. NEVER commit. Contains SecureString plaintext.
 functions/.env
 functions/.env.*
+!functions/.env.example
 
 # vercel
 .vercel

@@ -50,6 +50,34 @@ Deploy (codebuild.PipelineProject, buildspec-deploy.yml)
 - A Firebase service account JSON for `casa-coqui` with roles:
   `Firebase Admin`, `Cloud Functions Admin`, `Firebase Rules Admin`
 
+## Account-specific settings (not committed)
+
+Anything that names a specific AWS account — the account id, the GitHub
+CodeConnection ARN, and the names/ARNs of already-deployed Foundation
+resources that the Hosting stack looks up — is kept out of the repo.
+`app.py` resolves each one from CDK context first, then an environment
+variable, and refuses to synth if a value is missing (no silent placeholder).
+
+| Context key (`-c key=value` or `cdk.context.json`) | Env var fallback | Used by |
+|-----------------------------------------------------|------------------|---------|
+| `codestar_connection_arn` | `CASA_COQUI_CODECONNECTION_ARN` | Pipeline + Pricing stacks (GitHub source) |
+| `casa-coqui:artifact-bucket-name` | `CASA_COQUI_ARTIFACT_BUCKET_NAME` | Hosting stack |
+| `casa-coqui:pipeline-secret-arn` | `CASA_COQUI_PIPELINE_SECRET_ARN` | Hosting stack |
+| `casa-coqui:pipeline-cmk-arn` | `CASA_COQUI_PIPELINE_CMK_ARN` | Hosting stack |
+
+```bash
+cd infra
+cp cdk.context.example.json cdk.context.json      # gitignored; fill in your values
+# the Hosting values are Foundation stack outputs:
+aws cloudformation describe-stacks --stack-name CasaCoquiFoundationStack --query 'Stacks[0].Outputs'
+# the connection ARN:
+aws codeconnections list-connections --query 'Connections[].ConnectionArn'
+```
+
+Heads-up: `cdk.context.json` is also where the CDK caches lookups
+(`HostedZone.from_lookup`), and `cdk context --clear` wipes the whole file —
+keep a copy, or use the env vars instead.
+
 ## First-run bootstrap
 
 All steps below run exactly once.
@@ -183,6 +211,8 @@ Now run step **5** (seed the real secret values).
 ### 10. Deploy the Pipeline stack
 
 ```bash
+# codestar_connection_arn comes from cdk.context.json / CASA_COQUI_CODECONNECTION_ARN
+# (see "Account-specific settings"); passing -c explicitly also works:
 cdk deploy CasaCoquiPipelineStack \
   -c codestar_connection_arn="$CODESTAR_ARN"
 ```
@@ -312,14 +342,32 @@ Exam questions test whether you recognize the three provider keys.
 The `secret:key` syntax is specific to CodeBuild's Secrets Manager
 integration and requires the secret body to be JSON.
 
-## Phase 2 hooks (not implemented yet)
+## Tests
 
-The following are intentionally scaffolded but not wired:
-- `tests/` directory for CDK assertion tests
+`tests/` holds pytest-based CDK assertion tests that synthesize stacks
+in-process against a fake account (`123456789012`) — nothing touches AWS.
+
+```bash
+cd infra
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt   # aws-cdk-lib + pytest
+python -m pytest tests -q                                  # or: npm run test:infra (repo root)
+```
+
+| File | Stack | What it pins |
+|------|-------|--------------|
+| `tests/test_foundation_stack.py` | `CasaCoquiFoundationStack` | RETAIN/DELETE policies, KMS rotation + service grants, bucket encryption/BPA/TLS/lifecycle, secret + topic encryption, log retention, the five export names — and a **full-template snapshot** (`tests/__snapshots__/CasaCoquiFoundationStack.template.json`) |
+| `tests/test_email_stack.py` | `CasaCoquiEmailStack` | bucket retention + 90-day expiry, SES bucket-policy and invoke permissions scoped to the account, Lambda runtime/handler/env, least-privilege role, receipt rule order (S3 → Lambda), DNS records, exports |
+
+A snapshot diff reads like `cdk diff` output. If the change is intentional,
+regenerate with `UPDATE_SNAPSHOTS=1 python -m pytest tests -q` and commit the
+new JSON next to the stack change. The same tests run in GitHub Actions on
+every pull request (`.github/workflows/ci.yml`).
+
+Not yet wired (left over from the original Phase 2 plan):
 - `codebuild:CreateReportGroup` IAM perms on the build role
-- SSM parameter naming scheme allows Phase 2 to drop new keys without
-  touching IAM policies (wildcard grant on
-  `/casa-coqui/pipeline/*`)
+- SSM parameter naming scheme allows new keys without touching IAM
+  policies (wildcard grant on `/casa-coqui/pipeline/*`)
 
 ## Cost estimate
 

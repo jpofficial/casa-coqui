@@ -93,11 +93,11 @@ Wire the Cloud Function `onAirbnbMessageCreated` to the SAM Step Functions chain
 User: casa-coqui-firebase-bridge
 Policy:
   - Action: states:StartExecution
-    Resource: arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft
+    Resource: arn:aws:states:us-east-1:<ACCOUNT_ID>:stateMachine:casa-coqui-reply-draft
   - Action:
       - appconfigdata:StartConfigurationSession   # NOT appconfig:* — Data API uses appconfigdata service prefix
       - appconfigdata:GetLatestConfiguration
-    Resource: arn:aws:appconfig:us-east-1:524140443248:application/<app-id>/environment/<env-id>/configuration/feature-flags
+    Resource: arn:aws:appconfig:us-east-1:<ACCOUNT_ID>:application/<app-id>/environment/<env-id>/configuration/feature-flags
 
 Credentials stored in: Firebase Functions secrets via defineSecret('AWS_ACCESS_KEY_ID') + defineSecret('AWS_SECRET_ACCESS_KEY')
 ```
@@ -106,7 +106,7 @@ Credentials stored in: Firebase Functions secrets via defineSecret('AWS_ACCESS_K
 ```yaml
 Lambda role:
   - Action: secretsmanager:GetSecretValue
-    Resource: arn:aws:secretsmanager:us-east-1:524140443248:secret:casa-coqui/firebase-service-account-*
+    Resource: arn:aws:secretsmanager:us-east-1:<ACCOUNT_ID>:secret:casa-coqui/firebase-service-account-*
 Lambda code: initializeApp({ credential: cert(JSON.parse(secretValue)) })
 ```
 
@@ -116,7 +116,7 @@ Role: AppConfigMonitorRole
 TrustPolicy: { Service: appconfig.amazonaws.com }
 Policy:
   - Action: cloudwatch:DescribeAlarms
-    Resource: arn:aws:cloudwatch:us-east-1:524140443248:alarm:SFNExecutionsFailedAlarm
+    Resource: arn:aws:cloudwatch:us-east-1:<ACCOUNT_ID>:alarm:SFNExecutionsFailedAlarm
 ```
 
 ### Bridge metrics (Stackdriver-vs-CloudWatch correction)

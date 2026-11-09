@@ -12,13 +12,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Returns true if the signed-in user is the admin (matched by email).
-    // Admin also carries the custom claim { role: "admin" } for extra safety.
+    // Returns true if the signed-in user carries the admin custom claim.
+    // The claim { role: "admin" } is set by scripts/seed/create-admin.js and
+    // scripts/seed/promote-admin.js, and by the team-invite API for staff
+    // roles. The former hardcoded-email fallback was removed so no account
+    // identifier lives in the rules; before deploying a rules change, confirm
+    // the admin account carries the claim:
+    //   node scripts/debug/check-admin-claims.js
     function isAdmin() {
-      return isAuthenticated() && (
-        request.auth.token.email == '01juliop@gmail.com' ||
-        request.auth.token.role == 'admin'
-      );
+      return isAuthenticated() && request.auth.token.role == 'admin';
     }
 
     // Returns true if the signed-in user is a staff member (admin, cohost, cleaner, maintenance).

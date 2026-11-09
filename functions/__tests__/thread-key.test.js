@@ -5,11 +5,11 @@
  *   - lib/__tests__/thread-key.test.js
  *   - infra/lambda/parse-airbnb-email/__tests__/thread-key.test.js
  *
- * Uses node:test (functions/ does not currently have jest installed locally;
- * this style runs via `node --test functions/__tests__/thread-key.test.js`).
+ * Runs under jest like the rest of functions/ (`npm test` in functions/, or
+ * `npm test` at the repo root). Uses node:assert so the three copies stay
+ * line-for-line comparable.
  */
 
-const { test } = require('node:test');
 const assert = require('node:assert');
 const { buildThreadKey, isUnmatchedKey } = require('../lib/thread-key');
 
