@@ -718,7 +718,7 @@ pricing = CasaCoquiPricingStack(
     cmk=foundation.cmk,
     notifications_topic=foundation.notifications_topic,
     codestar_connection_arn=(
-        "arn:aws:codestar-connections:us-east-1:524140443248"
+        "arn:aws:codestar-connections:us-east-1:<ACCOUNT_ID>"
         ":connection/REPLACE_WITH_VALUE_FROM_SSM"
     ),
     github_owner=github_owner,

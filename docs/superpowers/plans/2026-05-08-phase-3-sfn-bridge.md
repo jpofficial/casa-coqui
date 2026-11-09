@@ -1251,7 +1251,7 @@ describe('startReplyDraftExecution', () => {
     mockSend.mockReset();
     mockEmit.mockReset();
     process.env.REPLY_DRAFT_STATE_MACHINE_ARN =
-      'arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft';
+      'arn:aws:states:us-east-1:<ACCOUNT_ID>:stateMachine:casa-coqui-reply-draft';
   });
 
   test('happy path — calls StartExecution + emits BridgeRouteSuccesses', async () => {
@@ -1478,7 +1478,7 @@ const { defineSecret, defineString } = require('firebase-functions/params');
 const AWS_ACCESS_KEY_ID = defineSecret('AWS_ACCESS_KEY_ID');
 const AWS_SECRET_ACCESS_KEY = defineSecret('AWS_SECRET_ACCESS_KEY');
 const REPLY_DRAFT_STATE_MACHINE_ARN = defineString('REPLY_DRAFT_STATE_MACHINE_ARN', {
-  default: 'arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft',
+  default: 'arn:aws:states:us-east-1:<ACCOUNT_ID>:stateMachine:casa-coqui-reply-draft',
 });
 const APPCONFIG_APPLICATION = defineString('APPCONFIG_APPLICATION', { default: 'casa-coqui-reply-agent' });
 const APPCONFIG_ENVIRONMENT = defineString('APPCONFIG_ENVIRONMENT', { default: 'prod' });
@@ -2433,7 +2433,7 @@ aws sns list-subscriptions-by-topic --topic-arn $(aws sns list-topics --query "T
 
 ```bash
 aws stepfunctions start-execution \
-  --state-machine-arn arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft \
+  --state-machine-arn arn:aws:states:us-east-1:<ACCOUNT_ID>:stateMachine:casa-coqui-reply-draft \
   --input file://infra/sam/reply-agent/samples/full-input.json \
   --name "phase3-w7-trap-$(date +%s)"
 ```
@@ -2442,7 +2442,7 @@ Wait ~60s. Then check execution status:
 
 ```bash
 EXEC=$(aws stepfunctions list-executions \
-  --state-machine-arn arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft \
+  --state-machine-arn arn:aws:states:us-east-1:<ACCOUNT_ID>:stateMachine:casa-coqui-reply-draft \
   --max-results 1 --query 'executions[0].executionArn' --output text)
 aws stepfunctions describe-execution --execution-arn "$EXEC" \
   --query '{Status:status,Error:error,Cause:cause}' --output table
@@ -2537,12 +2537,12 @@ Expected: stack `UPDATE_COMPLETE`.
 
 ```bash
 aws stepfunctions start-execution \
-  --state-machine-arn arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft \
+  --state-machine-arn arn:aws:states:us-east-1:<ACCOUNT_ID>:stateMachine:casa-coqui-reply-draft \
   --input file://infra/sam/reply-agent/samples/full-input.json \
   --name "phase3-w7-fixed-$(date +%s)"
 sleep 60
 EXEC=$(aws stepfunctions list-executions \
-  --state-machine-arn arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft \
+  --state-machine-arn arn:aws:states:us-east-1:<ACCOUNT_ID>:stateMachine:casa-coqui-reply-draft \
   --max-results 1 --query 'executions[0].executionArn' --output text)
 aws stepfunctions describe-execution --execution-arn "$EXEC" --query 'status' --output text
 # Expected: SUCCEEDED
@@ -2908,7 +2908,7 @@ The 1Password item has fields:
   - secret_access_key
   - created_at  (ISO 8601)
   - rotation_due_at  (created_at + 90 days)
-  - linked_user_arn  (arn:aws:iam::524140443248:user/casa-coqui-firebase-bridge)
+  - linked_user_arn  (arn:aws:iam::<ACCOUNT_ID>:user/casa-coqui-firebase-bridge)
 ```
 
 - [ ] **Step 15.3.2: Add quarterly rotation calendar entry (F4)**
@@ -2927,8 +2927,8 @@ Add a recurring calendar event titled `Rotate casa-coqui-firebase-bridge IAM key
 - [ ] **Step 15.4: Confirm IAM permissions via simulator (AC #3)**
 
 ```bash
-USER_ARN="arn:aws:iam::524140443248:user/casa-coqui-firebase-bridge"
-SM_ARN="arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft"
+USER_ARN="arn:aws:iam::<ACCOUNT_ID>:user/casa-coqui-firebase-bridge"
+SM_ARN="arn:aws:states:us-east-1:<ACCOUNT_ID>:stateMachine:casa-coqui-reply-draft"
 
 # Should ALLOW StartExecution on this SM
 aws iam simulate-principal-policy \
@@ -3039,7 +3039,7 @@ vercel env add AWS_SECRET_ACCESS_KEY development
 
 # REPLY_DRAFT_STATE_MACHINE_ARN (used by route.js)
 vercel env add REPLY_DRAFT_STATE_MACHINE_ARN production
-# Value: arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft
+# Value: arn:aws:states:us-east-1:<ACCOUNT_ID>:stateMachine:casa-coqui-reply-draft
 vercel env add REPLY_DRAFT_STATE_MACHINE_ARN preview
 vercel env add REPLY_DRAFT_STATE_MACHINE_ARN development
 ```
@@ -3330,13 +3330,13 @@ Wait 60s. Verify `e_regenerate`.
 
 ```bash
 SM_ROLE_NAME=$(aws stepfunctions describe-state-machine \
-  --state-machine-arn arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft \
+  --state-machine-arn arn:aws:states:us-east-1:<ACCOUNT_ID>:stateMachine:casa-coqui-reply-draft \
   --query 'roleArn' --output text | awk -F/ '{print $NF}')
 
 aws iam put-role-policy \
   --role-name "$SM_ROLE_NAME" \
   --policy-name TempDenyReasonerInvokeForSmoke \
-  --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"lambda:InvokeFunction","Resource":"arn:aws:lambda:us-east-1:524140443248:function:casa-coqui-reply-reasoner"}]}'
+  --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"lambda:InvokeFunction","Resource":"arn:aws:lambda:us-east-1:<ACCOUNT_ID>:function:casa-coqui-reply-reasoner"}]}'
 ```
 
 Flip AppConfig `mode: aws-sfn, rollout_pct: 100`, wait 60s, create synthetic doc → CF dispatches to SFN → AIChainExecution / Reasoner step fails → SFN's per-state Catch routes to SendToDLQ → DLQ message → DLQNotifier publishes to SNS.

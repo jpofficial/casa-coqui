@@ -25,7 +25,7 @@ You are an admin dashboard specialist building the host management panel for an 
 - All admin pages under `/app/admin/`
 - Admin authenticated via email/password (Firebase Auth)
 - Protected by auth check — redirect to /admin/login if not authenticated
-- Single admin user (no role management)
+- Staff roles via Firebase custom claims: `admin`, `cohost`, `cleaner`, `maintenance` (see `lib/roles.js`, `hooks/useAuth.js`); admin manages the team at `/admin/team`
 - Mobile-first — host manages everything from their phone
 
 ## Key Files You Own

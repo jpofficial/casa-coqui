@@ -1,0 +1,7 @@
+{
+  "_comment": "Copy to infra/cdk.context.json (gitignored) and fill in your account's values, or export the matching env vars (see app.py). Values below show the shape only.",
+  "codestar_connection_arn": "arn:aws:codeconnections:us-east-1:<account-id>:connection/<connection-uuid>",
+  "casa-coqui:artifact-bucket-name": "casacoquifoundationstack-artifactbucket<hash>-<suffix>",
+  "casa-coqui:pipeline-secret-arn": "arn:aws:secretsmanager:us-east-1:<account-id>:secret:casa-coqui/pipeline-<suffix>",
+  "casa-coqui:pipeline-cmk-arn": "arn:aws:kms:us-east-1:<account-id>:key/<key-id>"
+}

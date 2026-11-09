@@ -1444,7 +1444,7 @@ Expected:
 
 ```bash
 EXEC_ARN=$(aws stepfunctions list-executions \
-  --state-machine-arn arn:aws:states:us-east-1:524140443248:stateMachine:casa-coqui-reply-draft \
+  --state-machine-arn arn:aws:states:us-east-1:<ACCOUNT_ID>:stateMachine:casa-coqui-reply-draft \
   --max-results 1 --query 'executions[0].executionArn' --output text)
 
 aws stepfunctions describe-execution --execution-arn "$EXEC_ARN" \
