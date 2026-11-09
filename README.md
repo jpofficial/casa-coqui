@@ -91,7 +91,7 @@ Bookings & occupancy calendar · **cleaning management** with a dedicated cleane
 | Infra / CI-CD | AWS CDK (Python), CodePipeline · CodeBuild |
 | Hosting | Vercel (web) + AWS (backend services) |
 | PWA | next-pwa, custom service worker with deep-linking & notification grouping |
-| Testing | `node:test` across app, functions, and Lambda packages |
+| Testing | `node:test` (app `lib/`) + Jest (Cloud Functions, Lambda, SAM) + pytest (CDK) — one `npm test` runs every JS suite; GitHub Actions runs them on each PR |
 
 ---
 
@@ -120,10 +120,31 @@ docs/                Design specs, plans, and postmortems (the "how" and "why")
 npm install
 cp .env.example .env.local   # then fill in your own Firebase/AWS/Resend values
 npm run dev                  # http://localhost:3000
-npm test                     # unit tests (runs in the property's timezone)
+npm run install:all          # also installs functions/, Lambda and SAM test deps (once)
+npm test                     # every JavaScript test suite — see "Tests" below
 ```
 
 Environment variables are documented in [`.env.example`](.env.example), and the approach to secrets (what lives where, and rotation) is documented in [`docs/secrets-management.md`](docs/secrets-management.md). No credentials are committed to this repository.
+
+---
+
+## Tests
+
+[![CI](https://github.com/jpofficial/casa-coqui/actions/workflows/ci.yml/badge.svg)](https://github.com/jpofficial/casa-coqui/actions/workflows/ci.yml)
+
+`npm test` at the repo root runs **every JavaScript suite — 303 tests across 29 files** (counts as of this commit; ~4 s locally). Each package keeps its own runner and can be run alone:
+
+| Suite | What it covers | Runner | Files / tests | Command |
+|-------|----------------|--------|---------------|---------|
+| App `lib/` | thread keys, rate calendar, calendar helpers, welcome status | `node:test` | 5 / 50 | `npm run test:lib` |
+| Cloud Functions `functions/` | SFN bridge, AppConfig client, backoff, iCal parsing, welcome guard | Jest | 9 / 66 | `npm run test:functions` |
+| Email-parser Lambda `infra/lambda/parse-airbnb-email/` | classification, guest-name extraction, booking match cascade, thread keys, a sanitized real-email regression canary and a ReDoS time budget | Jest | 13 / 179 | `npm run test:lambda` |
+| SAM reply-agent Lambdas `infra/sam/reply-agent/` | reasoner throttle naming, write-back persistence | Jest | 2 / 8 | `npm run test:sam` |
+| CDK stacks `infra/` (Python) | Foundation + Email stack assertions and a full-template snapshot | pytest | 2 / 21 | `npm run test:infra` |
+
+The Lambda and SAM packages have their own `package-lock.json`; `npm run install:all` installs all of them. The CDK tests need `pip install -r infra/requirements.txt -r infra/requirements-dev.txt` (a Node runtime must be on `PATH` for jsii).
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs install → lint → prompt-drift check → all JS suites, plus the CDK tests, on every pull request. Production delivery is separate: an AWS CodePipeline/CodeBuild flow defined in [`infra/stacks/pipeline_stack.py`](infra/stacks/pipeline_stack.py) with buildspecs in [`ci/`](ci/README.md).
 
 ---
 

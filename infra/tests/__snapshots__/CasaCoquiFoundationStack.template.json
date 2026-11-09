@@ -1,0 +1,421 @@
+{
+  "Outputs": {
+    "ArtifactBucketName": {
+      "Description": "S3 artifact bucket for CodePipeline",
+      "Export": {
+        "Name": "CasaCoquiFoundation-ArtifactBucketName"
+      },
+      "Value": {
+        "Ref": "ArtifactBucket7410C9EF"
+      }
+    },
+    "CmkArn": {
+      "Description": "Customer managed KMS key ARN",
+      "Export": {
+        "Name": "CasaCoquiFoundation-CmkArn"
+      },
+      "Value": {
+        "Fn::GetAtt": [
+          "PipelineCmk1CEA5849",
+          "Arn"
+        ]
+      }
+    },
+    "CodeStarConnectionParamName": {
+      "Description": "SSM param name holding the CodeStar connection ARN",
+      "Export": {
+        "Name": "CasaCoquiFoundation-CodeStarConnectionParamName"
+      },
+      "Value": {
+        "Ref": "CodeStarConnectionArnParamDF41DDE8"
+      }
+    },
+    "NotificationsTopicArn": {
+      "Description": "SNS topic ARN for pipeline notifications + manual approval",
+      "Export": {
+        "Name": "CasaCoquiFoundation-NotificationsTopicArn"
+      },
+      "Value": {
+        "Ref": "PipelineNotificationsTopic827A419F"
+      }
+    },
+    "PipelineSecretArn": {
+      "Description": "Secrets Manager ARN for pipeline secret",
+      "Export": {
+        "Name": "CasaCoquiFoundation-PipelineSecretArn"
+      },
+      "Value": {
+        "Ref": "PipelineSecretFF3B7163"
+      }
+    }
+  },
+  "Parameters": {
+    "BootstrapVersion": {
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]",
+      "Type": "AWS::SSM::Parameter::Value<String>"
+    }
+  },
+  "Resources": {
+    "ArtifactBucket7410C9EF": {
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "BucketKeyEnabled": true,
+              "ServerSideEncryptionByDefault": {
+                "KMSMasterKeyID": {
+                  "Fn::GetAtt": [
+                    "PipelineCmk1CEA5849",
+                    "Arn"
+                  ]
+                },
+                "SSEAlgorithm": "aws:kms"
+              }
+            }
+          ]
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "AbortIncompleteMultipartUpload": {
+                "DaysAfterInitiation": 1
+              },
+              "ExpirationInDays": 30,
+              "Id": "expire-old-artifacts",
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 30
+              },
+              "Status": "Enabled"
+            }
+          ]
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      },
+      "Type": "AWS::S3::Bucket",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "ArtifactBucketPolicy4B4B7752": {
+      "Properties": {
+        "Bucket": {
+          "Ref": "ArtifactBucket7410C9EF"
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:*",
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false"
+                }
+              },
+              "Effect": "Deny",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "ArtifactBucket7410C9EF",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "ArtifactBucket7410C9EF",
+                          "Arn"
+                        ]
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ],
+          "Version": "2012-10-17"
+        }
+      },
+      "Type": "AWS::S3::BucketPolicy"
+    },
+    "CodeStarConnectionArnParamDF41DDE8": {
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "Description": "ARN of the GitHub CodeStar connection used by the Casa Coqui pipeline",
+        "Name": "/casa-coqui/pipeline/codestar-connection-arn",
+        "Tier": "Standard",
+        "Type": "String",
+        "Value": "PLACEHOLDER_SET_VIA_AWS_SSM_PUT_PARAMETER"
+      },
+      "Type": "AWS::SSM::Parameter",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "PipelineCmk1CEA5849": {
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "Description": "Customer managed key for Casa Coqui CI/CD (S3 artifacts, Secret, SNS)",
+        "EnableKeyRotation": true,
+        "KeyPolicy": {
+          "Statement": [
+            {
+              "Action": "kms:*",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":iam::123456789012:root"
+                    ]
+                  ]
+                }
+              },
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "kms:Decrypt",
+                "kms:Encrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "kms:Decrypt",
+                "kms:Encrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "events.amazonaws.com"
+              },
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "kms:Decrypt",
+                "kms:Encrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "codepipeline.amazonaws.com"
+              },
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "kms:Decrypt",
+                "kms:Encrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "codebuild.amazonaws.com"
+              },
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "kms:Decrypt",
+                "kms:Encrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "logs.us-east-1.amazonaws.com"
+              },
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "kms:Decrypt",
+                "kms:Encrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*"
+              ],
+              "Condition": {
+                "StringEquals": {
+                  "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":iam::123456789012:root"
+                    ]
+                  ]
+                }
+              },
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "kms:CreateGrant",
+                "kms:DescribeKey"
+              ],
+              "Condition": {
+                "StringEquals": {
+                  "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":iam::123456789012:root"
+                    ]
+                  ]
+                }
+              },
+              "Resource": "*"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PendingWindowInDays": 7
+      },
+      "Type": "AWS::KMS::Key",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "PipelineCmkAliasB5EE3749": {
+      "Properties": {
+        "AliasName": "alias/casa-coqui/pipeline",
+        "TargetKeyId": {
+          "Fn::GetAtt": [
+            "PipelineCmk1CEA5849",
+            "Arn"
+          ]
+        }
+      },
+      "Type": "AWS::KMS::Alias"
+    },
+    "PipelineNotificationsTopic827A419F": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "DisplayName": "Casa Coqui Pipeline",
+        "KmsMasterKeyId": {
+          "Fn::GetAtt": [
+            "PipelineCmk1CEA5849",
+            "Arn"
+          ]
+        },
+        "TopicName": "casa-coqui-pipeline-events"
+      },
+      "Type": "AWS::SNS::Topic",
+      "UpdateReplacePolicy": "Delete"
+    },
+    "PipelineNotificationsTopicopsexamplecom48CD71B3": {
+      "Properties": {
+        "Endpoint": "ops@example.com",
+        "Protocol": "email",
+        "TopicArn": {
+          "Ref": "PipelineNotificationsTopic827A419F"
+        }
+      },
+      "Type": "AWS::SNS::Subscription"
+    },
+    "PipelineSecretFF3B7163": {
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "Description": "Casa Coqui CI/CD pipeline secrets (one JSON blob, key-scoped refs)",
+        "GenerateSecretString": {
+          "ExcludePunctuation": true,
+          "GenerateStringKey": "_placeholder",
+          "SecretStringTemplate": "{\"NEXT_PUBLIC_FIREBASE_API_KEY\": \"replace-me\", \"NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN\": \"replace-me\", \"NEXT_PUBLIC_FIREBASE_PROJECT_ID\": \"replace-me\", \"NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET\": \"replace-me\", \"NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID\": \"replace-me\", \"NEXT_PUBLIC_FIREBASE_APP_ID\": \"replace-me\", \"NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID\": \"replace-me\", \"NEXT_PUBLIC_FIREBASE_VAPID_KEY\": \"replace-me\", \"NEXT_PUBLIC_ADMIN_EMAIL\": \"replace-me\", \"FIREBASE_SERVICE_ACCOUNT_KEY\": \"replace-me\", \"RESEND_API_KEY\": \"replace-me\", \"ANTHROPIC_API_KEY\": \"replace-me\", \"VERCEL_TOKEN\": \"replace-me\", \"VERCEL_ORG_ID\": \"replace-me\", \"VERCEL_PROJECT_ID\": \"replace-me\"}"
+        },
+        "KmsKeyId": {
+          "Fn::GetAtt": [
+            "PipelineCmk1CEA5849",
+            "Arn"
+          ]
+        },
+        "Name": "casa-coqui/pipeline"
+      },
+      "Type": "AWS::SecretsManager::Secret",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "SecretsAuditLogGroupAB8BA758": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "KmsKeyId": {
+          "Fn::GetAtt": [
+            "PipelineCmk1CEA5849",
+            "Arn"
+          ]
+        },
+        "LogGroupName": "/aws/secretsmanager/casa-coqui-pipeline-access",
+        "RetentionInDays": 90
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete"
+    }
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                  ],
+                  {
+                    "Ref": "BootstrapVersion"
+                  }
+                ]
+              }
+            ]
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+        }
+      ]
+    }
+  }
+}

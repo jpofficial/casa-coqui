@@ -8,7 +8,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "TZ=America/Puerto_Rico node --test 'lib/__tests__/*.test.js'",
+    "test": "npm run test:lib && npm run test:functions && npm run test:lambda && npm run test:sam",
+    "test:lib": "TZ=America/Puerto_Rico node --test lib/__tests__/*.test.js",
+    "test:functions": "npm test --prefix functions",
+    "test:lambda": "npm test --prefix infra/lambda/parse-airbnb-email",
+    "test:sam": "npm test --prefix infra/sam/reply-agent",
+    "test:infra": "cd infra && python3 -m pytest tests -q",
+    "install:all": "npm ci && npm ci --prefix functions && npm ci --prefix infra/lambda/parse-airbnb-email && npm ci --prefix infra/sam/reply-agent && npm ci --prefix infra/sam/reply-agent/functions/reasoner && npm ci --prefix infra/sam/reply-agent/functions/write-back",
     "check:prompt-drift": "node scripts/check-prompt-drift.js"
   },
   "dependencies": {
