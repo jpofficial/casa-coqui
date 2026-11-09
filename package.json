@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "npm run check:shared && npm run test:lib && npm run test:functions && npm run test:lambda && npm run test:sam",
-    "test:lib": "TZ=America/Puerto_Rico node --test 'lib/__tests__/*.test.js'",
+    "test:lib": "TZ=America/Puerto_Rico node --test lib/__tests__/*.test.js",
     "test:functions": "npm test --prefix functions",
     "test:lambda": "npm test --prefix infra/lambda/parse-airbnb-email",
     "test:sam": "npm test --prefix infra/sam/reply-agent",
