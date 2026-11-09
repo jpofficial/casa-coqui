@@ -1,7 +1,7 @@
 # Casa Coqui — Guest Portal & Property Management App
 
 ## Project Overview
-A Progressive Web App (PWA) that runs a real multi-unit Airbnb property in Puerto Rico (live at https://casa-coqui.com). Three audiences:
+A Progressive Web App (PWA) that runs a real multi-unit Airbnb property in Puerto Rico (live at https://casa-coqui.cc). Three audiences:
 - **Guest Portal** (`/g/[code]`): Mobile-first experience reached from a unique per-booking link + phone verification. Guests see the check-in guide, parking, house rules, WiFi, laundry status, community board, maintenance requests, and direct messaging with the host.
 - **Admin Dashboard** (`/admin`): Host-facing panel — bookings and occupancy calendar, broadcast notifications, expenses, supply inventory with auto-reorder, maintenance inbox, receipts, revenue reporting, cleaning management, dynamic pricing, Airbnb message threads with AI reply drafts, and team management.
 - **Staff**: Co-hosts, cleaners and maintenance staff log into the same `/admin` app and see a role-scoped subset (see *Roles*).
@@ -69,7 +69,7 @@ A Progressive Web App (PWA) that runs a real multi-unit Airbnb property in Puert
 /ci                    — CodeBuild buildspecs (Vercel build/deploy, pricing)
 /scripts               — seed/, migrations/, debug/, check-prompt-drift.js
 /tools/pricing         — Standalone pricing-autopilot tool (SQLite, scrapers, decision engine)
-/docs                  — Architecture docs, specs/plans, postmortems, screenshots
+/docs                  — Architecture docs, specs/plans, postmortems, mockups
 /public                — PWA manifest, service worker, icons
 firestore.rules / firestore.indexes.json — Firestore security rules and indexes
 ```
