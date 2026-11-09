@@ -1,18 +1,20 @@
+// @generated — DO NOT EDIT. Copied verbatim from lib/thread-key.js by scripts/sync-shared.js.
+// Edit the source file, then run `npm run sync:shared`. `npm run check:shared` (CI) fails on drift.
 /**
  * Build a stable grouping key for an airbnb_messages document.
  *
  * Used by:
- *   - Lambda on inbound write (infra/lambda/parse-airbnb-email)
- *   - Mark-as-Sent write (app/api/bookings/[id]/welcome)
- *   - Backfill script (scripts/migrations/backfill-thread-keys.js)
  *   - Messages page grouping (app/admin/messages/page.js)
- *   - Reply agent context load (functions/index.js)
+ *   - Thread link route (app/api/messages/threads/link)
+ *   - Backfill scripts (scripts/migrations/backfill-thread-keys.js, backfill-welcome-messages.js)
+ *   - Reply agent context load (functions/index.js — via the generated copy)
+ *   The inbound Lambda uses its own v2 derivation (infra/lambda/parse-airbnb-email/src/thread.js)
+ *   and no longer carries a copy of this file.
  *
- * IMPORTANT: This file is one of THREE copies that must stay in sync:
- *   - lib/thread-key.js                                 (repo root, UI + scripts)
- *   - functions/lib/thread-key.js                       (THIS FILE — Cloud Functions)
- *   - infra/lambda/parse-airbnb-email/thread-key.js     (Lambda deploy)
- * If you change one, change all three.
+ * SOURCE OF TRUTH. functions/lib/thread-key.js is a GENERATED copy (Firebase
+ * deploys only functions/), written by scripts/sync-shared.js. Edit this file
+ * only, then run `npm run sync:shared`; `npm run check:shared` (in `npm test`,
+ * `prebuild` and CI) fails if the copy drifts.
  *
  * Precedence:
  *   1. bookingCode (matched booking)

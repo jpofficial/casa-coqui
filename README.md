@@ -71,7 +71,7 @@ Bookings & occupancy calendar · **cleaning management** with a dedicated cleane
 ### AI & automation
 - **Reply agent** (`infra/sam/reply-agent/`) — multi-step Step Functions chain with RAG retrieval, an evaluator/reviser loop, and a dead-letter path.
 - **Voice-matched drafting** (`lib/voice-profile.js`, `lib/welcome-ai.js`) — drafts read like the host, seeded from a corpus of their real replies.
-- **Email parsing** (`infra/lambda/parse-airbnb-email/`) — robust Airbnb-email classification and thread-key derivation, heavily unit-tested.
+- **Email parsing** (`infra/lambda/parse-airbnb-email/`) — robust Airbnb-email classification and thread-key derivation, split into `src/classify · extract · match · thread` modules behind a thin handler, heavily unit-tested.
 - **Pricing engine** (`tools/pricing/`) — market capture, competitor timelines, a seasons/holidays model, and a decision engine (see `tools/pricing/TECHNICAL-PAPER.md`).
 
 ---
@@ -132,13 +132,13 @@ Environment variables are documented in [`.env.example`](.env.example), and the 
 
 [![CI](https://github.com/jpofficial/casa-coqui/actions/workflows/ci.yml/badge.svg)](https://github.com/jpofficial/casa-coqui/actions/workflows/ci.yml)
 
-`npm test` at the repo root runs **every JavaScript suite — 303 tests across 29 files** (counts as of this commit; ~4 s locally). Each package keeps its own runner and can be run alone:
+`npm test` at the repo root first checks that the generated shared-module copies are in sync (`check:shared`), then runs **every JavaScript suite — 301 tests across 29 files** (counts as of this commit; ~4 s locally). Each package keeps its own runner and can be run alone:
 
 | Suite | What it covers | Runner | Files / tests | Command |
 |-------|----------------|--------|---------------|---------|
-| App `lib/` | thread keys, rate calendar, calendar helpers, welcome status | `node:test` | 5 / 50 | `npm run test:lib` |
+| App `lib/` | thread keys, rate calendar, calendar helpers, welcome status, welcome-AI core | `node:test` | 6 / 57 | `npm run test:lib` |
 | Cloud Functions `functions/` | SFN bridge, AppConfig client, backoff, iCal parsing, welcome guard | Jest | 9 / 66 | `npm run test:functions` |
-| Email-parser Lambda `infra/lambda/parse-airbnb-email/` | classification, guest-name extraction, booking match cascade, thread keys, a sanitized real-email regression canary and a ReDoS time budget | Jest | 13 / 179 | `npm run test:lambda` |
+| Email-parser Lambda `infra/lambda/parse-airbnb-email/` | classification, guest-name extraction, booking match cascade, v2 thread keys, a sanitized real-email regression canary and a ReDoS time budget | Jest | 12 / 170 | `npm run test:lambda` |
 | SAM reply-agent Lambdas `infra/sam/reply-agent/` | reasoner throttle naming, write-back persistence | Jest | 2 / 8 | `npm run test:sam` |
 | CDK stacks `infra/` (Python) | Foundation + Email stack assertions and a full-template snapshot | pytest | 2 / 21 | `npm run test:infra` |
 

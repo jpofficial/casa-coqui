@@ -7,6 +7,7 @@
 #   npm run install:all   → root + functions + Lambda + SAM dependencies
 #   npm run lint          → next lint (root app)
 #   npm run check:prompt-drift
+#   npm run check:shared  → generated copies (functions/lib/*) match their lib/ sources
 #   npm test              → every JavaScript suite (lib, functions, Lambda, SAM)
 #   pytest infra/tests    → CDK stack assertions + snapshot (Python)
 name: CI
@@ -55,6 +56,9 @@ jobs:
 
       - name: Prompt drift check
         run: npm run check:prompt-drift
+
+      - name: Shared-module copies in sync
+        run: npm run check:shared
 
       - name: JS test suites
         run: npm test
