@@ -25,10 +25,6 @@ Incident write-ups: what broke, the root cause, and the fix.
 - [getting-started.md](getting-started.md) — project setup guide
 - [secrets-management.md](secrets-management.md) — where each secret lives and how to rotate it safely
 
-## Screenshots — `screenshots/`
-
-README screenshots and the [capture list](screenshots/README.md) that says exactly which screens to shoot and at what size.
-
 ## Mockups — `mockups/`
 
 Static HTML design mockups used while iterating on screens.

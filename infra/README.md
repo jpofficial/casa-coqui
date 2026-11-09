@@ -114,7 +114,7 @@ aws ssm put-parameter \
 ```bash
 aws ssm put-parameter \
   --name /casa-coqui/pipeline/next-public-app-url \
-  --value "https://casa-coqui.com" \
+  --value "https://casa-coqui.cc" \
   --type String \
   --overwrite
 ```
